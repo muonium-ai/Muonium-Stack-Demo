@@ -1,19 +1,16 @@
-import initWasm, { game_positions_json, list_games } from './wasm_pkg/wasm_core.js';
+import initWasm from './wasm_pkg/wasm_core.js';
 import { createGameDb } from './db.js';
 import { GrafeoAdapter } from './graph.js';
 import { createReplayer } from './replay.js';
 import './styles.css';
 import { MuonVecAdapter } from './vector.js';
 
-async function loadPgn() {
-  const response = await fetch('/chess/games/Anand.pgn');
-  if (!response.ok) {
-    throw new Error('Unable to load PGN file');
-  }
-  return response.text();
+function formatElapsedMs(ms) {
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 async function bootstrap() {
+  const loadStartedAt = performance.now();
   const statusEl = document.querySelector('#status');
   const boardEl = document.querySelector('#board');
   const gameSelect = document.querySelector('#gameSelect');
@@ -22,19 +19,55 @@ async function bootstrap() {
   const pauseBtn = document.querySelector('#pauseBtn');
   const resetBtn = document.querySelector('#resetBtn');
   const moveRange = document.querySelector('#moveRange');
+  const loadProgress = document.querySelector('#loadProgress');
+  const loadProgressText = document.querySelector('#loadProgressText');
 
   statusEl.textContent = 'Initializing WASM...';
   await initWasm();
 
-  statusEl.textContent = 'Loading PGN and ingesting SQLite...';
-  const pgnText = await loadPgn();
+  statusEl.textContent = `Downloading prebuilt SQLite... (${formatElapsedMs(performance.now() - loadStartedAt)})`;
   const db = await createGameDb({
-    pgnText,
-    listGames: list_games,
-    gamePositionsJson: game_positions_json,
+    dbUrl: '/data/anand.sqlite',
+    onProgress: (progress) => {
+      if (!loadProgress || !loadProgressText) {
+        return;
+      }
+
+      if (progress.phase === 'download') {
+        const totalBytes = Math.max(1, Number(progress.totalBytes ?? 1));
+        const loadedBytes = Math.min(totalBytes, Number(progress.loadedBytes ?? 0));
+        loadProgress.max = totalBytes;
+        loadProgress.value = loadedBytes;
+        const pct = Math.round((loadedBytes / totalBytes) * 100);
+        const elapsed = formatElapsedMs(performance.now() - loadStartedAt);
+        loadProgressText.textContent = `Downloading DB ${pct}% • ${elapsed}`;
+        statusEl.textContent = `Downloading prebuilt SQLite... ${pct}% (${elapsed})`;
+        return;
+      }
+
+      if (progress.phase === 'games') {
+        const total = Number(progress.total ?? 0);
+        const loaded = Number(progress.loaded ?? 0);
+        loadProgress.max = Math.max(1, total);
+        loadProgress.value = loaded;
+        const elapsed = formatElapsedMs(performance.now() - loadStartedAt);
+        loadProgressText.textContent = `Loaded ${loaded} / ${total} games • ${elapsed}`;
+        statusEl.textContent = `Loaded ${loaded} / ${total} games (${elapsed})`;
+      }
+    },
   });
 
+  if (loadProgressText) {
+    const elapsed = formatElapsedMs(performance.now() - loadStartedAt);
+    loadProgressText.textContent = `${loadProgressText.textContent} (ready in ${elapsed})`;
+  }
+
   const games = db.listGames();
+  if (games.length === 0) {
+    statusEl.textContent = `No game loaded (loaded 0 games in ${formatElapsedMs(performance.now() - loadStartedAt)})`;
+    return;
+  }
+
   for (const game of games) {
     const opt = document.createElement('option');
     opt.value = String(game.id);
@@ -46,6 +79,8 @@ async function bootstrap() {
     boardEl,
     statusEl,
     moveRange,
+    getEmptyMessage: () =>
+      `No game loaded (startup time ${formatElapsedMs(performance.now() - loadStartedAt)})`,
   });
 
   const vectorAdapter = new MuonVecAdapter();

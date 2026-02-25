@@ -24,3 +24,4 @@ node_modules/
 dist/
 web/src/wasm_pkg/
 .DS_Store
+public/data/*.sqlite

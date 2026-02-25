@@ -53,7 +53,7 @@ function renderBoard(boardEl, fen) {
   boardEl.appendChild(table);
 }
 
-export function createReplayer({ boardEl, statusEl, moveRange }) {
+export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage }) {
   let currentReplay = { moves: [], fens: [] };
   let moveIndex = 0;
   let timer = null;
@@ -62,7 +62,8 @@ export function createReplayer({ boardEl, statusEl, moveRange }) {
   function paint() {
     const fen = currentReplay.fens[moveIndex] ?? currentReplay.fens[0];
     if (!fen) {
-      statusEl.textContent = 'No game loaded';
+      statusEl.textContent =
+        typeof getEmptyMessage === 'function' ? getEmptyMessage() : 'No game loaded';
       return;
     }
     renderBoard(boardEl, fen);

@@ -6,7 +6,7 @@ Rust + WASM chess replay demo using Muonium stack concepts.
 
 - Browser-based chess game replay UI (auto-play, speed, move seek)
 - Rust WASM PGN parser + replay state generator
-- In-browser SQLite ingest/query layer for PGN games
+- Build-time PGN → SQLite generation and streamed SQLite loading in browser
 - Mini redis style cache shim for browser persistence
 - MuonVec adapter seam for vector search over game metadata
 - Grafeo adapter seam with `@grafeo-db/wasm` package
@@ -34,6 +34,15 @@ npm run dev
 ```
 
 Open the local URL printed by Vite.
+
+## Make Tasks
+
+```bash
+make build
+make dev
+```
+
+`make build`/`npm run build` now generate `public/data/anand.sqlite` from PGN first, then build WASM + web assets.
 
 ## Notes
 

@@ -14,68 +14,142 @@ CREATE TABLE IF NOT EXISTS games (
 );
 `;
 
-function rowsFromResult(result) {
-  if (!result || result.length === 0) {
-    return [];
+function rowsFromQuery(db, sql) {
+  const stmt = db.prepare(sql);
+  const rows = [];
+
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject());
   }
-  const [{ columns, values }] = result;
-  return values.map((row) => {
-    const item = {};
-    columns.forEach((column, index) => {
-      item[column] = row[index];
-    });
-    return item;
-  });
+
+  stmt.free();
+  return rows;
 }
 
-export async function createGameDb({ pgnText, listGames, gamePositionsJson }) {
+async function fetchSqliteBytes(dbUrl, onProgress) {
+  const response = await fetch(dbUrl, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch SQLite DB: ${response.status}`);
+  }
+
+  const totalBytes = Number(response.headers.get('content-length') ?? 0);
+  if (!response.body || totalBytes === 0) {
+    const fallback = new Uint8Array(await response.arrayBuffer());
+    if (onProgress) {
+      onProgress({ phase: 'download', loadedBytes: fallback.length, totalBytes: fallback.length });
+    }
+    return fallback;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let loadedBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    if (!value) {
+      continue;
+    }
+
+    chunks.push(value);
+    loadedBytes += value.length;
+    if (onProgress) {
+      onProgress({ phase: 'download', loadedBytes, totalBytes });
+    }
+  }
+
+  const merged = new Uint8Array(loadedBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return merged;
+}
+
+function assertSqliteSignature(bytes) {
+  const signature = [
+    0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33,
+    0x00,
+  ];
+
+  if (!bytes || bytes.length < signature.length) {
+    throw new Error('Downloaded DB is empty or truncated');
+  }
+
+  for (let index = 0; index < signature.length; index += 1) {
+    if (bytes[index] !== signature[index]) {
+      throw new Error('Downloaded file is not a valid SQLite database');
+    }
+  }
+}
+
+async function openDbFromUrl(SQL, dbUrl, onProgress) {
+  const dbBytes = await fetchSqliteBytes(dbUrl, onProgress);
+  assertSqliteSignature(dbBytes);
+  return new SQL.Database(dbBytes);
+}
+
+function countGames(db) {
+  const stmt = db.prepare('SELECT COUNT(*) AS total FROM games');
+  let totalGames = 0;
+  if (stmt.step()) {
+    const row = stmt.getAsObject();
+    totalGames = Number(row.total ?? 0);
+  }
+  stmt.free();
+  return totalGames;
+}
+
+export async function createGameDb({ dbUrl = '/data/anand.sqlite', onProgress }) {
   const SQL = await initSqlJs({
     locateFile: (file) => `/node_modules/sql.js/dist/${file}`,
   });
-  const db = new SQL.Database();
+
+  let db = await openDbFromUrl(SQL, dbUrl, onProgress);
   const cache = new MiniRedisCache('games');
 
   db.run(DB_SCHEMA);
 
-  const existing = rowsFromResult(db.exec('SELECT COUNT(*) AS total FROM games'))[0]?.total ?? 0;
-  if (existing === 0) {
-    const games = JSON.parse(listGames(pgnText));
-    const insertStmt = db.prepare(`
-      INSERT INTO games (
-        id, event, white_player, black_player, result, move_count, moves_json, fens_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+  let totalGames = countGames(db);
+  if (totalGames === 0) {
+    db.close();
+    const bustUrl = `${dbUrl}${dbUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+    db = await openDbFromUrl(SQL, bustUrl, onProgress);
+    db.run(DB_SCHEMA);
+    totalGames = countGames(db);
+  }
 
-    for (const game of games) {
-      const replay = JSON.parse(gamePositionsJson(pgnText, game.id));
-      insertStmt.run([
-        game.id,
-        game.event,
-        game.white,
-        game.black,
-        game.result,
-        game.moves,
-        JSON.stringify(replay.moves_san ?? []),
-        JSON.stringify(replay.fens ?? []),
-      ]);
-    }
+  if (totalGames === 0) {
+    throw new Error('SQLite loaded but contains 0 games. Run npm run db:build and restart dev server.');
+  }
 
-    insertStmt.free();
+  if (onProgress) {
+    onProgress({ phase: 'games', loaded: totalGames, total: totalGames });
   }
 
   return {
     listGames() {
       const cached = cache.get('all');
-      if (cached) {
+      if (Array.isArray(cached) && cached.length > 0) {
         return cached;
       }
 
-      const rows = rowsFromResult(
-        db.exec(`
+      if (Array.isArray(cached) && cached.length === 0 && totalGames === 0) {
+        return cached;
+      }
+
+      const rows = rowsFromQuery(
+        db,
+        `
           SELECT id, event, white_player, black_player, result, move_count
           FROM games
           ORDER BY id
-        `),
+        `,
       );
       cache.set('all', rows);
       return rows;
@@ -88,13 +162,14 @@ export async function createGameDb({ pgnText, listGames, gamePositionsJson }) {
         return cached;
       }
 
-      const row = rowsFromResult(
-        db.exec(`
+      const row = rowsFromQuery(
+        db,
+        `
           SELECT moves_json, fens_json
           FROM games
           WHERE id = ${Number(id)}
           LIMIT 1
-        `),
+        `,
       )[0];
 
       if (!row) {

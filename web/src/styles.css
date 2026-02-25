@@ -32,6 +32,17 @@ h1 {
   margin-bottom: 12px;
 }
 
+#loadProgressWrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+#loadProgress {
+  width: 280px;
+}
+
 #board table {
   border-collapse: collapse;
   border: 1px solid #333;
