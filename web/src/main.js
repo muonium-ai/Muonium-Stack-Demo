@@ -18,6 +18,7 @@ async function bootstrap() {
   const playBtn = document.querySelector('#playBtn');
   const pauseBtn = document.querySelector('#pauseBtn');
   const resetBtn = document.querySelector('#resetBtn');
+  const randomBtn = document.querySelector('#randomBtn');
   const moveRange = document.querySelector('#moveRange');
   const loadProgress = document.querySelector('#loadProgress');
   const loadProgressText = document.querySelector('#loadProgressText');
@@ -110,6 +111,21 @@ async function bootstrap() {
   playBtn.addEventListener('click', () => replayer.play());
   pauseBtn.addEventListener('click', () => replayer.pause());
   resetBtn.addEventListener('click', () => replayer.reset());
+  randomBtn?.addEventListener('click', () => {
+    if (games.length === 0) {
+      return;
+    }
+
+    const current = Number(gameSelect.value || 0);
+    let next = Math.floor(Math.random() * games.length);
+    if (games.length > 1 && next === current) {
+      next = (next + 1) % games.length;
+    }
+
+    gameSelect.value = String(next);
+    loadReplay();
+    replayer.play();
+  });
   moveRange.addEventListener('input', (event) => replayer.setMove(event.target.value));
 
   gameSelect.value = '0';

@@ -70,13 +70,21 @@ function stripPgnNoise(text) {
 
 function parseMoves(moveText) {
   const cleaned = stripPgnNoise(moveText);
+
+  const normalizeSan = (token) => {
+    const withoutMovePrefix = token.replace(/^\d+\.(\.\.\.)?/, '');
+    return withoutMovePrefix.replace(/[!?]+$/g, '');
+  };
+
   return cleaned
     .split(/\s+/)
     .map((token) => token.trim())
     .filter(Boolean)
     .filter((token) => !/^\d+\.{1,3}$/.test(token))
     .filter((token) => !/^\$\d+$/.test(token))
-    .filter((token) => !['1-0', '0-1', '1/2-1/2', '*'].includes(token));
+    .filter((token) => !['1-0', '0-1', '1/2-1/2', '*'].includes(token))
+    .map(normalizeSan)
+    .filter(Boolean);
 }
 
 function splitGames(pgnText) {
@@ -113,7 +121,7 @@ function buildFens(moves) {
 
   for (const san of moves) {
     try {
-      const move = chess.move(san, { strict: false });
+      const move = chess.move(san, { strict: false, sloppy: true });
       if (!move) {
         continue;
       }
@@ -127,8 +135,13 @@ function buildFens(moves) {
 }
 
 async function main() {
+  const startedAt = Date.now();
+  console.log('db:build -> reading PGN...');
   const pgnText = await fs.readFile(PGN_PATH, 'utf8');
+
+  console.log('db:build -> splitting games...');
   const games = splitGames(pgnText);
+  console.log(`db:build -> parsed ${games.length} games`);
 
   const SQL = await initSqlJs();
   const db = new SQL.Database();
@@ -152,6 +165,10 @@ async function main() {
       JSON.stringify(game.moves),
       JSON.stringify(fens),
     ]);
+
+    if ((index + 1) % 500 === 0 || index + 1 === games.length) {
+      console.log(`db:build -> processed ${index + 1}/${games.length}`);
+    }
   }
 
   stmt.free();
@@ -160,7 +177,8 @@ async function main() {
   const dbBytes = db.export();
   await fs.writeFile(OUT_DB, Buffer.from(dbBytes));
 
-  console.log(`Generated ${OUT_DB} with ${games.length} games.`);
+  const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(2);
+  console.log(`Generated ${OUT_DB} with ${games.length} games in ${elapsedSec}s.`);
 }
 
 main().catch((error) => {
