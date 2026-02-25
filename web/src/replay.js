@@ -53,7 +53,7 @@ function renderBoard(boardEl, fen) {
   boardEl.appendChild(table);
 }
 
-export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage }) {
+export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage, onUpdate }) {
   let currentReplay = { moves: [], fens: [] };
   let moveIndex = 0;
   let timer = null;
@@ -70,6 +70,17 @@ export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage }
     const moveText = moveIndex === 0 ? 'start' : currentReplay.moves[moveIndex - 1] ?? '';
     statusEl.textContent = `Move ${moveIndex}/${currentReplay.moves.length} - ${moveText}`;
     moveRange.value = String(moveIndex);
+
+    if (typeof onUpdate === 'function') {
+      onUpdate({
+        moveIndex,
+        totalMoves: currentReplay.moves.length,
+        moveText,
+        fen,
+        moves: currentReplay.moves,
+        isComplete: moveIndex >= currentReplay.moves.length,
+      });
+    }
   }
 
   function stop() {

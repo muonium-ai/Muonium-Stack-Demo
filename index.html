@@ -25,7 +25,24 @@
         <span id="loadProgressText">Loaded 0 / 0 games</span>
       </section>
       <section id="status"></section>
-      <section id="board"></section>
+      <section id="replayLayout">
+        <section id="boardPane">
+          <div class="playerRow playerBlack">
+            <div class="playerName" id="blackName">Black</div>
+            <div class="captures" id="blackCaptures"></div>
+          </div>
+          <section id="board"></section>
+          <div class="playerRow playerWhite">
+            <div class="playerName" id="whiteName">White</div>
+            <div class="captures" id="whiteCaptures"></div>
+          </div>
+          <div id="resultBanner"></div>
+        </section>
+        <section id="pgnPane">
+          <h2>PGN Moves</h2>
+          <div id="pgnViewer"></div>
+        </section>
+      </section>
       <section>
         <label for="moveRange">Move</label>
         <input id="moveRange" type="range" min="0" max="0" value="0" />

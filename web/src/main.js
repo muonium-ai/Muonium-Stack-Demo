@@ -5,8 +5,121 @@ import { createReplayer } from './replay.js';
 import './styles.css';
 import { MuonVecAdapter } from './vector.js';
 
+const INITIAL_COUNTS = {
+  P: 8,
+  N: 2,
+  B: 2,
+  R: 2,
+  Q: 1,
+  p: 8,
+  n: 2,
+  b: 2,
+  r: 2,
+  q: 1,
+};
+
+const CAPTURE_ORDER_WHITE = ['p', 'n', 'b', 'r', 'q'];
+const CAPTURE_ORDER_BLACK = ['P', 'N', 'B', 'R', 'Q'];
+const PIECE_TO_UNICODE = {
+  P: '♙',
+  N: '♘',
+  B: '♗',
+  R: '♖',
+  Q: '♕',
+  K: '♔',
+  p: '♟',
+  n: '♞',
+  b: '♝',
+  r: '♜',
+  q: '♛',
+  k: '♚',
+};
+
 function formatElapsedMs(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function pieceCountsFromFen(fen) {
+  const board = (fen ?? '').split(' ')[0] ?? '';
+  const counts = {
+    P: 0,
+    N: 0,
+    B: 0,
+    R: 0,
+    Q: 0,
+    p: 0,
+    n: 0,
+    b: 0,
+    r: 0,
+    q: 0,
+  };
+
+  for (const ch of board) {
+    if (counts[ch] !== undefined) {
+      counts[ch] += 1;
+    }
+  }
+
+  return counts;
+}
+
+function capturesToUnicode(counts, order) {
+  let out = '';
+  for (const piece of order) {
+    const missing = Math.max(0, (INITIAL_COUNTS[piece] ?? 0) - (counts[piece] ?? 0));
+    for (let index = 0; index < missing; index += 1) {
+      out += PIECE_TO_UNICODE[piece] ?? '';
+    }
+  }
+  return out;
+}
+
+function resultText(game) {
+  if (!game) {
+    return '';
+  }
+
+  switch (game.result) {
+    case '1-0':
+      return `${game.white_player} won`;
+    case '0-1':
+      return `${game.black_player} won`;
+    case '1/2-1/2':
+      return 'Draw';
+    default:
+      return `Result: ${game.result ?? '*'}`;
+  }
+}
+
+function renderPgnViewer(container, moves, moveIndex) {
+  if (!container) {
+    return;
+  }
+
+  container.innerHTML = '';
+  const fragment = document.createDocumentFragment();
+
+  for (let index = 0; index < moves.length; index += 1) {
+    const span = document.createElement('span');
+    span.className = 'pgnMove';
+    if (index === moveIndex - 1) {
+      span.classList.add('active');
+    }
+
+    if (index % 2 === 0) {
+      span.textContent = `${Math.floor(index / 2) + 1}. ${moves[index]}`;
+    } else {
+      span.textContent = moves[index];
+    }
+    fragment.appendChild(span);
+  }
+
+  container.appendChild(fragment);
+
+  const active = container.querySelector('.pgnMove.active');
+  if (active) {
+    active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
 }
 
 async function bootstrap() {
@@ -22,6 +135,14 @@ async function bootstrap() {
   const moveRange = document.querySelector('#moveRange');
   const loadProgress = document.querySelector('#loadProgress');
   const loadProgressText = document.querySelector('#loadProgressText');
+  const whiteName = document.querySelector('#whiteName');
+  const blackName = document.querySelector('#blackName');
+  const whiteCaptures = document.querySelector('#whiteCaptures');
+  const blackCaptures = document.querySelector('#blackCaptures');
+  const resultBanner = document.querySelector('#resultBanner');
+  const pgnViewer = document.querySelector('#pgnViewer');
+
+  let activeGame = null;
 
   statusEl.textContent = 'Initializing WASM...';
   await initWasm();
@@ -82,6 +203,36 @@ async function bootstrap() {
     moveRange,
     getEmptyMessage: () =>
       `No game loaded (startup time ${formatElapsedMs(performance.now() - loadStartedAt)})`,
+    onUpdate: ({ moveIndex, totalMoves, fen, moves, isComplete }) => {
+      if (activeGame) {
+        if (whiteName) {
+          whiteName.textContent = `White: ${activeGame.white_player}`;
+        }
+        if (blackName) {
+          blackName.textContent = `Black: ${activeGame.black_player}`;
+        }
+      }
+
+      const counts = pieceCountsFromFen(fen);
+      if (whiteCaptures) {
+        const captured = capturesToUnicode(counts, CAPTURE_ORDER_WHITE);
+        whiteCaptures.textContent = captured || 'No captures yet';
+      }
+      if (blackCaptures) {
+        const captured = capturesToUnicode(counts, CAPTURE_ORDER_BLACK);
+        blackCaptures.textContent = captured || 'No captures yet';
+      }
+
+      if (resultBanner) {
+        if (isComplete) {
+          resultBanner.textContent = `Game finished • ${resultText(activeGame)}`;
+        } else {
+          resultBanner.textContent = `In progress • Move ${moveIndex}/${totalMoves}`;
+        }
+      }
+
+      renderPgnViewer(pgnViewer, moves, moveIndex);
+    },
   });
 
   const vectorAdapter = new MuonVecAdapter();
@@ -93,6 +244,7 @@ async function bootstrap() {
 
   const loadReplay = () => {
     const gameId = Number(gameSelect.value || 0);
+    activeGame = games[gameId] ?? null;
     const replay = db.getReplay(gameId);
     replayer.loadReplay(replay);
     const similar = vectorAdapter.search(
