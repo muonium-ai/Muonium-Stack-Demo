@@ -27,6 +27,17 @@ h1 {
   margin-bottom: 12px;
 }
 
+#benchmarkPanel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  background: #fff;
+  border: 1px solid #d9deea;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
 #status {
   min-height: 24px;
   margin-bottom: 12px;

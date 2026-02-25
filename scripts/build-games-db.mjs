@@ -115,8 +115,9 @@ function splitGames(pgnText) {
   return games;
 }
 
-function buildFens(moves) {
+function buildReplay(moves) {
   const chess = new Chess();
+  const validMoves = [];
   const fens = [chess.fen()];
 
   for (const san of moves) {
@@ -125,13 +126,14 @@ function buildFens(moves) {
       if (!move) {
         continue;
       }
+      validMoves.push(san);
       fens.push(chess.fen());
     } catch {
       continue;
     }
   }
 
-  return fens;
+  return { validMoves, fens };
 }
 
 async function main() {
@@ -152,17 +154,20 @@ async function main() {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+  let invalidMoveTotal = 0;
+
   for (let index = 0; index < games.length; index += 1) {
     const game = games[index];
-    const fens = buildFens(game.moves);
+    const { validMoves, fens } = buildReplay(game.moves);
+    invalidMoveTotal += Math.max(0, game.moves.length - validMoves.length);
     stmt.run([
       index,
       game.event,
       game.white,
       game.black,
       game.result,
-      game.moves.length,
-      JSON.stringify(game.moves),
+      validMoves.length,
+      JSON.stringify(validMoves),
       JSON.stringify(fens),
     ]);
 
@@ -178,7 +183,9 @@ async function main() {
   await fs.writeFile(OUT_DB, Buffer.from(dbBytes));
 
   const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(2);
-  console.log(`Generated ${OUT_DB} with ${games.length} games in ${elapsedSec}s.`);
+  console.log(
+    `Generated ${OUT_DB} with ${games.length} games in ${elapsedSec}s (filtered invalid moves: ${invalidMoveTotal}).`,
+  );
 }
 
 main().catch((error) => {

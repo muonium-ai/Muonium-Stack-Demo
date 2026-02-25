@@ -132,9 +132,13 @@ async function bootstrap() {
   const pauseBtn = document.querySelector('#pauseBtn');
   const resetBtn = document.querySelector('#resetBtn');
   const randomBtn = document.querySelector('#randomBtn');
+  const benchmarkBtn = document.querySelector('#benchmarkBtn');
   const moveRange = document.querySelector('#moveRange');
   const loadProgress = document.querySelector('#loadProgress');
   const loadProgressText = document.querySelector('#loadProgressText');
+  const benchmarkGames = document.querySelector('#benchmarkGames');
+  const benchmarkMps = document.querySelector('#benchmarkMps');
+  const benchmarkState = document.querySelector('#benchmarkState');
   const whiteName = document.querySelector('#whiteName');
   const blackName = document.querySelector('#blackName');
   const whiteCaptures = document.querySelector('#whiteCaptures');
@@ -143,6 +147,7 @@ async function bootstrap() {
   const pgnViewer = document.querySelector('#pgnViewer');
 
   let activeGame = null;
+  let benchmarkRunning = false;
 
   statusEl.textContent = 'Initializing WASM...';
   await initWasm();
@@ -258,11 +263,100 @@ async function bootstrap() {
     }
   };
 
+  const setBenchmarkStats = ({ completed, total, totalMoves, elapsedSec, state }) => {
+    if (benchmarkGames) {
+      benchmarkGames.textContent = `Games: ${completed} / ${total}`;
+    }
+    if (benchmarkMps) {
+      const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
+      benchmarkMps.textContent = `Moves/s: ${mps.toFixed(1)}`;
+    }
+    if (benchmarkState) {
+      benchmarkState.textContent = state;
+    }
+  };
+
+  const runBenchmark = async () => {
+    if (benchmarkRunning || games.length === 0) {
+      return;
+    }
+
+    benchmarkRunning = true;
+    const startedAt = performance.now();
+    let completed = 0;
+    let totalMoves = 0;
+    let invalidGames = 0;
+
+    if (benchmarkBtn) {
+      benchmarkBtn.disabled = true;
+      benchmarkBtn.textContent = 'Benchmark Running...';
+    }
+
+    setBenchmarkStats({
+      completed,
+      total: games.length,
+      totalMoves,
+      elapsedSec: 0,
+      state: 'Running',
+    });
+
+    try {
+      for (let gameId = 0; gameId < games.length; gameId += 1) {
+        try {
+          const replay = db.getReplay(gameId);
+          const moves = replay.moves ?? [];
+          if (!Array.isArray(moves)) {
+            throw new Error(`Replay moves missing for game ${gameId}`);
+          }
+
+          for (let index = 0; index < moves.length; index += 1) {
+            totalMoves += 1;
+          }
+        } catch {
+          invalidGames += 1;
+        }
+
+        completed += 1;
+        if (completed % 50 === 0 || completed === games.length) {
+          const elapsedSec = (performance.now() - startedAt) / 1000;
+          setBenchmarkStats({
+            completed,
+            total: games.length,
+            totalMoves,
+            elapsedSec,
+            state: 'Running',
+          });
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+      }
+
+      const elapsedSec = (performance.now() - startedAt) / 1000;
+      setBenchmarkStats({
+        completed,
+        total: games.length,
+        totalMoves,
+        elapsedSec,
+        state: `Completed in ${elapsedSec.toFixed(2)}s${
+          invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
+        }`,
+      });
+    } finally {
+      benchmarkRunning = false;
+      if (benchmarkBtn) {
+        benchmarkBtn.disabled = false;
+        benchmarkBtn.textContent = 'Run Benchmark';
+      }
+    }
+  };
+
   gameSelect.addEventListener('change', loadReplay);
   speedRange.addEventListener('input', (event) => replayer.setSpeed(event.target.value));
   playBtn.addEventListener('click', () => replayer.play());
   pauseBtn.addEventListener('click', () => replayer.pause());
   resetBtn.addEventListener('click', () => replayer.reset());
+  benchmarkBtn?.addEventListener('click', () => {
+    runBenchmark();
+  });
   randomBtn?.addEventListener('click', () => {
     if (games.length === 0) {
       return;

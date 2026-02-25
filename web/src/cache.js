@@ -1,4 +1,5 @@
 const STORAGE_PREFIX = 'muon-mini-redis:';
+const MAX_PERSISTED_CHARS = 750_000;
 
 export class MiniRedisCache {
   constructor(namespace = 'default') {
@@ -33,6 +34,26 @@ export class MiniRedisCache {
   set(rawKey, value) {
     const key = this.key(rawKey);
     this.memory.set(key, value);
-    localStorage.setItem(key, JSON.stringify(value));
+
+    let serialized;
+    try {
+      serialized = JSON.stringify(value);
+    } catch {
+      return;
+    }
+
+    if (!serialized || serialized.length > MAX_PERSISTED_CHARS) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(key, serialized);
+    } catch {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        return;
+      }
+    }
   }
 }

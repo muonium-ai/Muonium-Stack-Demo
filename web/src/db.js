@@ -111,7 +111,7 @@ export async function createGameDb({ dbUrl = '/data/anand.sqlite', onProgress })
   });
 
   let db = await openDbFromUrl(SQL, dbUrl, onProgress);
-  const cache = new MiniRedisCache('games-v2');
+  const cache = new MiniRedisCache('games-v3');
 
   db.run(DB_SCHEMA);
 
