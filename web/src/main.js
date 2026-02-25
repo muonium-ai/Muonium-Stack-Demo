@@ -137,6 +137,7 @@ async function bootstrap() {
   const loadProgress = document.querySelector('#loadProgress');
   const loadProgressText = document.querySelector('#loadProgressText');
   const benchmarkGames = document.querySelector('#benchmarkGames');
+  const benchmarkTotalMoves = document.querySelector('#benchmarkTotalMoves');
   const benchmarkMps = document.querySelector('#benchmarkMps');
   const benchmarkState = document.querySelector('#benchmarkState');
   const whiteName = document.querySelector('#whiteName');
@@ -266,6 +267,9 @@ async function bootstrap() {
   const setBenchmarkStats = ({ completed, total, totalMoves, elapsedSec, state }) => {
     if (benchmarkGames) {
       benchmarkGames.textContent = `Games: ${completed} / ${total}`;
+    }
+    if (benchmarkTotalMoves) {
+      benchmarkTotalMoves.textContent = `Total moves: ${totalMoves}`;
     }
     if (benchmarkMps) {
       const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
