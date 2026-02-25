@@ -1,0 +1,9 @@
+[submodule "vendor/muon-js"]
+	path = vendor/muon-js
+	url = https://github.com/muonium-ai/muon-js
+[submodule "vendor/MuonVec"]
+	path = vendor/MuonVec
+	url = https://github.com/muonium-ai/MuonVec
+[submodule "vendor/grafeo"]
+	path = vendor/grafeo
+	url = https://github.com/GrafeoDB/grafeo

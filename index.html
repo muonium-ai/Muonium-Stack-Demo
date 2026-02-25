@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Muonium Chess Replay (WASM)</title>
+    <script type="module" src="/web/src/main.js"></script>
+  </head>
+  <body>
+    <main id="app">
+      <h1>Muonium Stack Chess Replay</h1>
+      <section class="toolbar">
+        <label for="gameSelect">Game</label>
+        <select id="gameSelect"></select>
+        <label for="speedRange">Speed</label>
+        <input id="speedRange" type="range" min="100" max="2000" step="100" value="600" />
+        <button id="playBtn">Play</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="resetBtn">Reset</button>
+      </section>
+      <section id="status"></section>
+      <section id="board"></section>
+      <section>
+        <label for="moveRange">Move</label>
+        <input id="moveRange" type="range" min="0" max="0" value="0" />
+      </section>
+    </main>
+  </body>
+</html>
