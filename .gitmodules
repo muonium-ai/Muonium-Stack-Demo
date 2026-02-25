@@ -7,3 +7,6 @@
 [submodule "vendor/grafeo"]
 	path = vendor/grafeo
 	url = https://github.com/GrafeoDB/grafeo
+[submodule "tickets/mt/muontickets"]
+	path = tickets/mt/muontickets
+	url = https://github.com/muonium-ai/muontickets.git
