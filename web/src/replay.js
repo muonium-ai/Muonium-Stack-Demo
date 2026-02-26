@@ -41,8 +41,28 @@ function squareToIndex(square) {
 }
 
 function flattenFenBoard(fen) {
-  const rows = parseFenBoard(fen);
-  return rows.flat();
+  const boardPart = (fen ?? '').split(' ')[0] ?? '';
+  const squares = [];
+
+  for (const ch of boardPart) {
+    if (ch === '/') {
+      continue;
+    }
+    if (/\d/.test(ch)) {
+      const count = Number(ch);
+      for (let index = 0; index < count; index += 1) {
+        squares.push('');
+      }
+    } else {
+      squares.push(ch);
+    }
+  }
+
+  while (squares.length < 64) {
+    squares.push('');
+  }
+
+  return squares.slice(0, 64);
 }
 
 function detectMoveArrow(prevFen, nextFen) {
@@ -127,54 +147,33 @@ function detectMoveArrow(prevFen, nextFen) {
   };
 }
 
-function parseFenBoard(fen) {
-  const boardPart = fen.split(' ')[0];
-  const rows = boardPart.split('/');
-  return rows.map((row) => {
-    const squares = [];
-    for (const ch of row) {
-      if (/\d/.test(ch)) {
-        for (let i = 0; i < Number(ch); i += 1) {
-          squares.push('');
-        }
-      } else {
-        squares.push(ch);
-      }
-    }
-    return squares;
-  });
-}
-
-function renderMoveArrow(boardEl, table, arrow) {
-  if (!arrow?.from || !arrow?.to) {
-    return;
-  }
-
-  const fromIndex = squareToIndex(arrow.from);
-  const toIndex = squareToIndex(arrow.to);
-  if (fromIndex < 0 || toIndex < 0) {
-    return;
-  }
-
-  const boardSize = table.offsetWidth;
-  if (!boardSize) {
-    return;
-  }
-
-  const cellSize = boardSize / 8;
-  const fromFile = fromIndex % 8;
-  const fromRank = Math.floor(fromIndex / 8);
-  const toFile = toIndex % 8;
-  const toRank = Math.floor(toIndex / 8);
-
-  const x1 = fromFile * cellSize + cellSize / 2;
-  const y1 = fromRank * cellSize + cellSize / 2;
-  const x2 = toFile * cellSize + cellSize / 2;
-  const y2 = toRank * cellSize + cellSize / 2;
-
+function createBoardRenderer(boardEl) {
   const svgNs = 'http://www.w3.org/2000/svg';
+  const squareEls = [];
+  const state = {
+    table: null,
+    arrowSvg: null,
+    arrowLine: null,
+    lastSquares: Array.from({ length: 64 }, () => null),
+  };
+
+  const table = document.createElement('table');
+  const tbody = document.createElement('tbody');
+
+  for (let rank = 0; rank < 8; rank += 1) {
+    const tr = document.createElement('tr');
+    for (let file = 0; file < 8; file += 1) {
+      const td = document.createElement('td');
+      td.className = (rank + file) % 2 === 0 ? 'light' : 'dark';
+      tr.appendChild(td);
+      squareEls.push(td);
+    }
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+
   const svg = document.createElementNS(svgNs, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${boardSize} ${boardSize}`);
   svg.setAttribute('class', 'moveArrowOverlay');
 
   const defs = document.createElementNS(svgNs, 'defs');
@@ -195,44 +194,83 @@ function renderMoveArrow(boardEl, table, arrow) {
   svg.appendChild(defs);
 
   const line = document.createElementNS(svgNs, 'line');
-  line.setAttribute('x1', String(x1));
-  line.setAttribute('y1', String(y1));
-  line.setAttribute('x2', String(x2));
-  line.setAttribute('y2', String(y2));
   line.setAttribute('stroke', '#2563eb');
   line.setAttribute('stroke-width', '6');
   line.setAttribute('stroke-linecap', 'round');
   line.setAttribute('stroke-opacity', '0.85');
   line.setAttribute('marker-end', 'url(#move-arrow-head)');
+  line.style.display = 'none';
   svg.appendChild(line);
 
-  boardEl.appendChild(svg);
-}
-
-function renderBoard(boardEl, fen, arrow = null) {
-  const grid = parseFenBoard(fen);
-  const table = document.createElement('table');
-  const tbody = document.createElement('tbody');
-
-  for (let rank = 0; rank < 8; rank += 1) {
-    const tr = document.createElement('tr');
-    for (let file = 0; file < 8; file += 1) {
-      const td = document.createElement('td');
-      td.className = (rank + file) % 2 === 0 ? 'light' : 'dark';
-      const piece = grid[rank][file];
-      td.textContent = piece ? PIECE_TO_UNICODE[piece] : '';
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  }
-
-  table.appendChild(tbody);
   boardEl.innerHTML = '';
   boardEl.appendChild(table);
-  renderMoveArrow(boardEl, table, arrow);
+  boardEl.appendChild(svg);
+
+  state.table = table;
+  state.arrowSvg = svg;
+  state.arrowLine = line;
+
+  return {
+    renderBoard(fen) {
+      const squares = flattenFenBoard(fen);
+      for (let index = 0; index < 64; index += 1) {
+        const piece = squares[index] ?? '';
+        if (state.lastSquares[index] === piece) {
+          continue;
+        }
+        squareEls[index].textContent = piece ? PIECE_TO_UNICODE[piece] : '';
+        state.lastSquares[index] = piece;
+      }
+    },
+    renderArrow(arrow) {
+      if (!arrow?.from || !arrow?.to || !state.arrowLine || !state.arrowSvg || !state.table) {
+        if (state.arrowLine) {
+          state.arrowLine.style.display = 'none';
+        }
+        return;
+      }
+
+      const fromIndex = squareToIndex(arrow.from);
+      const toIndex = squareToIndex(arrow.to);
+      if (fromIndex < 0 || toIndex < 0) {
+        state.arrowLine.style.display = 'none';
+        return;
+      }
+
+      const boardSize = state.table.offsetWidth;
+      if (!boardSize) {
+        state.arrowLine.style.display = 'none';
+        return;
+      }
+
+      const cellSize = boardSize / 8;
+      const fromFile = fromIndex % 8;
+      const fromRank = Math.floor(fromIndex / 8);
+      const toFile = toIndex % 8;
+      const toRank = Math.floor(toIndex / 8);
+
+      const x1 = fromFile * cellSize + cellSize / 2;
+      const y1 = fromRank * cellSize + cellSize / 2;
+      const x2 = toFile * cellSize + cellSize / 2;
+      const y2 = toRank * cellSize + cellSize / 2;
+
+      state.arrowSvg.setAttribute('viewBox', `0 0 ${boardSize} ${boardSize}`);
+      state.arrowLine.setAttribute('x1', String(x1));
+      state.arrowLine.setAttribute('y1', String(y1));
+      state.arrowLine.setAttribute('x2', String(x2));
+      state.arrowLine.setAttribute('y2', String(y2));
+      state.arrowLine.style.display = 'block';
+    },
+    hideArrow() {
+      if (state.arrowLine) {
+        state.arrowLine.style.display = 'none';
+      }
+    },
+  };
 }
 
 export function createReplayer({ boardEl, statusEl, getEmptyMessage, onUpdate, onPlayState }) {
+  const boardRenderer = createBoardRenderer(boardEl);
   let currentReplay = { moves: [], fens: [] };
   let moveIndex = 0;
   let timer = null;
@@ -259,7 +297,8 @@ export function createReplayer({ boardEl, statusEl, getEmptyMessage, onUpdate, o
       const prevFen = currentReplay.fens[moveIndex - 1];
       const arrow = detectMoveArrow(prevFen, fen);
       if (prevFen && arrow) {
-        renderBoard(boardEl, prevFen, arrow);
+        boardRenderer.renderBoard(prevFen);
+        boardRenderer.renderArrow(arrow);
         await sleep(moveArrowDurationMs);
         if (version !== paintVersion) {
           return;
@@ -267,7 +306,8 @@ export function createReplayer({ boardEl, statusEl, getEmptyMessage, onUpdate, o
       }
     }
 
-    renderBoard(boardEl, fen, null);
+    boardRenderer.renderBoard(fen);
+    boardRenderer.hideArrow();
     const moveText = moveIndex === 0 ? 'start' : currentReplay.moves[moveIndex - 1] ?? '';
     statusEl.textContent = `Move ${moveIndex}/${currentReplay.moves.length} - ${moveText}`;
 

@@ -21,7 +21,7 @@ const INITIAL_COUNTS = {
 const CAPTURE_ORDER_WHITE = ['p', 'n', 'b', 'r', 'q'];
 const CAPTURE_ORDER_BLACK = ['P', 'N', 'B', 'R', 'Q'];
 const DEFAULT_MOVE_ARROW_DURATION_MS = 120;
-const VISUAL_BENCHMARK_ARROW_DURATION_MS = 12;
+const VISUAL_BENCHMARK_ARROW_DURATION_MS = 5;
 const VISUAL_BENCHMARK_MOVE_UPDATE_INTERVAL = 16;
 const VISUAL_BENCHMARK_GAME_UPDATE_INTERVAL = 8;
 const VISUAL_BENCHMARK_PGN_UPDATE_INTERVAL = 16;
@@ -110,34 +110,49 @@ function resultText(game) {
   }
 }
 
-function renderPgnViewer(container, moves, moveIndex) {
+function renderPgnViewer(container, moves, moveIndex, state, options = {}) {
   if (!container) {
     return;
   }
 
-  container.innerHTML = '';
-  const fragment = document.createDocumentFragment();
+  const forceFull = Boolean(options.forceFull);
+  const shouldRebuild = forceFull || state.movesRef !== moves || state.moveCount !== moves.length;
 
-  for (let index = 0; index < moves.length; index += 1) {
-    const span = document.createElement('span');
-    span.className = 'pgnMove';
-    if (index === moveIndex - 1) {
-      span.classList.add('active');
+  if (shouldRebuild) {
+    state.movesRef = moves;
+    state.moveCount = moves.length;
+    state.activeMoveIndex = -1;
+    state.spans = [];
+
+    container.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    for (let index = 0; index < moves.length; index += 1) {
+      const span = document.createElement('span');
+      span.className = 'pgnMove';
+      if (index % 2 === 0) {
+        span.textContent = `${Math.floor(index / 2) + 1}. ${moves[index]}`;
+      } else {
+        span.textContent = moves[index];
+      }
+      fragment.appendChild(span);
+      state.spans.push(span);
     }
 
-    if (index % 2 === 0) {
-      span.textContent = `${Math.floor(index / 2) + 1}. ${moves[index]}`;
-    } else {
-      span.textContent = moves[index];
-    }
-    fragment.appendChild(span);
+    container.appendChild(fragment);
   }
 
-  container.appendChild(fragment);
+  const nextActiveIndex = moveIndex - 1;
+  if (state.activeMoveIndex >= 0 && state.activeMoveIndex < state.spans.length) {
+    state.spans[state.activeMoveIndex].classList.remove('active');
+  }
+  if (nextActiveIndex >= 0 && nextActiveIndex < state.spans.length) {
+    state.spans[nextActiveIndex].classList.add('active');
+  }
+  state.activeMoveIndex = nextActiveIndex;
 
-  const active = container.querySelector('.pgnMove.active');
-  if (active) {
-    active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  if (options.scrollActive !== false && nextActiveIndex >= 0 && nextActiveIndex < state.spans.length) {
+    state.spans[nextActiveIndex].scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 }
 
@@ -170,6 +185,7 @@ async function bootstrap() {
   const benchmarkVisualMoves = document.querySelector('#benchmarkVisualMoves');
   const benchmarkVisualMps = document.querySelector('#benchmarkVisualMps');
   const benchmarkVisualEta = document.querySelector('#benchmarkVisualEta');
+  const benchmarkVisualArrowLatency = document.querySelector('#benchmarkVisualArrowLatency');
   const benchmarkVisualState = document.querySelector('#benchmarkVisualState');
   const whiteName = document.querySelector('#whiteName');
   const blackName = document.querySelector('#blackName');
@@ -177,6 +193,12 @@ async function bootstrap() {
   const blackCaptures = document.querySelector('#blackCaptures');
   const resultBanner = document.querySelector('#resultBanner');
   const pgnViewer = document.querySelector('#pgnViewer');
+  const pgnState = {
+    movesRef: null,
+    moveCount: 0,
+    activeMoveIndex: -1,
+    spans: [],
+  };
 
   let activeGame = null;
   let benchmarkRunning = false;
@@ -279,7 +301,10 @@ async function bootstrap() {
         moveIndex === 0 ||
         moveIndex % VISUAL_BENCHMARK_PGN_UPDATE_INTERVAL === 0;
       if (shouldRenderPgn) {
-        renderPgnViewer(pgnViewer, moves, moveIndex);
+        renderPgnViewer(pgnViewer, moves, moveIndex, pgnState, {
+          forceFull: moveIndex === 0,
+          scrollActive: benchmarkMode !== 'visual',
+        });
       }
     },
   });
@@ -388,6 +413,7 @@ async function bootstrap() {
       moves: benchmarkVisualMoves,
       mps: benchmarkVisualMps,
       eta: benchmarkVisualEta,
+      arrowLatency: benchmarkVisualArrowLatency,
       state: benchmarkVisualState,
     },
   };
@@ -400,6 +426,7 @@ async function bootstrap() {
     state,
     moveTarget = 0,
     etaSec = null,
+    arrowLatencyMs = null,
   }) => {
     const row = benchmarkRows[mode];
     if (!row) {
@@ -418,6 +445,15 @@ async function bootstrap() {
     }
     if (row.eta) {
       row.eta.textContent = `ETA: ${formatEtaSec(etaSec ?? -1)}`;
+    }
+    if (row.arrowLatency) {
+      if (arrowLatencyMs === 0) {
+        row.arrowLatency.textContent = 'Arrow latency: Off';
+      } else if (Number.isFinite(arrowLatencyMs) && arrowLatencyMs > 0) {
+        row.arrowLatency.textContent = `Arrow latency: ${arrowLatencyMs}ms/move`;
+      } else {
+        row.arrowLatency.textContent = 'Arrow latency: --';
+      }
     }
     if (row.state) {
       row.state.textContent = state;
@@ -449,6 +485,7 @@ async function bootstrap() {
       elapsedSec: 0,
       state: 'Running (regular)',
       etaSec: null,
+      arrowLatencyMs: null,
     });
 
     try {
@@ -476,6 +513,7 @@ async function bootstrap() {
             elapsedSec,
             state: 'Running (regular)',
             etaSec: null,
+            arrowLatencyMs: null,
           });
           await raf();
         }
@@ -492,6 +530,7 @@ async function bootstrap() {
           invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
         }`,
         etaSec: 0,
+        arrowLatencyMs: null,
       });
     } finally {
       benchmarkRunning = false;
@@ -549,9 +588,12 @@ async function bootstrap() {
     replayer.pause();
 
     const arrowEnabledForBenchmark = Boolean(moveArrowToggle?.checked ?? true);
+    const activeArrowLatencyMs = arrowEnabledForBenchmark
+      ? VISUAL_BENCHMARK_ARROW_DURATION_MS
+      : 0;
     replayer.setMoveArrowEnabled(arrowEnabledForBenchmark);
     replayer.setMoveArrowDuration(
-      arrowEnabledForBenchmark ? VISUAL_BENCHMARK_ARROW_DURATION_MS : 0,
+      activeArrowLatencyMs,
     );
 
     setBenchmarkStats('visual', {
@@ -562,6 +604,7 @@ async function bootstrap() {
       elapsedSec: 0,
       state: 'Running (visual)',
       etaSec: null,
+      arrowLatencyMs: activeArrowLatencyMs,
     });
 
     try {
@@ -582,6 +625,7 @@ async function bootstrap() {
             elapsedSec,
             state: 'Paused',
             etaSec,
+            arrowLatencyMs: activeArrowLatencyMs,
           });
           await new Promise((resolve) => setTimeout(resolve, 50));
         }
@@ -619,6 +663,7 @@ async function bootstrap() {
                 elapsedSec,
                 state: 'Paused',
                 etaSec,
+                arrowLatencyMs: activeArrowLatencyMs,
               });
               await new Promise((resolve) => setTimeout(resolve, 50));
             }
@@ -645,6 +690,7 @@ async function bootstrap() {
                 elapsedSec,
                 state: 'Running (visual)',
                 etaSec,
+                arrowLatencyMs: activeArrowLatencyMs,
               });
               await raf();
             }
@@ -670,6 +716,7 @@ async function bootstrap() {
             elapsedSec,
             state: benchmarkStopRequested ? 'Stopping...' : 'Running (visual)',
             etaSec,
+            arrowLatencyMs: activeArrowLatencyMs,
           });
           await raf();
         }
@@ -689,6 +736,7 @@ async function bootstrap() {
             invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
           }`,
           etaSec,
+          arrowLatencyMs: activeArrowLatencyMs,
         });
       } else {
         setBenchmarkStats('visual', {
@@ -701,6 +749,7 @@ async function bootstrap() {
             invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
           }`,
           etaSec,
+          arrowLatencyMs: activeArrowLatencyMs,
         });
       }
     } finally {
