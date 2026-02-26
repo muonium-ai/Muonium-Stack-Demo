@@ -105,6 +105,27 @@ function countGames(db) {
   return totalGames;
 }
 
+function getRegularBenchmarkSummary(db) {
+  const stmt = db.prepare(`
+    SELECT
+      COUNT(*) AS total_games,
+      COALESCE(SUM(move_count), 0) AS total_moves
+    FROM games
+  `);
+
+  let summary = { totalGames: 0, totalMoves: 0 };
+  if (stmt.step()) {
+    const row = stmt.getAsObject();
+    summary = {
+      totalGames: Number(row.total_games ?? 0),
+      totalMoves: Number(row.total_moves ?? 0),
+    };
+  }
+
+  stmt.free();
+  return summary;
+}
+
 export async function createGameDb({ dbUrl = '/data/anand.sqlite', onProgress }) {
   const SQL = await initSqlJs({
     locateFile: (file) => `/node_modules/sql.js/dist/${file}`,
@@ -131,6 +152,8 @@ export async function createGameDb({ dbUrl = '/data/anand.sqlite', onProgress })
   if (onProgress) {
     onProgress({ phase: 'games', loaded: totalGames, total: totalGames });
   }
+
+  const regularBenchmarkSummary = getRegularBenchmarkSummary(db);
 
   return {
     listGames() {
@@ -182,6 +205,10 @@ export async function createGameDb({ dbUrl = '/data/anand.sqlite', onProgress })
       };
       cache.set(cacheKey, replay);
       return replay;
+    },
+
+    getRegularBenchmarkSummary() {
+      return regularBenchmarkSummary;
     },
   };
 }

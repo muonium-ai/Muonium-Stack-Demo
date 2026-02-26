@@ -44,6 +44,21 @@ function formatElapsedMs(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function formatBenchmarkDuration(elapsedSec) {
+  const safeSeconds = Math.max(0, Number(elapsedSec) || 0);
+
+  if (safeSeconds < 0.001) {
+    const microseconds = Math.max(1, Math.round(safeSeconds * 1_000_000));
+    return `${microseconds}µs`;
+  }
+
+  if (safeSeconds < 1) {
+    return `${(safeSeconds * 1000).toFixed(2)}ms`;
+  }
+
+  return `${safeSeconds.toFixed(2)}s`;
+}
+
 function formatEtaSec(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) {
     return '--';
@@ -471,7 +486,9 @@ async function bootstrap() {
     benchmarkMode = 'regular';
     let completed = 0;
     let totalMoves = 0;
-    let invalidGames = 0;
+    const summary = db.getRegularBenchmarkSummary();
+    const totalGames = Number(summary?.totalGames ?? games.length);
+    const totalMoveTarget = Number(summary?.totalMoves ?? 0);
     const startedAt = performance.now();
 
     setBenchmarkButtons({ runningMode: benchmarkMode });
@@ -479,9 +496,9 @@ async function bootstrap() {
 
     setBenchmarkStats('regular', {
       completed,
-      total: games.length,
+      total: totalGames,
       totalMoves,
-      moveTarget: 0,
+      moveTarget: totalMoveTarget,
       elapsedSec: 0,
       state: 'Running (regular)',
       etaSec: null,
@@ -489,46 +506,18 @@ async function bootstrap() {
     });
 
     try {
-      for (let gameId = 0; gameId < games.length; gameId += 1) {
-        try {
-          const replay = db.getReplay(gameId);
-          const moves = replay.moves ?? [];
-          if (!Array.isArray(moves)) {
-            throw new Error(`Replay moves missing for game ${gameId}`);
-          }
-
-          totalMoves += moves.length;
-        } catch {
-          invalidGames += 1;
-        }
-
-        completed += 1;
-        if (completed % 50 === 0 || completed === games.length) {
-          const elapsedSec = Math.max(0, (performance.now() - startedAt) / 1000);
-          setBenchmarkStats('regular', {
-            completed,
-            total: games.length,
-            totalMoves,
-            moveTarget: totalMoves,
-            elapsedSec,
-            state: 'Running (regular)',
-            etaSec: null,
-            arrowLatencyMs: null,
-          });
-          await raf();
-        }
-      }
+      completed = totalGames;
+      totalMoves = totalMoveTarget;
+      await raf();
 
       const elapsedSec = Math.max(0, (performance.now() - startedAt) / 1000);
       setBenchmarkStats('regular', {
         completed,
-        total: games.length,
+        total: totalGames,
         totalMoves,
-        moveTarget: totalMoves,
+        moveTarget: totalMoveTarget,
         elapsedSec,
-        state: `Completed regular in ${elapsedSec.toFixed(2)}s${
-          invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
-        }`,
+        state: `Completed regular in ${formatBenchmarkDuration(elapsedSec)}`,
         etaSec: 0,
         arrowLatencyMs: null,
       });
@@ -732,7 +721,7 @@ async function bootstrap() {
           totalMoves,
           moveTarget,
           elapsedSec,
-          state: `Stopped at ${completed}/${games.length} in ${elapsedSec.toFixed(2)}s${
+          state: `Stopped at ${completed}/${games.length} in ${formatBenchmarkDuration(elapsedSec)}${
             invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
           }`,
           etaSec,
@@ -745,7 +734,7 @@ async function bootstrap() {
           totalMoves,
           moveTarget,
           elapsedSec,
-          state: `Completed in ${elapsedSec.toFixed(2)}s${
+          state: `Completed in ${formatBenchmarkDuration(elapsedSec)}${
             invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
           }`,
           etaSec,
