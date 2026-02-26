@@ -53,7 +53,7 @@ function renderBoard(boardEl, fen) {
   boardEl.appendChild(table);
 }
 
-export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage, onUpdate }) {
+export function createReplayer({ boardEl, statusEl, getEmptyMessage, onUpdate, onPlayState }) {
   let currentReplay = { moves: [], fens: [] };
   let moveIndex = 0;
   let timer = null;
@@ -69,7 +69,6 @@ export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage, 
     renderBoard(boardEl, fen);
     const moveText = moveIndex === 0 ? 'start' : currentReplay.moves[moveIndex - 1] ?? '';
     statusEl.textContent = `Move ${moveIndex}/${currentReplay.moves.length} - ${moveText}`;
-    moveRange.value = String(moveIndex);
 
     if (typeof onUpdate === 'function') {
       onUpdate({
@@ -87,11 +86,23 @@ export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage, 
     if (timer) {
       clearInterval(timer);
       timer = null;
+      if (typeof onPlayState === 'function') {
+        onPlayState(false);
+      }
     }
   }
 
   function play() {
     stop();
+    if (moveIndex >= currentReplay.moves.length) {
+      moveIndex = 0;
+      paint();
+    }
+
+    if (typeof onPlayState === 'function') {
+      onPlayState(true);
+    }
+
     timer = setInterval(() => {
       if (moveIndex >= currentReplay.moves.length) {
         stop();
@@ -102,15 +113,51 @@ export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage, 
     }, speedMs);
   }
 
+  function start() {
+    stop();
+    moveIndex = 0;
+    paint();
+  }
+
+  function end() {
+    stop();
+    moveIndex = currentReplay.moves.length;
+    paint();
+  }
+
+  function prev() {
+    stop();
+    moveIndex = Math.max(0, moveIndex - 1);
+    paint();
+  }
+
+  function next() {
+    stop();
+    moveIndex = Math.min(currentReplay.moves.length, moveIndex + 1);
+    paint();
+  }
+
+  function togglePlay() {
+    if (timer) {
+      stop();
+    } else {
+      play();
+    }
+  }
+
   return {
     loadReplay(replay) {
       stop();
       currentReplay = replay;
       moveIndex = 0;
-      moveRange.max = String(Math.max(0, replay.moves.length));
       paint();
     },
     play,
+    togglePlay,
+    start,
+    end,
+    prev,
+    next,
     pause: stop,
     reset() {
       stop();
@@ -126,6 +173,9 @@ export function createReplayer({ boardEl, statusEl, moveRange, getEmptyMessage, 
     setMove(index) {
       moveIndex = Number(index);
       paint();
+    },
+    isPlaying() {
+      return Boolean(timer);
     },
   };
 }

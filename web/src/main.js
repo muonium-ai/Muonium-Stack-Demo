@@ -127,14 +127,13 @@ async function bootstrap() {
   const statusEl = document.querySelector('#status');
   const boardEl = document.querySelector('#board');
   const gameSelect = document.querySelector('#gameSelect');
-  const speedRange = document.querySelector('#speedRange');
-  const playBtn = document.querySelector('#playBtn');
-  const pauseBtn = document.querySelector('#pauseBtn');
-  const resetBtn = document.querySelector('#resetBtn');
   const randomBtn = document.querySelector('#randomBtn');
   const benchmarkBtn = document.querySelector('#benchmarkBtn');
-  const moveRange = document.querySelector('#moveRange');
-  const loadProgress = document.querySelector('#loadProgress');
+  const navStart = document.querySelector('#navStart');
+  const navPrev = document.querySelector('#navPrev');
+  const navPlay = document.querySelector('#navPlay');
+  const navNext = document.querySelector('#navNext');
+  const navEnd = document.querySelector('#navEnd');
   const loadProgressText = document.querySelector('#loadProgressText');
   const benchmarkGames = document.querySelector('#benchmarkGames');
   const benchmarkTotalMoves = document.querySelector('#benchmarkTotalMoves');
@@ -157,15 +156,13 @@ async function bootstrap() {
   const db = await createGameDb({
     dbUrl: '/data/anand.sqlite',
     onProgress: (progress) => {
-      if (!loadProgress || !loadProgressText) {
+      if (!loadProgressText) {
         return;
       }
 
       if (progress.phase === 'download') {
         const totalBytes = Math.max(1, Number(progress.totalBytes ?? 1));
         const loadedBytes = Math.min(totalBytes, Number(progress.loadedBytes ?? 0));
-        loadProgress.max = totalBytes;
-        loadProgress.value = loadedBytes;
         const pct = Math.round((loadedBytes / totalBytes) * 100);
         const elapsed = formatElapsedMs(performance.now() - loadStartedAt);
         loadProgressText.textContent = `Downloading DB ${pct}% • ${elapsed}`;
@@ -176,8 +173,6 @@ async function bootstrap() {
       if (progress.phase === 'games') {
         const total = Number(progress.total ?? 0);
         const loaded = Number(progress.loaded ?? 0);
-        loadProgress.max = Math.max(1, total);
-        loadProgress.value = loaded;
         const elapsed = formatElapsedMs(performance.now() - loadStartedAt);
         loadProgressText.textContent = `Loaded ${loaded} / ${total} games • ${elapsed}`;
         statusEl.textContent = `Loaded ${loaded} / ${total} games (${elapsed})`;
@@ -206,9 +201,13 @@ async function bootstrap() {
   const replayer = createReplayer({
     boardEl,
     statusEl,
-    moveRange,
     getEmptyMessage: () =>
       `No game loaded (startup time ${formatElapsedMs(performance.now() - loadStartedAt)})`,
+    onPlayState: (playing) => {
+      if (navPlay) {
+        navPlay.textContent = playing ? '⏸' : '▶';
+      }
+    },
     onUpdate: ({ moveIndex, totalMoves, fen, moves, isComplete }) => {
       if (activeGame) {
         if (whiteName) {
@@ -354,10 +353,11 @@ async function bootstrap() {
   };
 
   gameSelect.addEventListener('change', loadReplay);
-  speedRange.addEventListener('input', (event) => replayer.setSpeed(event.target.value));
-  playBtn.addEventListener('click', () => replayer.play());
-  pauseBtn.addEventListener('click', () => replayer.pause());
-  resetBtn.addEventListener('click', () => replayer.reset());
+  navStart?.addEventListener('click', () => replayer.start());
+  navPrev?.addEventListener('click', () => replayer.prev());
+  navPlay?.addEventListener('click', () => replayer.togglePlay());
+  navNext?.addEventListener('click', () => replayer.next());
+  navEnd?.addEventListener('click', () => replayer.end());
   benchmarkBtn?.addEventListener('click', () => {
     runBenchmark();
   });
@@ -376,7 +376,6 @@ async function bootstrap() {
     loadReplay();
     replayer.play();
   });
-  moveRange.addEventListener('input', (event) => replayer.setMove(event.target.value));
 
   gameSelect.value = '0';
   loadReplay();

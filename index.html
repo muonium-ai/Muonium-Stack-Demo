@@ -12,11 +12,6 @@
       <section class="toolbar">
         <label for="gameSelect">Game</label>
         <select id="gameSelect"></select>
-        <label for="speedRange">Speed</label>
-        <input id="speedRange" type="range" min="100" max="2000" step="100" value="600" />
-        <button id="playBtn">Play</button>
-        <button id="pauseBtn">Pause</button>
-        <button id="resetBtn">Reset</button>
         <button id="randomBtn">Random Autoplay</button>
         <button id="benchmarkBtn">Run Benchmark</button>
       </section>
@@ -28,8 +23,7 @@
         <span id="benchmarkState">Idle</span>
       </section>
       <section id="loadProgressWrap">
-        <label for="loadProgress">Load Progress</label>
-        <progress id="loadProgress" value="0" max="0"></progress>
+        <span>Load Progress</span>
         <span id="loadProgressText">Loaded 0 / 0 games</span>
       </section>
       <section id="status"></section>
@@ -49,11 +43,14 @@
         <section id="pgnPane">
           <h2>PGN Moves</h2>
           <div id="pgnViewer"></div>
+          <div id="transportControls" aria-label="Replay controls">
+            <button id="navStart" title="Start">⏮</button>
+            <button id="navPrev" title="Previous">⏪</button>
+            <button id="navPlay" title="Play/Pause">▶</button>
+            <button id="navNext" title="Next">⏩</button>
+            <button id="navEnd" title="End">⏭</button>
+          </div>
         </section>
-      </section>
-      <section>
-        <label for="moveRange">Move</label>
-        <input id="moveRange" type="range" min="0" max="0" value="0" />
       </section>
     </main>
   </body>

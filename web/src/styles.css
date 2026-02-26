@@ -86,6 +86,26 @@ h1 {
   font-size: 16px;
 }
 
+#transportControls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+#transportControls button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid #c7cfdf;
+  border-radius: 8px;
+  background: #f8faff;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+#transportControls button:hover {
+  background: #eef3ff;
+}
+
 .pgnMove {
   display: inline-block;
   margin-right: 8px;
@@ -143,10 +163,6 @@ h1 {
 
 #board td.dark {
   background: #b58863;
-}
-
-#moveRange {
-  width: 100%;
 }
 
 @media (max-width: 1100px) {
