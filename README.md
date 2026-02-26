@@ -35,6 +35,18 @@ npm run dev
 
 Open the local URL printed by Vite.
 
+`npm run dev` no longer runs `db:build`. If PGN/DB generation changed, run:
+
+```bash
+npm run db:build
+```
+
+Or use full startup:
+
+```bash
+npm run dev:full
+```
+
 ## Make Tasks
 
 ```bash
