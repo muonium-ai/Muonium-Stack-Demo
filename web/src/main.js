@@ -20,6 +20,11 @@ const INITIAL_COUNTS = {
 
 const CAPTURE_ORDER_WHITE = ['p', 'n', 'b', 'r', 'q'];
 const CAPTURE_ORDER_BLACK = ['P', 'N', 'B', 'R', 'Q'];
+const DEFAULT_MOVE_ARROW_DURATION_MS = 120;
+const VISUAL_BENCHMARK_ARROW_DURATION_MS = 12;
+const VISUAL_BENCHMARK_MOVE_UPDATE_INTERVAL = 16;
+const VISUAL_BENCHMARK_GAME_UPDATE_INTERVAL = 8;
+const VISUAL_BENCHMARK_PGN_UPDATE_INTERVAL = 16;
 const PIECE_TO_UNICODE = {
   P: '♙',
   N: '♘',
@@ -268,14 +273,25 @@ async function bootstrap() {
         }
       }
 
-      renderPgnViewer(pgnViewer, moves, moveIndex);
+      const shouldRenderPgn =
+        benchmarkMode !== 'visual' ||
+        isComplete ||
+        moveIndex === 0 ||
+        moveIndex % VISUAL_BENCHMARK_PGN_UPDATE_INTERVAL === 0;
+      if (shouldRenderPgn) {
+        renderPgnViewer(pgnViewer, moves, moveIndex);
+      }
     },
   });
 
+  replayer.setMoveArrowDuration(DEFAULT_MOVE_ARROW_DURATION_MS);
   replayer.setMoveArrowEnabled(Boolean(moveArrowToggle?.checked ?? true));
 
   moveArrowToggle?.addEventListener('change', () => {
     replayer.setMoveArrowEnabled(Boolean(moveArrowToggle.checked));
+    if (benchmarkMode !== 'visual') {
+      replayer.setMoveArrowDuration(DEFAULT_MOVE_ARROW_DURATION_MS);
+    }
   });
 
   const vectorAdapter = new MuonVecAdapter();
@@ -532,6 +548,12 @@ async function bootstrap() {
     setReplayControlsDisabled(true);
     replayer.pause();
 
+    const arrowEnabledForBenchmark = Boolean(moveArrowToggle?.checked ?? true);
+    replayer.setMoveArrowEnabled(arrowEnabledForBenchmark);
+    replayer.setMoveArrowDuration(
+      arrowEnabledForBenchmark ? VISUAL_BENCHMARK_ARROW_DURATION_MS : 0,
+    );
+
     setBenchmarkStats('visual', {
       completed,
       total: games.length,
@@ -608,7 +630,10 @@ async function bootstrap() {
             await replayer.setMove(index);
             totalMoves += 1;
 
-            if (index % 2 === 0 || index === moves.length) {
+            if (
+              index % VISUAL_BENCHMARK_MOVE_UPDATE_INTERVAL === 0 ||
+              index === moves.length
+            ) {
               const elapsedSec = elapsedSecNow();
               const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
               const etaSec = mps > 0 ? Math.max(0, (moveTarget - totalMoves) / mps) : null;
@@ -632,16 +657,22 @@ async function bootstrap() {
         const elapsedSec = elapsedSecNow();
         const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
         const etaSec = mps > 0 ? Math.max(0, (moveTarget - totalMoves) / mps) : null;
-        setBenchmarkStats('visual', {
-          completed,
-          total: games.length,
-          totalMoves,
-          moveTarget,
-          elapsedSec,
-          state: benchmarkStopRequested ? 'Stopping...' : 'Running (visual)',
-          etaSec,
-        });
-        await raf();
+        if (
+          completed % VISUAL_BENCHMARK_GAME_UPDATE_INTERVAL === 0 ||
+          completed === games.length ||
+          benchmarkStopRequested
+        ) {
+          setBenchmarkStats('visual', {
+            completed,
+            total: games.length,
+            totalMoves,
+            moveTarget,
+            elapsedSec,
+            state: benchmarkStopRequested ? 'Stopping...' : 'Running (visual)',
+            etaSec,
+          });
+          await raf();
+        }
       }
 
       const elapsedSec = elapsedSecNow();
@@ -677,6 +708,8 @@ async function bootstrap() {
       benchmarkMode = 'idle';
       benchmarkPaused = false;
       benchmarkStopRequested = false;
+      replayer.setMoveArrowEnabled(Boolean(moveArrowToggle?.checked ?? true));
+      replayer.setMoveArrowDuration(DEFAULT_MOVE_ARROW_DURATION_MS);
       setBenchmarkButtons({ runningMode: benchmarkMode });
       setBenchmarkModeLabel('Idle');
       setReplayControlsDisabled(false);
