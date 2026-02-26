@@ -13,14 +13,34 @@
         <label for="gameSelect">Game</label>
         <select id="gameSelect"></select>
         <button id="randomBtn">Random Autoplay</button>
-        <button id="benchmarkBtn">Run Benchmark</button>
+        <button id="benchmarkFastBtn">Run Benchmark</button>
+        <button id="benchmarkBtn">Run Visual Benchmark</button>
       </section>
       <section id="benchmarkPanel">
-        <strong>Benchmark</strong>
-        <span id="benchmarkGames">Games: 0 / 0</span>
-        <span id="benchmarkTotalMoves">Total moves: 0</span>
-        <span id="benchmarkMps">Moves/s: 0.0</span>
-        <span id="benchmarkState">Idle</span>
+        <div class="benchmarkHeader">
+          <strong>Benchmark</strong>
+          <span id="benchmarkModeLabel">Mode: Idle</span>
+        </div>
+        <div class="benchmarkRow" id="benchmarkRowRegular">
+          <span class="benchmarkKind">Regular</span>
+          <span id="benchmarkRegularGames">Games: 0 / 0</span>
+          <span id="benchmarkRegularMoves">Moves: 0 / 0</span>
+          <span id="benchmarkRegularMps">Moves/s: 0.0</span>
+          <span id="benchmarkRegularEta">ETA: --</span>
+          <span id="benchmarkRegularState">Idle</span>
+        </div>
+        <div class="benchmarkRow" id="benchmarkRowVisual">
+          <span class="benchmarkKind">Visual</span>
+          <span id="benchmarkVisualGames">Games: 0 / 0</span>
+          <span id="benchmarkVisualMoves">Moves: 0 / 0</span>
+          <span id="benchmarkVisualMps">Moves/s: 0.0</span>
+          <span id="benchmarkVisualEta">ETA: --</span>
+          <span id="benchmarkVisualState">Idle</span>
+        </div>
+        <div class="benchmarkActions">
+        <button id="benchmarkPauseBtn" disabled>Pause</button>
+        <button id="benchmarkStopBtn" disabled>Stop</button>
+        </div>
       </section>
       <section id="loadProgressWrap">
         <span>Load Progress</span>

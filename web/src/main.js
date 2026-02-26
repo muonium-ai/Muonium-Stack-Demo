@@ -39,6 +39,20 @@ function formatElapsedMs(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+function formatEtaSec(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '--';
+  }
+
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)}s`;
+  }
+
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return `${mins}m ${secs}s`;
+}
+
 function pieceCountsFromFen(fen) {
   const board = (fen ?? '').split(' ')[0] ?? '';
   const counts = {
@@ -128,17 +142,29 @@ async function bootstrap() {
   const boardEl = document.querySelector('#board');
   const gameSelect = document.querySelector('#gameSelect');
   const randomBtn = document.querySelector('#randomBtn');
+  const benchmarkFastBtn = document.querySelector('#benchmarkFastBtn');
   const benchmarkBtn = document.querySelector('#benchmarkBtn');
+  const benchmarkPauseBtn = document.querySelector('#benchmarkPauseBtn');
+  const benchmarkStopBtn = document.querySelector('#benchmarkStopBtn');
   const navStart = document.querySelector('#navStart');
   const navPrev = document.querySelector('#navPrev');
   const navPlay = document.querySelector('#navPlay');
   const navNext = document.querySelector('#navNext');
   const navEnd = document.querySelector('#navEnd');
   const loadProgressText = document.querySelector('#loadProgressText');
-  const benchmarkGames = document.querySelector('#benchmarkGames');
-  const benchmarkTotalMoves = document.querySelector('#benchmarkTotalMoves');
-  const benchmarkMps = document.querySelector('#benchmarkMps');
-  const benchmarkState = document.querySelector('#benchmarkState');
+  const benchmarkModeLabel = document.querySelector('#benchmarkModeLabel');
+  const benchmarkRowRegular = document.querySelector('#benchmarkRowRegular');
+  const benchmarkRowVisual = document.querySelector('#benchmarkRowVisual');
+  const benchmarkRegularGames = document.querySelector('#benchmarkRegularGames');
+  const benchmarkRegularMoves = document.querySelector('#benchmarkRegularMoves');
+  const benchmarkRegularMps = document.querySelector('#benchmarkRegularMps');
+  const benchmarkRegularEta = document.querySelector('#benchmarkRegularEta');
+  const benchmarkRegularState = document.querySelector('#benchmarkRegularState');
+  const benchmarkVisualGames = document.querySelector('#benchmarkVisualGames');
+  const benchmarkVisualMoves = document.querySelector('#benchmarkVisualMoves');
+  const benchmarkVisualMps = document.querySelector('#benchmarkVisualMps');
+  const benchmarkVisualEta = document.querySelector('#benchmarkVisualEta');
+  const benchmarkVisualState = document.querySelector('#benchmarkVisualState');
   const whiteName = document.querySelector('#whiteName');
   const blackName = document.querySelector('#blackName');
   const whiteCaptures = document.querySelector('#whiteCaptures');
@@ -148,6 +174,11 @@ async function bootstrap() {
 
   let activeGame = null;
   let benchmarkRunning = false;
+  let benchmarkPaused = false;
+  let benchmarkStopRequested = false;
+  let benchmarkPauseStartedAt = 0;
+  let benchmarkPausedTotalMs = 0;
+  let benchmarkMode = 'idle';
 
   statusEl.textContent = 'Initializing WASM...';
   await initWasm();
@@ -263,44 +294,138 @@ async function bootstrap() {
     }
   };
 
-  const setBenchmarkStats = ({ completed, total, totalMoves, elapsedSec, state }) => {
-    if (benchmarkGames) {
-      benchmarkGames.textContent = `Games: ${completed} / ${total}`;
+  const setReplayControlsDisabled = (disabled) => {
+    if (gameSelect) {
+      gameSelect.disabled = disabled;
     }
-    if (benchmarkTotalMoves) {
-      benchmarkTotalMoves.textContent = `Total moves: ${totalMoves}`;
+    if (randomBtn) {
+      randomBtn.disabled = disabled;
     }
-    if (benchmarkMps) {
-      const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
-      benchmarkMps.textContent = `Moves/s: ${mps.toFixed(1)}`;
+    if (navStart) {
+      navStart.disabled = disabled;
     }
-    if (benchmarkState) {
-      benchmarkState.textContent = state;
+    if (navPrev) {
+      navPrev.disabled = disabled;
+    }
+    if (navPlay) {
+      navPlay.disabled = disabled;
+    }
+    if (navNext) {
+      navNext.disabled = disabled;
+    }
+    if (navEnd) {
+      navEnd.disabled = disabled;
     }
   };
 
-  const runBenchmark = async () => {
+  const setBenchmarkButtons = ({ runningMode }) => {
+    const isRunning = runningMode !== 'idle';
+    const isVisual = runningMode === 'visual';
+
+    if (benchmarkFastBtn) {
+      benchmarkFastBtn.disabled = isRunning;
+      benchmarkFastBtn.textContent = 'Run Benchmark';
+    }
+    if (benchmarkBtn) {
+      benchmarkBtn.disabled = isRunning;
+      benchmarkBtn.textContent = 'Run Visual Benchmark';
+    }
+    if (benchmarkPauseBtn) {
+      benchmarkPauseBtn.disabled = !isVisual;
+      benchmarkPauseBtn.textContent = 'Pause';
+    }
+    if (benchmarkStopBtn) {
+      benchmarkStopBtn.disabled = !isVisual;
+    }
+
+    if (benchmarkRowRegular) {
+      benchmarkRowRegular.classList.toggle('isActive', runningMode === 'regular');
+    }
+    if (benchmarkRowVisual) {
+      benchmarkRowVisual.classList.toggle('isActive', runningMode === 'visual');
+    }
+  };
+
+  const setBenchmarkModeLabel = (modeText) => {
+    if (benchmarkModeLabel) {
+      benchmarkModeLabel.textContent = `Mode: ${modeText}`;
+    }
+  };
+
+  const benchmarkRows = {
+    regular: {
+      games: benchmarkRegularGames,
+      moves: benchmarkRegularMoves,
+      mps: benchmarkRegularMps,
+      eta: benchmarkRegularEta,
+      state: benchmarkRegularState,
+    },
+    visual: {
+      games: benchmarkVisualGames,
+      moves: benchmarkVisualMoves,
+      mps: benchmarkVisualMps,
+      eta: benchmarkVisualEta,
+      state: benchmarkVisualState,
+    },
+  };
+
+  const setBenchmarkStats = (mode, {
+    completed,
+    total,
+    totalMoves,
+    elapsedSec,
+    state,
+    moveTarget = 0,
+    etaSec = null,
+  }) => {
+    const row = benchmarkRows[mode];
+    if (!row) {
+      return;
+    }
+
+    if (row.games) {
+      row.games.textContent = `Games: ${completed} / ${total}`;
+    }
+    if (row.moves) {
+      row.moves.textContent = `Moves: ${totalMoves} / ${moveTarget}`;
+    }
+    if (row.mps) {
+      const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
+      row.mps.textContent = `Moves/s: ${mps.toFixed(1)}`;
+    }
+    if (row.eta) {
+      row.eta.textContent = `ETA: ${formatEtaSec(etaSec ?? -1)}`;
+    }
+    if (row.state) {
+      row.state.textContent = state;
+    }
+  };
+
+  const raf = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+  const runRegularBenchmark = async () => {
     if (benchmarkRunning || games.length === 0) {
       return;
     }
 
     benchmarkRunning = true;
-    const startedAt = performance.now();
+    benchmarkMode = 'regular';
     let completed = 0;
     let totalMoves = 0;
     let invalidGames = 0;
+    const startedAt = performance.now();
 
-    if (benchmarkBtn) {
-      benchmarkBtn.disabled = true;
-      benchmarkBtn.textContent = 'Benchmark Running...';
-    }
+    setBenchmarkButtons({ runningMode: benchmarkMode });
+    setBenchmarkModeLabel('Regular');
 
-    setBenchmarkStats({
+    setBenchmarkStats('regular', {
       completed,
       total: games.length,
       totalMoves,
+      moveTarget: 0,
       elapsedSec: 0,
-      state: 'Running',
+      state: 'Running (regular)',
+      etaSec: null,
     });
 
     try {
@@ -312,43 +437,242 @@ async function bootstrap() {
             throw new Error(`Replay moves missing for game ${gameId}`);
           }
 
-          for (let index = 0; index < moves.length; index += 1) {
-            totalMoves += 1;
-          }
+          totalMoves += moves.length;
         } catch {
           invalidGames += 1;
         }
 
         completed += 1;
         if (completed % 50 === 0 || completed === games.length) {
-          const elapsedSec = (performance.now() - startedAt) / 1000;
-          setBenchmarkStats({
+          const elapsedSec = Math.max(0, (performance.now() - startedAt) / 1000);
+          setBenchmarkStats('regular', {
             completed,
             total: games.length,
             totalMoves,
+            moveTarget: totalMoves,
             elapsedSec,
-            state: 'Running',
+            state: 'Running (regular)',
+            etaSec: null,
           });
-          await new Promise((resolve) => requestAnimationFrame(resolve));
+          await raf();
         }
       }
 
-      const elapsedSec = (performance.now() - startedAt) / 1000;
-      setBenchmarkStats({
+      const elapsedSec = Math.max(0, (performance.now() - startedAt) / 1000);
+      setBenchmarkStats('regular', {
         completed,
         total: games.length,
         totalMoves,
+        moveTarget: totalMoves,
         elapsedSec,
-        state: `Completed in ${elapsedSec.toFixed(2)}s${
+        state: `Completed regular in ${elapsedSec.toFixed(2)}s${
           invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
         }`,
+        etaSec: 0,
       });
     } finally {
       benchmarkRunning = false;
-      if (benchmarkBtn) {
-        benchmarkBtn.disabled = false;
-        benchmarkBtn.textContent = 'Run Benchmark';
+      benchmarkMode = 'idle';
+      setBenchmarkButtons({ runningMode: benchmarkMode });
+      setBenchmarkModeLabel('Idle');
+    }
+  };
+
+  const runVisualBenchmark = async () => {
+    if (benchmarkRunning || games.length === 0) {
+      return;
+    }
+
+    benchmarkRunning = true;
+    benchmarkMode = 'visual';
+    benchmarkPaused = false;
+    benchmarkStopRequested = false;
+    benchmarkPauseStartedAt = 0;
+    benchmarkPausedTotalMs = 0;
+    const startedAt = performance.now();
+    let completed = 0;
+    let totalMoves = 0;
+    let invalidGames = 0;
+    let moveTarget = 0;
+
+    const elapsedSecNow = () => {
+      const now = performance.now();
+      const activePauseMs = benchmarkPaused ? now - benchmarkPauseStartedAt : 0;
+      return Math.max(0, (now - startedAt - benchmarkPausedTotalMs - activePauseMs) / 1000);
+    };
+
+    for (let gameId = 0; gameId < games.length; gameId += 1) {
+      try {
+        const replay = db.getReplay(gameId);
+        const moves = replay.moves ?? [];
+        if (Array.isArray(moves)) {
+          moveTarget += moves.length;
+        }
+      } catch {
+        // ignore here; counted in main loop
       }
+    }
+
+    setBenchmarkButtons({ runningMode: benchmarkMode });
+    setBenchmarkModeLabel('Visual');
+    if (benchmarkPauseBtn) {
+      benchmarkPauseBtn.disabled = false;
+    }
+    if (benchmarkStopBtn) {
+      benchmarkStopBtn.disabled = false;
+    }
+
+    setReplayControlsDisabled(true);
+    replayer.pause();
+
+    setBenchmarkStats('visual', {
+      completed,
+      total: games.length,
+      totalMoves,
+      moveTarget,
+      elapsedSec: 0,
+      state: 'Running (visual)',
+      etaSec: null,
+    });
+
+    try {
+      for (let gameId = 0; gameId < games.length; gameId += 1) {
+        if (benchmarkStopRequested) {
+          break;
+        }
+
+        while (benchmarkPaused && !benchmarkStopRequested) {
+          const elapsedSec = elapsedSecNow();
+          const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
+          const etaSec = mps > 0 ? Math.max(0, (moveTarget - totalMoves) / mps) : null;
+          setBenchmarkStats('visual', {
+            completed,
+            total: games.length,
+            totalMoves,
+            moveTarget,
+            elapsedSec,
+            state: 'Paused',
+            etaSec,
+          });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+
+        if (benchmarkStopRequested) {
+          break;
+        }
+
+        try {
+          const replay = db.getReplay(gameId);
+          const moves = replay.moves ?? [];
+          if (!Array.isArray(moves)) {
+            throw new Error(`Replay moves missing for game ${gameId}`);
+          }
+
+          gameSelect.value = String(gameId);
+          activeGame = games[gameId] ?? null;
+          replayer.loadReplay(replay);
+          await raf();
+
+          for (let index = 1; index <= moves.length; index += 1) {
+            if (benchmarkStopRequested) {
+              break;
+            }
+
+            while (benchmarkPaused && !benchmarkStopRequested) {
+              const elapsedSec = elapsedSecNow();
+              const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
+              const etaSec = mps > 0 ? Math.max(0, (moveTarget - totalMoves) / mps) : null;
+              setBenchmarkStats('visual', {
+                completed,
+                total: games.length,
+                totalMoves,
+                moveTarget,
+                elapsedSec,
+                state: 'Paused',
+                etaSec,
+              });
+              await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+
+            if (benchmarkStopRequested) {
+              break;
+            }
+
+            replayer.setMove(index);
+            totalMoves += 1;
+
+            if (index % 2 === 0 || index === moves.length) {
+              const elapsedSec = elapsedSecNow();
+              const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
+              const etaSec = mps > 0 ? Math.max(0, (moveTarget - totalMoves) / mps) : null;
+              setBenchmarkStats('visual', {
+                completed,
+                total: games.length,
+                totalMoves,
+                moveTarget,
+                elapsedSec,
+                state: 'Running (visual)',
+                etaSec,
+              });
+              await raf();
+            }
+          }
+        } catch {
+          invalidGames += 1;
+        }
+
+        completed += 1;
+        const elapsedSec = elapsedSecNow();
+        const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
+        const etaSec = mps > 0 ? Math.max(0, (moveTarget - totalMoves) / mps) : null;
+        setBenchmarkStats('visual', {
+          completed,
+          total: games.length,
+          totalMoves,
+          moveTarget,
+          elapsedSec,
+          state: benchmarkStopRequested ? 'Stopping...' : 'Running (visual)',
+          etaSec,
+        });
+        await raf();
+      }
+
+      const elapsedSec = elapsedSecNow();
+      const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
+      const etaSec = mps > 0 ? Math.max(0, (moveTarget - totalMoves) / mps) : 0;
+      if (benchmarkStopRequested) {
+        setBenchmarkStats('visual', {
+          completed,
+          total: games.length,
+          totalMoves,
+          moveTarget,
+          elapsedSec,
+          state: `Stopped at ${completed}/${games.length} in ${elapsedSec.toFixed(2)}s${
+            invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
+          }`,
+          etaSec,
+        });
+      } else {
+        setBenchmarkStats('visual', {
+          completed,
+          total: games.length,
+          totalMoves,
+          moveTarget,
+          elapsedSec,
+          state: `Completed in ${elapsedSec.toFixed(2)}s${
+            invalidGames > 0 ? ` (invalid games: ${invalidGames})` : ''
+          }`,
+          etaSec,
+        });
+      }
+    } finally {
+      benchmarkRunning = false;
+      benchmarkMode = 'idle';
+      benchmarkPaused = false;
+      benchmarkStopRequested = false;
+      setBenchmarkButtons({ runningMode: benchmarkMode });
+      setBenchmarkModeLabel('Idle');
+      setReplayControlsDisabled(false);
     }
   };
 
@@ -358,8 +682,38 @@ async function bootstrap() {
   navPlay?.addEventListener('click', () => replayer.togglePlay());
   navNext?.addEventListener('click', () => replayer.next());
   navEnd?.addEventListener('click', () => replayer.end());
-  benchmarkBtn?.addEventListener('click', () => {
-    runBenchmark();
+  benchmarkFastBtn?.addEventListener('click', async () => {
+    await runRegularBenchmark();
+  });
+  benchmarkBtn?.addEventListener('click', async () => {
+    if (benchmarkRunning || games.length === 0) {
+      return;
+    }
+
+    await runRegularBenchmark();
+    await runVisualBenchmark();
+  });
+  benchmarkPauseBtn?.addEventListener('click', () => {
+    if (!benchmarkRunning || benchmarkMode !== 'visual') {
+      return;
+    }
+
+    if (!benchmarkPaused) {
+      benchmarkPaused = true;
+      benchmarkPauseStartedAt = performance.now();
+      benchmarkPauseBtn.textContent = 'Resume';
+    } else {
+      benchmarkPaused = false;
+      benchmarkPausedTotalMs += Math.max(0, performance.now() - benchmarkPauseStartedAt);
+      benchmarkPauseStartedAt = 0;
+      benchmarkPauseBtn.textContent = 'Pause';
+    }
+  });
+  benchmarkStopBtn?.addEventListener('click', () => {
+    if (!benchmarkRunning || benchmarkMode !== 'visual') {
+      return;
+    }
+    benchmarkStopRequested = true;
   });
   randomBtn?.addEventListener('click', () => {
     if (games.length === 0) {
