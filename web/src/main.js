@@ -141,6 +141,7 @@ async function bootstrap() {
   const statusEl = document.querySelector('#status');
   const boardEl = document.querySelector('#board');
   const gameSelect = document.querySelector('#gameSelect');
+  const moveArrowToggle = document.querySelector('#moveArrowToggle');
   const randomBtn = document.querySelector('#randomBtn');
   const benchmarkFastBtn = document.querySelector('#benchmarkFastBtn');
   const benchmarkBtn = document.querySelector('#benchmarkBtn');
@@ -269,6 +270,12 @@ async function bootstrap() {
 
       renderPgnViewer(pgnViewer, moves, moveIndex);
     },
+  });
+
+  replayer.setMoveArrowEnabled(Boolean(moveArrowToggle?.checked ?? true));
+
+  moveArrowToggle?.addEventListener('change', () => {
+    replayer.setMoveArrowEnabled(Boolean(moveArrowToggle.checked));
   });
 
   const vectorAdapter = new MuonVecAdapter();
@@ -598,7 +605,7 @@ async function bootstrap() {
               break;
             }
 
-            replayer.setMove(index);
+            await replayer.setMove(index);
             totalMoves += 1;
 
             if (index % 2 === 0 || index === moves.length) {

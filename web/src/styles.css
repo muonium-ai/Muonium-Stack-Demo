@@ -27,6 +27,13 @@ h1 {
   margin-bottom: 12px;
 }
 
+.inlineToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
 #benchmarkPanel {
   display: grid;
   gap: 8px;
@@ -207,6 +214,17 @@ h1 {
 #board table {
   border-collapse: collapse;
   border: 1px solid #333;
+}
+
+#board {
+  position: relative;
+  display: inline-block;
+}
+
+.moveArrowOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 #board td {
