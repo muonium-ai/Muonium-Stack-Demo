@@ -4,9 +4,8 @@ import initSqlJs from 'sql.js';
 import { Chess } from 'chess.js';
 
 const ROOT = process.cwd();
-const PGN_PATH = path.join(ROOT, 'chess', 'games', 'Anand.pgn');
+const GAMES_DIR = path.join(ROOT, 'chess', 'games');
 const OUT_DIR = path.join(ROOT, 'public', 'data');
-const OUT_DB = path.join(OUT_DIR, 'anand.sqlite');
 
 const DB_SCHEMA = `
 CREATE TABLE IF NOT EXISTS games (
@@ -138,54 +137,74 @@ function buildReplay(moves) {
 
 async function main() {
   const startedAt = Date.now();
-  console.log('db:build -> reading PGN...');
-  const pgnText = await fs.readFile(PGN_PATH, 'utf8');
+  await fs.mkdir(OUT_DIR, { recursive: true });
 
-  console.log('db:build -> splitting games...');
-  const games = splitGames(pgnText);
-  console.log(`db:build -> parsed ${games.length} games`);
+  const entries = await fs.readdir(GAMES_DIR, { withFileTypes: true });
+  const pgnFiles = entries
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.pgn'))
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right));
 
-  const SQL = await initSqlJs();
-  const db = new SQL.Database();
-  db.run(DB_SCHEMA);
-  const stmt = db.prepare(`
-    INSERT INTO games (
-      id, event, white_player, black_player, result, move_count, moves_json, fens_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  let invalidMoveTotal = 0;
-
-  for (let index = 0; index < games.length; index += 1) {
-    const game = games[index];
-    const { validMoves, fens } = buildReplay(game.moves);
-    invalidMoveTotal += Math.max(0, game.moves.length - validMoves.length);
-    stmt.run([
-      index,
-      game.event,
-      game.white,
-      game.black,
-      game.result,
-      validMoves.length,
-      JSON.stringify(validMoves),
-      JSON.stringify(fens),
-    ]);
-
-    if ((index + 1) % 500 === 0 || index + 1 === games.length) {
-      console.log(`db:build -> processed ${index + 1}/${games.length}`);
-    }
+  if (pgnFiles.length === 0) {
+    throw new Error(`No .pgn files found in ${GAMES_DIR}`);
   }
 
-  stmt.free();
+  const SQL = await initSqlJs();
 
-  await fs.mkdir(OUT_DIR, { recursive: true });
-  const dbBytes = db.export();
-  await fs.writeFile(OUT_DB, Buffer.from(dbBytes));
+  for (const pgnFile of pgnFiles) {
+    const pgnPath = path.join(GAMES_DIR, pgnFile);
+    const dbFileName = `${path.basename(pgnFile, path.extname(pgnFile)).toLowerCase()}.sqlite`;
+    const outDb = path.join(OUT_DIR, dbFileName);
+
+    console.log(`db:build -> reading PGN (${pgnFile})...`);
+    const pgnText = await fs.readFile(pgnPath, 'utf8');
+
+    console.log(`db:build -> splitting games (${pgnFile})...`);
+    const games = splitGames(pgnText);
+    console.log(`db:build -> parsed ${games.length} games from ${pgnFile}`);
+
+    const db = new SQL.Database();
+    db.run(DB_SCHEMA);
+    const stmt = db.prepare(`
+      INSERT INTO games (
+        id, event, white_player, black_player, result, move_count, moves_json, fens_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    let invalidMoveTotal = 0;
+
+    for (let index = 0; index < games.length; index += 1) {
+      const game = games[index];
+      const { validMoves, fens } = buildReplay(game.moves);
+      invalidMoveTotal += Math.max(0, game.moves.length - validMoves.length);
+      stmt.run([
+        index,
+        game.event,
+        game.white,
+        game.black,
+        game.result,
+        validMoves.length,
+        JSON.stringify(validMoves),
+        JSON.stringify(fens),
+      ]);
+
+      if ((index + 1) % 500 === 0 || index + 1 === games.length) {
+        console.log(`db:build -> processed ${index + 1}/${games.length} for ${pgnFile}`);
+      }
+    }
+
+    stmt.free();
+    const dbBytes = db.export();
+    await fs.writeFile(outDb, Buffer.from(dbBytes));
+    db.close();
+
+    console.log(
+      `Generated ${outDb} with ${games.length} games (filtered invalid moves: ${invalidMoveTotal}).`,
+    );
+  }
 
   const elapsedSec = ((Date.now() - startedAt) / 1000).toFixed(2);
-  console.log(
-    `Generated ${OUT_DB} with ${games.length} games in ${elapsedSec}s (filtered invalid moves: ${invalidMoveTotal}).`,
-  );
+  console.log(`db:build -> complete (${pgnFiles.length} datasets) in ${elapsedSec}s.`);
 }
 
 main().catch((error) => {

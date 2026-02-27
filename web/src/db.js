@@ -132,7 +132,8 @@ export async function createGameDb({ dbUrl = '/data/anand.sqlite', onProgress })
   });
 
   let db = await openDbFromUrl(SQL, dbUrl, onProgress);
-  const cache = new MiniRedisCache('games-v3');
+  const cacheNamespace = `games-v3:${String(dbUrl).replace(/[^a-z0-9]+/gi, '_')}`;
+  const cache = new MiniRedisCache(cacheNamespace);
 
   db.run(DB_SCHEMA);
 

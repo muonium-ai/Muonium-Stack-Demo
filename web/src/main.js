@@ -40,6 +40,53 @@ const PIECE_TO_UNICODE = {
   k: '♚',
 };
 
+const PLAYER_DATASET_STORAGE_KEY = 'muon.selectedPlayerDataset';
+const PLAYER_DATASETS = [
+  {
+    id: 'carlsen',
+    label: 'Magnus Carlsen',
+    dbUrl: '/data/carlsen.sqlite',
+  },
+  {
+    id: 'anand',
+    label: 'Viswanathan Anand',
+    dbUrl: '/data/anand.sqlite',
+  },
+];
+
+function getDatasetById(id) {
+  return PLAYER_DATASETS.find((dataset) => dataset.id === id) ?? null;
+}
+
+function getDefaultDataset() {
+  return getDatasetById('carlsen') ?? PLAYER_DATASETS[0];
+}
+
+function resolveInitialDataset() {
+  const fromStorage = localStorage.getItem(PLAYER_DATASET_STORAGE_KEY);
+  const stored = getDatasetById(fromStorage);
+  if (stored) {
+    return stored;
+  }
+
+  return getDefaultDataset();
+}
+
+function renderDatasetOptions(selectEl, selectedDatasetId) {
+  if (!selectEl) {
+    return;
+  }
+
+  selectEl.innerHTML = '';
+  for (const dataset of PLAYER_DATASETS) {
+    const option = document.createElement('option');
+    option.value = dataset.id;
+    option.textContent = dataset.label;
+    selectEl.appendChild(option);
+  }
+  selectEl.value = selectedDatasetId;
+}
+
 function formatElapsedMs(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
@@ -245,6 +292,7 @@ async function bootstrap() {
   const loadStartedAt = performance.now();
   const statusEl = document.querySelector('#status');
   const boardEl = document.querySelector('#board');
+  const playerDatasetSelect = document.querySelector('#playerDatasetSelect');
   const gameSelect = document.querySelector('#gameSelect');
   const moveArrowToggle = document.querySelector('#moveArrowToggle');
   const searchModalOpen = document.querySelector('#searchModalOpen');
@@ -319,13 +367,25 @@ async function bootstrap() {
   let benchmarkPausedTotalMs = 0;
   let benchmarkMode = 'idle';
   let benchmarkHasRun = false;
+  let activeDataset = resolveInitialDataset();
+
+  renderDatasetOptions(playerDatasetSelect, activeDataset.id);
+  playerDatasetSelect?.addEventListener('change', () => {
+    const next = getDatasetById(playerDatasetSelect.value) ?? getDefaultDataset();
+    if (next.id === activeDataset.id) {
+      return;
+    }
+
+    localStorage.setItem(PLAYER_DATASET_STORAGE_KEY, next.id);
+    window.location.reload();
+  });
 
   statusEl.textContent = 'Initializing WASM...';
   await initWasm();
 
-  statusEl.textContent = `Downloading prebuilt SQLite... (${formatElapsedMs(performance.now() - loadStartedAt)})`;
+  statusEl.textContent = `Downloading ${activeDataset.label} SQLite... (${formatElapsedMs(performance.now() - loadStartedAt)})`;
   const db = await createGameDb({
-    dbUrl: '/data/anand.sqlite',
+    dbUrl: activeDataset.dbUrl,
     onProgress: (progress) => {
       if (!loadProgressText) {
         return;
@@ -336,8 +396,8 @@ async function bootstrap() {
         const loadedBytes = Math.min(totalBytes, Number(progress.loadedBytes ?? 0));
         const pct = Math.round((loadedBytes / totalBytes) * 100);
         const elapsed = formatElapsedMs(performance.now() - loadStartedAt);
-        loadProgressText.textContent = `Downloading DB ${pct}% • ${elapsed}`;
-        statusEl.textContent = `Downloading prebuilt SQLite... ${pct}% (${elapsed})`;
+        loadProgressText.textContent = `${activeDataset.label}: downloading DB ${pct}% • ${elapsed}`;
+        statusEl.textContent = `Downloading ${activeDataset.label} SQLite... ${pct}% (${elapsed})`;
         return;
       }
 
@@ -345,8 +405,8 @@ async function bootstrap() {
         const total = Number(progress.total ?? 0);
         const loaded = Number(progress.loaded ?? 0);
         const elapsed = formatElapsedMs(performance.now() - loadStartedAt);
-        loadProgressText.textContent = `Loaded ${loaded} / ${total} games • ${elapsed}`;
-        statusEl.textContent = `Loaded ${loaded} / ${total} games (${elapsed})`;
+        loadProgressText.textContent = `${activeDataset.label}: loaded ${loaded} / ${total} games • ${elapsed}`;
+        statusEl.textContent = `${activeDataset.label}: loaded ${loaded} / ${total} games (${elapsed})`;
       }
     },
   });
@@ -674,6 +734,9 @@ async function bootstrap() {
   };
 
   const setReplayControlsDisabled = (disabled) => {
+    if (playerDatasetSelect) {
+      playerDatasetSelect.disabled = disabled;
+    }
     if (gameSelect) {
       gameSelect.disabled = disabled;
     }
