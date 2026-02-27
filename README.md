@@ -4,9 +4,23 @@ Rust + WASM chess replay demo using Muonium stack concepts.
 
 ## What is implemented
 
-- Browser-based chess game replay UI (auto-play, speed, move seek)
-- Rust WASM PGN parser + replay state generator
-- Build-time PGN → SQLite generation and streamed SQLite loading in browser
+- Browser-based chess replay UI with transport controls (start/prev/play/next/end), random autoplay, and PGN move viewer sync
+- Move-arrow visualization with top-level toggle (`Move arrow`)
+- Opening classification system powered by ECO lines:
+	- Dedicated `eco_lines` table in generated SQLite datasets
+	- Live opening name at game start and variant name as moves progress
+	- Top-level toggle (`Opening names`), enabled by default
+- Search modal with filters (White/Black/Year/text), direct game ID open/play, and result list
+- Counts tab in search modal (players/tournaments/years with pagination)
+- In-browser PGN upload (drag/drop or file picker), with parsing/import progress and in-memory SQLite creation
+- Multi-dataset selector in header (`PGN`) for switching bundled datasets (Carlsen/Anand)
+- Benchmarking tools:
+	- Regular benchmark (throughput summary)
+	- Visual benchmark (live progress, pause/resume, stop)
+	- Hide button for benchmark panel
+- Theme system with runtime switcher + persistence (Default, Midnight, Forest, Ocean, Sunset), including themed board/pieces/buttons
+- Rust WASM replay engine integration and build-time PGN → SQLite generation
+- Streamed SQLite loading in browser with progress updates
 - Mini redis style cache shim for browser persistence
 - MuonVec adapter seam for vector search over game metadata
 - Grafeo adapter seam with `@grafeo-db/wasm` package
@@ -15,7 +29,8 @@ Rust + WASM chess replay demo using Muonium stack concepts.
 
 - `wasm-core/` - Rust WASM chess parsing and replay engine
 - `web/src/` - Frontend app, DB/cache/vector/graph adapters
-- `chess/games/Anand.pgn` - Source PGN dataset
+- `chess/games/` - Source PGN datasets (Anand, Carlsen)
+- `chess/eco.pgn` - ECO opening/variation reference lines used for live classification
 - `vendor/` - Muonium and Grafeo submodule targets
 
 ## Setup (macOS)
