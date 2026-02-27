@@ -13,6 +13,15 @@ CREATE TABLE IF NOT EXISTS games (
   moves_json TEXT,
   fens_json TEXT
 );
+
+CREATE TABLE IF NOT EXISTS eco_lines (
+  id INTEGER PRIMARY KEY,
+  eco_code TEXT,
+  opening_name TEXT,
+  variation_name TEXT,
+  move_count INTEGER,
+  moves_json TEXT
+);
 `;
 
 function rowsFromQuery(db, sql) {
@@ -316,6 +325,32 @@ function createGameDbAdapter(db, cacheNamespace, totalGames) {
 
     getRegularBenchmarkSummary() {
       return regularBenchmarkSummary;
+    },
+
+    listEcoLines() {
+      const cached = cache.get('eco_lines');
+      if (Array.isArray(cached)) {
+        return cached;
+      }
+
+      const rows = rowsFromQuery(
+        db,
+        `
+          SELECT id, eco_code, opening_name, variation_name, move_count, moves_json
+          FROM eco_lines
+          ORDER BY move_count ASC, id ASC
+        `,
+      ).map((row) => ({
+        id: Number(row.id),
+        eco_code: String(row.eco_code ?? ''),
+        opening_name: String(row.opening_name ?? ''),
+        variation_name: String(row.variation_name ?? ''),
+        move_count: Number(row.move_count ?? 0),
+        moves: JSON.parse(row.moves_json ?? '[]'),
+      }));
+
+      cache.set('eco_lines', rows);
+      return rows;
     },
   };
 }

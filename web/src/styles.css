@@ -485,6 +485,13 @@ h1 {
   color: var(--color-text-muted);
 }
 
+#openingInfo {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
 #pgnViewer {
   box-sizing: border-box;
   width: var(--board-box-size);

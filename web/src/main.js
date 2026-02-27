@@ -157,6 +157,94 @@ function formatEtaSec(seconds) {
   return `${mins}m ${secs}s`;
 }
 
+function normalizeSanForCompare(move) {
+  return String(move ?? '')
+    .trim()
+    .replace(/[!?+#]+$/g, '')
+    .replace(/^0-0-0$/, 'O-O-O')
+    .replace(/^0-0$/, 'O-O');
+}
+
+function createEcoClassifier(ecoLines) {
+  const normalizedLines = Array.isArray(ecoLines)
+    ? ecoLines
+        .map((line) => ({
+          ecoCode: String(line?.eco_code ?? '').trim(),
+          opening: String(line?.opening_name ?? '').trim(),
+          variation: String(line?.variation_name ?? '').trim(),
+          moves: Array.isArray(line?.moves) ? line.moves.map(normalizeSanForCompare).filter(Boolean) : [],
+        }))
+        .filter((line) => line.opening && line.moves.length > 0)
+    : [];
+
+  const byFirstMove = new Map();
+  for (const line of normalizedLines) {
+    const firstMove = line.moves[0];
+    if (!firstMove) {
+      continue;
+    }
+    if (!byFirstMove.has(firstMove)) {
+      byFirstMove.set(firstMove, []);
+    }
+    byFirstMove.get(firstMove).push(line);
+  }
+
+  for (const [, lines] of byFirstMove) {
+    lines.sort((left, right) => left.moves.length - right.moves.length);
+  }
+
+  return {
+    hasData: normalizedLines.length > 0,
+    classify(gameMoves, moveIndex) {
+      const playedCount = Math.max(0, Number(moveIndex) || 0);
+      if (playedCount <= 0 || !Array.isArray(gameMoves) || gameMoves.length === 0) {
+        return null;
+      }
+
+      const normalizedGameMoves = gameMoves.map(normalizeSanForCompare);
+      const firstMove = normalizedGameMoves[0];
+      const candidates = byFirstMove.get(firstMove) ?? [];
+      if (candidates.length === 0) {
+        return null;
+      }
+
+      const matched = [];
+      for (const line of candidates) {
+        if (line.moves.length > playedCount) {
+          continue;
+        }
+
+        let isPrefix = true;
+        for (let index = 0; index < line.moves.length; index += 1) {
+          if (line.moves[index] !== normalizedGameMoves[index]) {
+            isPrefix = false;
+            break;
+          }
+        }
+
+        if (isPrefix) {
+          matched.push(line);
+        }
+      }
+
+      if (matched.length === 0) {
+        return null;
+      }
+
+      const openingMatch = matched[0];
+      const variantMatch = [...matched]
+        .reverse()
+        .find((line) => line.opening === openingMatch.opening && line.variation);
+
+      return {
+        ecoCode: openingMatch.ecoCode,
+        opening: openingMatch.opening,
+        variant: variantMatch?.variation ?? '',
+      };
+    },
+  };
+}
+
 function extractYearFromGame(game) {
   const eventText = String(game?.event ?? '');
   const match = eventText.match(/\b(18|19|20)\d{2}\b/);
@@ -336,6 +424,7 @@ async function bootstrap() {
   const playerDatasetSelect = document.querySelector('#playerDatasetSelect');
   const gameSelect = document.querySelector('#gameSelect');
   const moveArrowToggle = document.querySelector('#moveArrowToggle');
+  const openingClassifierToggle = document.querySelector('#openingClassifierToggle');
   const searchModalOpen = document.querySelector('#searchModalOpen');
   const uploadPgnOpen = document.querySelector('#uploadPgnOpen');
   const searchModal = document.querySelector('#searchModal');
@@ -395,6 +484,7 @@ async function bootstrap() {
   const benchmarkVisualArrowLatency = document.querySelector('#benchmarkVisualArrowLatency');
   const benchmarkVisualState = document.querySelector('#benchmarkVisualState');
   const datasetLoadInfo = document.querySelector('#datasetLoadInfo');
+  const openingInfo = document.querySelector('#openingInfo');
   const whiteName = document.querySelector('#whiteName');
   const blackName = document.querySelector('#blackName');
   const whiteCaptures = document.querySelector('#whiteCaptures');
@@ -409,6 +499,8 @@ async function bootstrap() {
   };
 
   let activeGame = null;
+  let activeReplayMoves = [];
+  let activeReplayMoveIndex = 0;
   let benchmarkRunning = false;
   let benchmarkPaused = false;
   let benchmarkStopRequested = false;
@@ -417,6 +509,39 @@ async function bootstrap() {
   let benchmarkMode = 'idle';
   let benchmarkHasRun = false;
   let activeDataset = resolveInitialDataset();
+  let ecoClassifier = createEcoClassifier([]);
+
+  const updateOpeningInfo = () => {
+    if (!openingInfo) {
+      return;
+    }
+
+    const classifierEnabled = Boolean(openingClassifierToggle?.checked ?? true);
+    if (!classifierEnabled) {
+      openingInfo.textContent = 'Opening: Off';
+      return;
+    }
+
+    if (!ecoClassifier.hasData) {
+      openingInfo.textContent = 'Opening: unavailable for this dataset';
+      return;
+    }
+
+    if (activeReplayMoveIndex <= 0) {
+      openingInfo.textContent = 'Opening: --';
+      return;
+    }
+
+    const match = ecoClassifier.classify(activeReplayMoves, activeReplayMoveIndex);
+    if (!match) {
+      openingInfo.textContent = 'Opening: Unclassified';
+      return;
+    }
+
+    const variantPart = match.variant ? ` • Variant: ${match.variant}` : '';
+    const ecoPart = match.ecoCode ? ` (${match.ecoCode})` : '';
+    openingInfo.textContent = `Opening: ${match.opening}${variantPart}${ecoPart}`;
+  };
 
   renderThemeOptions(themeSelect, initialThemeId);
   themeSelect?.addEventListener('change', () => {
@@ -493,6 +618,7 @@ async function bootstrap() {
   let searchMatchedRows = searchTable.rows;
   let searchCountPage = 0;
   let activeSearchTab = 'filters';
+  ecoClassifier = createEcoClassifier(db.listEcoLines());
 
   setDatasetLoadInfo({
     sourceLabel: activeDataset.label,
@@ -518,6 +644,9 @@ async function bootstrap() {
       }
     },
     onUpdate: ({ moveIndex, totalMoves, fen, moves, isComplete }) => {
+      activeReplayMoves = Array.isArray(moves) ? moves : [];
+      activeReplayMoveIndex = Number(moveIndex) || 0;
+
       if (activeGame) {
         if (whiteName) {
           whiteName.textContent = `White: ${activeGame.white_player}`;
@@ -545,6 +674,8 @@ async function bootstrap() {
         }
       }
 
+      updateOpeningInfo();
+
       const shouldRenderPgn =
         benchmarkMode !== 'visual' ||
         isComplete ||
@@ -567,6 +698,10 @@ async function bootstrap() {
     if (benchmarkMode !== 'visual') {
       replayer.setMoveArrowDuration(DEFAULT_MOVE_ARROW_DURATION_MS);
     }
+  });
+
+  openingClassifierToggle?.addEventListener('change', () => {
+    updateOpeningInfo();
   });
 
   const vectorAdapter = new MuonVecAdapter();
@@ -634,6 +769,7 @@ async function bootstrap() {
     searchTable = precomputeSearchTable(games);
     searchMatchedRows = searchTable.rows;
     searchCountPage = 0;
+    ecoClassifier = createEcoClassifier(db.listEcoLines());
 
     refillGameSelectOptions();
     vectorAdapter.upsertGames(games);
@@ -1513,6 +1649,7 @@ async function bootstrap() {
 
   gameSelect.value = String(games[0]?.id ?? 0);
   loadReplay();
+  updateOpeningInfo();
 }
 
 bootstrap().catch((error) => {

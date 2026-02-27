@@ -5,6 +5,7 @@ import { Chess } from 'chess.js';
 
 const ROOT = process.cwd();
 const GAMES_DIR = path.join(ROOT, 'chess', 'games');
+const ECO_PGN_PATH = path.join(ROOT, 'chess', 'eco.pgn');
 const OUT_DIR = path.join(ROOT, 'public', 'data');
 
 const DB_SCHEMA = `
@@ -18,6 +19,18 @@ CREATE TABLE IF NOT EXISTS games (
   moves_json TEXT,
   fens_json TEXT
 );
+
+CREATE TABLE IF NOT EXISTS eco_lines (
+  id INTEGER PRIMARY KEY,
+  eco_code TEXT,
+  opening_name TEXT,
+  variation_name TEXT,
+  move_count INTEGER,
+  moves_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_eco_lines_opening ON eco_lines(opening_name);
+CREATE INDEX IF NOT EXISTS idx_eco_lines_move_count ON eco_lines(move_count);
 `;
 
 function parseTag(block, key) {
@@ -114,6 +127,43 @@ function splitGames(pgnText) {
   return games;
 }
 
+function splitEcoEntries(pgnText) {
+  const normalized = pgnText.replace(/\r\n/g, '\n');
+  const chunks = normalized
+    .split('\n\n[ECO ')
+    .map((chunk) => (chunk.startsWith('[ECO ') ? chunk : `[ECO ${chunk}`));
+  const entries = [];
+
+  for (const chunk of chunks) {
+    if (!chunk.includes('[ECO ')) {
+      continue;
+    }
+
+    const separator = chunk.indexOf('\n\n');
+    const tagBlock = separator === -1 ? chunk : chunk.slice(0, separator);
+    const moveBlock = separator === -1 ? '' : chunk.slice(separator + 2);
+
+    const ecoCode = parseTag(tagBlock, 'ECO');
+    const openingName = parseTag(tagBlock, 'Opening');
+    const variationName = parseTag(tagBlock, 'Variation');
+    const moveText = moveBlock.trim();
+    const moves = parseMoves(moveText);
+
+    if (openingName === '?' || moves.length === 0) {
+      continue;
+    }
+
+    entries.push({
+      ecoCode,
+      openingName,
+      variationName: variationName === '?' ? '' : variationName,
+      moves,
+    });
+  }
+
+  return entries;
+}
+
 function buildReplay(moves) {
   const chess = new Chess();
   const validMoves = [];
@@ -150,6 +200,12 @@ async function main() {
   }
 
   const SQL = await initSqlJs();
+  const ecoPgnText = await fs.readFile(ECO_PGN_PATH, 'utf8');
+  const ecoEntries = splitEcoEntries(ecoPgnText);
+
+  if (ecoEntries.length === 0) {
+    throw new Error(`No ECO entries parsed from ${ECO_PGN_PATH}`);
+  }
 
   for (const pgnFile of pgnFiles) {
     const pgnPath = path.join(GAMES_DIR, pgnFile);
@@ -169,6 +225,11 @@ async function main() {
       INSERT INTO games (
         id, event, white_player, black_player, result, move_count, moves_json, fens_json
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const ecoStmt = db.prepare(`
+      INSERT INTO eco_lines (
+        id, eco_code, opening_name, variation_name, move_count, moves_json
+      ) VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     let invalidMoveTotal = 0;
@@ -194,12 +255,26 @@ async function main() {
     }
 
     stmt.free();
+
+    for (let index = 0; index < ecoEntries.length; index += 1) {
+      const entry = ecoEntries[index];
+      ecoStmt.run([
+        index,
+        entry.ecoCode,
+        entry.openingName,
+        entry.variationName,
+        entry.moves.length,
+        JSON.stringify(entry.moves),
+      ]);
+    }
+    ecoStmt.free();
+
     const dbBytes = db.export();
     await fs.writeFile(outDb, Buffer.from(dbBytes));
     db.close();
 
     console.log(
-      `Generated ${outDb} with ${games.length} games (filtered invalid moves: ${invalidMoveTotal}).`,
+      `Generated ${outDb} with ${games.length} games and ${ecoEntries.length} ECO lines (filtered invalid moves: ${invalidMoveTotal}).`,
     );
   }
 
