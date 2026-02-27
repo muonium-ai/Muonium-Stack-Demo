@@ -6,10 +6,16 @@
     <title>Muonium Chess Replay (WASM)</title>
     <script type="module" src="/web/src/main.js"></script>
   </head>
-  <body>
+  <body data-theme="default">
     <main id="app">
       <section class="headerRow">
-        <h1>Muonium Stack Chess Replay</h1>
+        <div class="headerTitleGroup">
+          <h1>Muonium Stack Chess Replay</h1>
+          <label class="headerTheme" for="themeSelect">
+            <span>Theme</span>
+            <select id="themeSelect"></select>
+          </label>
+        </div>
         <div class="headerActions">
           <button id="searchModalOpen" class="topActionBtn topActionSearch">Search Games</button>
           <button id="uploadPgnOpen" class="topActionBtn topActionUpload">Upload PGN</button>

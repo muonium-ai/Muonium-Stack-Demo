@@ -218,7 +218,14 @@ function createBoardRenderer(boardEl) {
         if (state.lastSquares[index] === piece) {
           continue;
         }
-        squareEls[index].textContent = piece ? PIECE_TO_UNICODE[piece] : '';
+        if (!piece) {
+          squareEls[index].textContent = '';
+        } else {
+          const span = document.createElement('span');
+          span.className = `boardPiece ${isPieceWhite(piece) ? 'white' : 'black'}`;
+          span.textContent = PIECE_TO_UNICODE[piece] ?? '';
+          squareEls[index].replaceChildren(span);
+        }
         state.lastSquares[index] = piece;
       }
     },

@@ -3,6 +3,14 @@ import { createGameDb, createGameDbFromPgn } from './db.js';
 import { GrafeoAdapter } from './graph.js';
 import { createReplayer } from './replay.js';
 import './styles.css';
+import {
+  BUILT_IN_THEMES,
+  DEFAULT_THEME_ID,
+  initializeThemeFoundation,
+  persistThemeId,
+  resolveInitialThemeId,
+  setActiveTheme,
+} from './theme.js';
 import { MuonVecAdapter } from './vector.js';
 
 const INITIAL_COUNTS = {
@@ -86,6 +94,23 @@ function renderDatasetOptions(selectEl, selectedDatasetId) {
     selectEl.appendChild(option);
   }
   selectEl.value = selectedDatasetId;
+}
+
+function renderThemeOptions(selectEl, selectedThemeId) {
+  if (!selectEl) {
+    return;
+  }
+
+  selectEl.innerHTML = '';
+  for (const theme of BUILT_IN_THEMES) {
+    const option = document.createElement('option');
+    option.value = theme.id;
+    option.textContent = theme.label;
+    selectEl.appendChild(option);
+  }
+
+  const hasSelected = Array.from(selectEl.options).some((option) => option.value === selectedThemeId);
+  selectEl.value = hasSelected ? selectedThemeId : DEFAULT_THEME_ID;
 }
 
 function formatElapsedMs(ms) {
@@ -301,9 +326,13 @@ function renderPgnViewer(container, moves, moveIndex, state, options = {}) {
 }
 
 async function bootstrap() {
+  const initialThemeId = resolveInitialThemeId();
+  initializeThemeFoundation(initialThemeId);
+
   const loadStartedAt = performance.now();
   const statusEl = document.querySelector('#status');
   const boardEl = document.querySelector('#board');
+  const themeSelect = document.querySelector('#themeSelect');
   const playerDatasetSelect = document.querySelector('#playerDatasetSelect');
   const gameSelect = document.querySelector('#gameSelect');
   const moveArrowToggle = document.querySelector('#moveArrowToggle');
@@ -387,6 +416,13 @@ async function bootstrap() {
   let benchmarkMode = 'idle';
   let benchmarkHasRun = false;
   let activeDataset = resolveInitialDataset();
+
+  renderThemeOptions(themeSelect, initialThemeId);
+  themeSelect?.addEventListener('change', () => {
+    const selectedThemeId = themeSelect.value || DEFAULT_THEME_ID;
+    setActiveTheme(selectedThemeId);
+    persistThemeId(selectedThemeId);
+  });
 
   renderDatasetOptions(playerDatasetSelect, activeDataset.id);
   playerDatasetSelect?.addEventListener('change', () => {
@@ -920,6 +956,9 @@ async function bootstrap() {
   };
 
   const setReplayControlsDisabled = (disabled) => {
+    if (themeSelect) {
+      themeSelect.disabled = disabled;
+    }
     if (playerDatasetSelect) {
       playerDatasetSelect.disabled = disabled;
     }

@@ -2,12 +2,170 @@
   color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --board-box-size: 544px;
+  --color-page-bg: #f6f7fb;
+  --color-text-primary: #1c2230;
+  --color-text-muted: #3b4b67;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f8faff;
+  --color-overlay: rgba(20, 28, 45, 0.45);
+  --color-border: #d9deea;
+  --color-border-strong: #c7cfdf;
+  --color-focus-bg: #eef3ff;
+  --color-focus-border: #a9b9d6;
+  --color-btn-search: #2563eb;
+  --color-btn-search-hover: #1d4ed8;
+  --color-btn-search-border: #1f4bc3;
+  --color-btn-upload: #d97706;
+  --color-btn-upload-hover: #b45309;
+  --color-btn-upload-border: #b45309;
+  --color-btn-benchmark: #0d9488;
+  --color-btn-benchmark-hover: #0f766e;
+  --color-btn-benchmark-border: #0f766e;
+  --color-btn-visual: #7c3aed;
+  --color-btn-visual-hover: #6d28d9;
+  --color-btn-visual-border: #6d28d9;
+  --color-text-on-primary: #ffffff;
+  --color-board-border: #333333;
+  --color-board-light: #f0d9b5;
+  --color-board-dark: #b58863;
+  --color-pgn-active: #2563eb;
+  --color-piece-white: #f8fafc;
+  --color-piece-black: #111827;
+  --color-piece-outline: rgba(15, 23, 42, 0.45);
+}
+
+[data-theme='midnight'] {
+  --color-page-bg: #0b1220;
+  --color-text-primary: #e5edf9;
+  --color-text-muted: #9fb1cd;
+  --color-surface: #111a2e;
+  --color-surface-subtle: #1a2640;
+  --color-overlay: rgba(2, 6, 23, 0.72);
+  --color-border: #22324f;
+  --color-border-strong: #31486f;
+  --color-focus-bg: #1c3558;
+  --color-focus-border: #3d5f8c;
+  --color-btn-search: #1d4ed8;
+  --color-btn-search-hover: #1e40af;
+  --color-btn-search-border: #1e3a8a;
+  --color-btn-upload: #b45309;
+  --color-btn-upload-hover: #92400e;
+  --color-btn-upload-border: #78350f;
+  --color-btn-benchmark: #0f766e;
+  --color-btn-benchmark-hover: #115e59;
+  --color-btn-benchmark-border: #134e4a;
+  --color-btn-visual: #6d28d9;
+  --color-btn-visual-hover: #5b21b6;
+  --color-btn-visual-border: #4c1d95;
+  --color-board-border: #0f172a;
+  --color-board-light: #8aa1c4;
+  --color-board-dark: #2f425d;
+  --color-pgn-active: #2563eb;
+  --color-piece-white: #f8fafc;
+  --color-piece-black: #0b1020;
+  --color-piece-outline: rgba(148, 163, 184, 0.5);
+}
+
+[data-theme='forest'] {
+  --color-page-bg: #edf4ed;
+  --color-text-primary: #1f3a29;
+  --color-text-muted: #45644f;
+  --color-surface: #f7fbf7;
+  --color-surface-subtle: #ecf5ec;
+  --color-overlay: rgba(21, 55, 34, 0.4);
+  --color-border: #c7dbc9;
+  --color-border-strong: #a9c4ac;
+  --color-focus-bg: #ddecdf;
+  --color-focus-border: #91b296;
+  --color-btn-search: #2f855a;
+  --color-btn-search-hover: #276749;
+  --color-btn-search-border: #22543d;
+  --color-btn-upload: #b7791f;
+  --color-btn-upload-hover: #975a16;
+  --color-btn-upload-border: #7b4a13;
+  --color-btn-benchmark: #2f855a;
+  --color-btn-benchmark-hover: #276749;
+  --color-btn-benchmark-border: #22543d;
+  --color-btn-visual: #6b46c1;
+  --color-btn-visual-hover: #553c9a;
+  --color-btn-visual-border: #44337a;
+  --color-board-border: #2f5233;
+  --color-board-light: #d9ead3;
+  --color-board-dark: #7da27f;
+  --color-pgn-active: #2f855a;
+  --color-piece-white: #fffdf7;
+  --color-piece-black: #1c2f20;
+  --color-piece-outline: rgba(34, 84, 61, 0.45);
+}
+
+[data-theme='ocean'] {
+  --color-page-bg: #edf6fb;
+  --color-text-primary: #13354a;
+  --color-text-muted: #3a6075;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f2f9fd;
+  --color-overlay: rgba(12, 46, 70, 0.45);
+  --color-border: #c8ddea;
+  --color-border-strong: #aac8da;
+  --color-focus-bg: #e0f0f8;
+  --color-focus-border: #89b2ca;
+  --color-btn-search: #0284c7;
+  --color-btn-search-hover: #0369a1;
+  --color-btn-search-border: #075985;
+  --color-btn-upload: #f59e0b;
+  --color-btn-upload-hover: #d97706;
+  --color-btn-upload-border: #b45309;
+  --color-btn-benchmark: #0d9488;
+  --color-btn-benchmark-hover: #0f766e;
+  --color-btn-benchmark-border: #115e59;
+  --color-btn-visual: #7c3aed;
+  --color-btn-visual-hover: #6d28d9;
+  --color-btn-visual-border: #5b21b6;
+  --color-board-border: #1b4965;
+  --color-board-light: #cae9ff;
+  --color-board-dark: #62b6cb;
+  --color-pgn-active: #0284c7;
+  --color-piece-white: #f8fdff;
+  --color-piece-black: #0b2233;
+  --color-piece-outline: rgba(14, 65, 97, 0.5);
+}
+
+[data-theme='sunset'] {
+  --color-page-bg: #fff5ee;
+  --color-text-primary: #4a2a25;
+  --color-text-muted: #7a4c43;
+  --color-surface: #fffaf7;
+  --color-surface-subtle: #fff2eb;
+  --color-overlay: rgba(74, 42, 37, 0.45);
+  --color-border: #efd2c2;
+  --color-border-strong: #e1b8a5;
+  --color-focus-bg: #ffe8dc;
+  --color-focus-border: #d99e82;
+  --color-btn-search: #ea580c;
+  --color-btn-search-hover: #c2410c;
+  --color-btn-search-border: #9a3412;
+  --color-btn-upload: #d97706;
+  --color-btn-upload-hover: #b45309;
+  --color-btn-upload-border: #92400e;
+  --color-btn-benchmark: #0f766e;
+  --color-btn-benchmark-hover: #115e59;
+  --color-btn-benchmark-border: #134e4a;
+  --color-btn-visual: #be185d;
+  --color-btn-visual-hover: #9d174d;
+  --color-btn-visual-border: #831843;
+  --color-board-border: #7c3f2a;
+  --color-board-light: #ffd6ba;
+  --color-board-dark: #d38b5d;
+  --color-pgn-active: #ea580c;
+  --color-piece-white: #fffaf2;
+  --color-piece-black: #35211a;
+  --color-piece-outline: rgba(94, 48, 34, 0.45);
 }
 
 body {
   margin: 0;
-  background: #f6f7fb;
-  color: #1c2230;
+  background: var(--color-page-bg);
+  color: var(--color-text-primary);
 }
 
 #app {
@@ -28,6 +186,30 @@ h1 {
   margin-bottom: 10px;
 }
 
+.headerTitleGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.headerTheme {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.headerTheme select {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
 .headerActions {
   display: flex;
   align-items: center;
@@ -38,7 +220,7 @@ h1 {
 
 .topActionBtn {
   border-radius: 10px;
-  color: #fff;
+  color: var(--color-text-on-primary);
   cursor: pointer;
   font-size: 16px;
   font-weight: 700;
@@ -46,39 +228,39 @@ h1 {
 }
 
 .topActionSearch {
-  border: 1px solid #1f4bc3;
-  background: #2563eb;
+  border: 1px solid var(--color-btn-search-border);
+  background: var(--color-btn-search);
 }
 
 .topActionSearch:hover {
-  background: #1d4ed8;
+  background: var(--color-btn-search-hover);
 }
 
 .topActionUpload {
-  border: 1px solid #b45309;
-  background: #d97706;
+  border: 1px solid var(--color-btn-upload-border);
+  background: var(--color-btn-upload);
 }
 
 .topActionUpload:hover {
-  background: #b45309;
+  background: var(--color-btn-upload-hover);
 }
 
 .topActionBenchmark {
-  border: 1px solid #0f766e;
-  background: #0d9488;
+  border: 1px solid var(--color-btn-benchmark-border);
+  background: var(--color-btn-benchmark);
 }
 
 .topActionBenchmark:hover {
-  background: #0f766e;
+  background: var(--color-btn-benchmark-hover);
 }
 
 .topActionVisual {
-  border: 1px solid #6d28d9;
-  background: #7c3aed;
+  border: 1px solid var(--color-btn-visual-border);
+  background: var(--color-btn-visual);
 }
 
 .topActionVisual:hover {
-  background: #6d28d9;
+  background: var(--color-btn-visual-hover);
 }
 
 .topActionBtn:disabled {
@@ -105,8 +287,8 @@ h1 {
   display: grid;
   gap: 8px;
   margin: 0 0 12px;
-  background: #fff;
-  border: 1px solid #d9deea;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 10px 12px;
 }
@@ -121,9 +303,9 @@ h1 {
 #benchmarkModeLabel {
   font-size: 12px;
   font-weight: 600;
-  color: #3b4b67;
-  background: #eef3ff;
-  border: 1px solid #c7cfdf;
+  color: var(--color-text-muted);
+  background: var(--color-focus-bg);
+  border: 1px solid var(--color-border-strong);
   border-radius: 999px;
   padding: 2px 8px;
 }
@@ -140,8 +322,8 @@ h1 {
 }
 
 .benchmarkRow.isActive {
-  background: #eef3ff;
-  border-color: #c7cfdf;
+  background: var(--color-focus-bg);
+  border-color: var(--color-border-strong);
 }
 
 .benchmarkKind {
@@ -156,15 +338,15 @@ h1 {
 }
 
 #benchmarkPanel button {
-  border: 1px solid #c7cfdf;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: #f8faff;
+  background: var(--color-surface-subtle);
   cursor: pointer;
   padding: 6px 10px;
 }
 
 #benchmarkPanel button:hover:not(:disabled) {
-  background: #eef3ff;
+  background: var(--color-focus-bg);
 }
 
 #benchmarkPanel button:disabled {
@@ -209,8 +391,8 @@ h1 {
 #pgnPane {
   flex: 0 0 auto;
   width: var(--board-box-size);
-  background: #ffffff;
-  border: 1px solid #d9deea;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px;
 }
@@ -223,7 +405,7 @@ h1 {
 #datasetLoadInfo {
   margin-bottom: 8px;
   font-size: 13px;
-  color: #3b4b67;
+  color: var(--color-text-muted);
 }
 
 #pgnViewer {
@@ -245,15 +427,15 @@ h1 {
 #transportControls button {
   width: 42px;
   height: 42px;
-  border: 1px solid #c7cfdf;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: #f8faff;
+  background: var(--color-surface-subtle);
   cursor: pointer;
   font-size: 20px;
 }
 
 #transportControls button:hover {
-  background: #eef3ff;
+  background: var(--color-focus-bg);
 }
 
 .pgnMove {
@@ -265,8 +447,8 @@ h1 {
 }
 
 .pgnMove.active {
-  background: #2563eb;
-  color: #fff;
+  background: var(--color-pgn-active);
+  color: var(--color-text-on-primary);
 }
 
 .playerRow {
@@ -296,7 +478,7 @@ h1 {
 
 #board table {
   border-collapse: collapse;
-  border: 1px solid #333;
+  border: 1px solid var(--color-board-border);
 }
 
 #board {
@@ -317,7 +499,7 @@ h1 {
 .modal {
   position: fixed;
   inset: 0;
-  background: rgba(20, 28, 45, 0.45);
+  background: var(--color-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -329,8 +511,8 @@ h1 {
   width: min(860px, 100%);
   max-height: 90vh;
   overflow: auto;
-  background: #fff;
-  border: 1px solid #d9deea;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 14px;
 }
@@ -347,9 +529,9 @@ h1 {
 }
 
 .modalHeader button {
-  border: 1px solid #c7cfdf;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: #f8faff;
+  background: var(--color-surface-subtle);
   cursor: pointer;
   width: 34px;
   height: 34px;
@@ -369,16 +551,16 @@ h1 {
 }
 
 .modalTab {
-  border: 1px solid #c7cfdf;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: #f8faff;
+  background: var(--color-surface-subtle);
   cursor: pointer;
   padding: 7px 10px;
 }
 
 .modalTab.isActive {
-  background: #eef3ff;
-  border-color: #a9b9d6;
+  background: var(--color-focus-bg);
+  border-color: var(--color-focus-border);
   font-weight: 600;
 }
 
@@ -387,7 +569,7 @@ h1 {
 }
 
 .pgnDropZone {
-  border: 2px dashed #c7cfdf;
+  border: 2px dashed var(--color-border-strong);
   border-radius: 10px;
   padding: 18px;
   display: grid;
@@ -395,12 +577,12 @@ h1 {
   justify-items: center;
   text-align: center;
   margin-bottom: 10px;
-  background: #f8faff;
+  background: var(--color-surface-subtle);
 }
 
 .pgnDropZone.isDragOver {
-  border-color: #2563eb;
-  background: #eef3ff;
+  border-color: var(--color-pgn-active);
+  background: var(--color-focus-bg);
 }
 
 #pgnFileInput {
@@ -409,7 +591,7 @@ h1 {
 
 #pgnImportStatus {
   font-size: 13px;
-  color: #3b4b67;
+  color: var(--color-text-muted);
 }
 
 .modalGrid label {
@@ -422,11 +604,11 @@ h1 {
 .modalGrid select,
 .modalGrid input,
 #searchResults {
-  border: 1px solid #c7cfdf;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   padding: 7px 9px;
   font-size: 14px;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .modalActions {
@@ -437,9 +619,9 @@ h1 {
 }
 
 .modalActions button {
-  border: 1px solid #c7cfdf;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: #f8faff;
+  background: var(--color-surface-subtle);
   cursor: pointer;
   padding: 7px 10px;
 }
@@ -447,13 +629,13 @@ h1 {
 #searchResultMeta {
   margin-bottom: 8px;
   font-size: 13px;
-  color: #3b4b67;
+  color: var(--color-text-muted);
 }
 
 #searchCountMeta {
   margin-bottom: 8px;
   font-size: 13px;
-  color: #3b4b67;
+  color: var(--color-text-muted);
 }
 
 .countPager {
@@ -463,7 +645,7 @@ h1 {
 
 #searchCountPageInfo {
   font-size: 13px;
-  color: #3b4b67;
+  color: var(--color-text-muted);
 }
 
 #board td {
@@ -474,12 +656,26 @@ h1 {
   font-size: 42px;
 }
 
+.boardPiece {
+  display: inline-block;
+  line-height: 1;
+  text-shadow: 0 1px 0 var(--color-piece-outline);
+}
+
+.boardPiece.white {
+  color: var(--color-piece-white);
+}
+
+.boardPiece.black {
+  color: var(--color-piece-black);
+}
+
 #board td.light {
-  background: #f0d9b5;
+  background: var(--color-board-light);
 }
 
 #board td.dark {
-  background: #b58863;
+  background: var(--color-board-dark);
 }
 
 @media (max-width: 1100px) {
