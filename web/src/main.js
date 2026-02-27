@@ -73,6 +73,76 @@ function formatEtaSec(seconds) {
   return `${mins}m ${secs}s`;
 }
 
+function extractYearFromGame(game) {
+  const eventText = String(game?.event ?? '');
+  const match = eventText.match(/\b(18|19|20)\d{2}\b/);
+  return match ? Number(match[0]) : null;
+}
+
+function precomputeSearchTable(games) {
+  const rows = games.map((game) => {
+    const year = extractYearFromGame(game);
+    const text = [
+      game.id,
+      game.event,
+      game.white_player,
+      game.black_player,
+      game.result,
+      year ?? 'unknown',
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return {
+      id: Number(game.id),
+      event: game.event ?? '?',
+      white: game.white_player ?? '?',
+      black: game.black_player ?? '?',
+      year,
+      text,
+    };
+  });
+
+  const whites = Array.from(new Set(rows.map((row) => row.white))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const blacks = Array.from(new Set(rows.map((row) => row.black))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const years = Array.from(new Set(rows.map((row) => row.year).filter((year) => year !== null))).sort(
+    (a, b) => b - a,
+  );
+
+  return { rows, whites, blacks, years };
+}
+
+function setSelectOptions(selectEl, options, includeAny = true) {
+  if (!selectEl) {
+    return;
+  }
+
+  const previousValue = selectEl.value;
+  selectEl.innerHTML = '';
+
+  if (includeAny) {
+    const anyOption = document.createElement('option');
+    anyOption.value = '';
+    anyOption.textContent = 'Any';
+    selectEl.appendChild(anyOption);
+  }
+
+  for (const optionText of options) {
+    const option = document.createElement('option');
+    option.value = String(optionText);
+    option.textContent = String(optionText);
+    selectEl.appendChild(option);
+  }
+
+  if (previousValue && Array.from(selectEl.options).some((opt) => opt.value === previousValue)) {
+    selectEl.value = previousValue;
+  }
+}
+
 function pieceCountsFromFen(fen) {
   const board = (fen ?? '').split(' ')[0] ?? '';
   const counts = {
@@ -177,6 +247,31 @@ async function bootstrap() {
   const boardEl = document.querySelector('#board');
   const gameSelect = document.querySelector('#gameSelect');
   const moveArrowToggle = document.querySelector('#moveArrowToggle');
+  const searchModalOpen = document.querySelector('#searchModalOpen');
+  const searchModal = document.querySelector('#searchModal');
+  const searchModalClose = document.querySelector('#searchModalClose');
+  const searchTabFilters = document.querySelector('#searchTabFilters');
+  const searchTabCounts = document.querySelector('#searchTabCounts');
+  const searchTabPanelFilters = document.querySelector('#searchTabPanelFilters');
+  const searchTabPanelCounts = document.querySelector('#searchTabPanelCounts');
+  const searchWhite = document.querySelector('#searchWhite');
+  const searchBlack = document.querySelector('#searchBlack');
+  const searchYear = document.querySelector('#searchYear');
+  const searchText = document.querySelector('#searchText');
+  const searchGameId = document.querySelector('#searchGameId');
+  const searchResults = document.querySelector('#searchResults');
+  const searchResultMeta = document.querySelector('#searchResultMeta');
+  const searchOpenSelectedBtn = document.querySelector('#searchOpenSelectedBtn');
+  const searchOpenPlaySelectedBtn = document.querySelector('#searchOpenPlaySelectedBtn');
+  const searchOpenByIdBtn = document.querySelector('#searchOpenByIdBtn');
+  const searchOpenPlayByIdBtn = document.querySelector('#searchOpenPlayByIdBtn');
+  const searchCountGroup = document.querySelector('#searchCountGroup');
+  const searchCountPageSize = document.querySelector('#searchCountPageSize');
+  const searchCountMeta = document.querySelector('#searchCountMeta');
+  const searchCountResults = document.querySelector('#searchCountResults');
+  const searchCountPrevBtn = document.querySelector('#searchCountPrevBtn');
+  const searchCountNextBtn = document.querySelector('#searchCountNextBtn');
+  const searchCountPageInfo = document.querySelector('#searchCountPageInfo');
   const randomBtn = document.querySelector('#randomBtn');
   const benchmarkFastBtn = document.querySelector('#benchmarkFastBtn');
   const benchmarkBtn = document.querySelector('#benchmarkBtn');
@@ -265,6 +360,12 @@ async function bootstrap() {
     return;
   }
 
+  const gamesById = new Map(games.map((game) => [Number(game.id), game]));
+  const searchTable = precomputeSearchTable(games);
+  let searchMatchedRows = searchTable.rows;
+  let searchCountPage = 0;
+  let activeSearchTab = 'filters';
+
   for (const game of games) {
     const opt = document.createElement('option');
     opt.value = String(game.id);
@@ -342,12 +443,18 @@ async function bootstrap() {
   await graphAdapter.indexGames(games.slice(0, 20));
 
   const loadReplay = () => {
-    const gameId = Number(gameSelect.value || 0);
-    activeGame = games[gameId] ?? null;
+    const gameId = Number(gameSelect.value || games[0]?.id || 0);
+    const game = gamesById.get(gameId);
+    if (!game) {
+      return false;
+    }
+
+    activeGame = game;
     const replay = db.getReplay(gameId);
     replayer.loadReplay(replay);
+
     const similar = vectorAdapter.search(
-      `${games[gameId]?.white_player ?? ''} ${games[gameId]?.black_player ?? ''}`,
+      `${game.white_player ?? ''} ${game.black_player ?? ''}`,
       3,
     );
     if (similar.length > 0) {
@@ -355,6 +462,213 @@ async function bootstrap() {
         .map((s) => `${s.game.white_player}-${s.game.black_player}`)
         .join(', ')}`;
     }
+
+    return true;
+  };
+
+  const openGameById = (rawId, { autoPlay = false } = {}) => {
+    const gameId = Number(rawId);
+    if (!Number.isInteger(gameId)) {
+      return false;
+    }
+
+    if (!gamesById.has(gameId)) {
+      statusEl.textContent = `Game id ${gameId} not found`;
+      return false;
+    }
+
+    gameSelect.value = String(gameId);
+    const opened = loadReplay();
+    if (opened && autoPlay) {
+      replayer.play();
+    }
+    return opened;
+  };
+
+  const setSearchTab = (tab) => {
+    activeSearchTab = tab === 'counts' ? 'counts' : 'filters';
+    const isFilters = activeSearchTab === 'filters';
+
+    searchTabFilters?.classList.toggle('isActive', isFilters);
+    searchTabCounts?.classList.toggle('isActive', !isFilters);
+    searchTabPanelFilters?.classList.toggle('hidden', !isFilters);
+    searchTabPanelCounts?.classList.toggle('hidden', isFilters);
+  };
+
+  const buildSearchCountRows = () => {
+    const groupBy = searchCountGroup?.value ?? 'players';
+
+    if (groupBy === 'players') {
+      const counts = new Map();
+
+      for (const row of searchMatchedRows) {
+        const white = row.white || '?';
+        const black = row.black || '?';
+
+        const whiteEntry = counts.get(white) ?? { name: white, total: 0, white: 0, black: 0 };
+        whiteEntry.total += 1;
+        whiteEntry.white += 1;
+        counts.set(white, whiteEntry);
+
+        const blackEntry = counts.get(black) ?? { name: black, total: 0, white: 0, black: 0 };
+        blackEntry.total += 1;
+        blackEntry.black += 1;
+        counts.set(black, blackEntry);
+      }
+
+      return Array.from(counts.values()).sort(
+        (left, right) => right.total - left.total || left.name.localeCompare(right.name),
+      );
+    }
+
+    if (groupBy === 'years') {
+      const counts = new Map();
+      for (const row of searchMatchedRows) {
+        const year = row.year ?? 'Unknown';
+        counts.set(year, (counts.get(year) ?? 0) + 1);
+      }
+
+      return Array.from(counts.entries())
+        .map(([year, count]) => ({ year, count }))
+        .sort((left, right) => right.count - left.count || String(right.year).localeCompare(String(left.year)));
+    }
+
+    const tournamentCounts = new Map();
+    for (const row of searchMatchedRows) {
+      const tournament = row.event || '?';
+      tournamentCounts.set(tournament, (tournamentCounts.get(tournament) ?? 0) + 1);
+    }
+
+    return Array.from(tournamentCounts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+  };
+
+  const renderSearchCounts = ({ resetPage = false } = {}) => {
+    if (!searchCountResults || !searchCountMeta || !searchCountPageInfo) {
+      return;
+    }
+
+    const rows = buildSearchCountRows();
+    const pageSize = Math.max(1, Number(searchCountPageSize?.value ?? 10) || 10);
+    const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+
+    if (resetPage) {
+      searchCountPage = 0;
+    }
+    searchCountPage = Math.max(0, Math.min(searchCountPage, totalPages - 1));
+
+    const start = searchCountPage * pageSize;
+    const pageRows = rows.slice(start, start + pageSize);
+
+    searchCountResults.innerHTML = '';
+    const groupBy = searchCountGroup?.value ?? 'players';
+
+    for (const row of pageRows) {
+      const option = document.createElement('option');
+      if (groupBy === 'players') {
+        option.textContent = `(${row.total}) games • ${row.name} (White: ${row.white}, Black: ${row.black})`;
+      } else if (groupBy === 'years') {
+        option.textContent = `(${row.count}) games in ${row.year}`;
+      } else {
+        option.textContent = `(${row.count}) games • ${row.name}`;
+      }
+      searchCountResults.appendChild(option);
+    }
+
+    if (pageRows.length === 0) {
+      const option = document.createElement('option');
+      option.disabled = true;
+      option.textContent = 'No groups found for current filters';
+      searchCountResults.appendChild(option);
+    }
+
+    const groupLabel = groupBy === 'tournaments' ? 'Tournaments' : groupBy === 'years' ? 'Years' : 'Players';
+    searchCountMeta.textContent = `${groupLabel}: ${rows.length} unique • Filtered games: ${searchMatchedRows.length}`;
+    searchCountPageInfo.textContent = `Page ${searchCountPage + 1} / ${totalPages}`;
+
+    if (searchCountPrevBtn) {
+      searchCountPrevBtn.disabled = searchCountPage <= 0;
+    }
+    if (searchCountNextBtn) {
+      searchCountNextBtn.disabled = searchCountPage >= totalPages - 1;
+    }
+  };
+
+  const updateSearchResults = () => {
+    if (!searchResults || !searchResultMeta) {
+      return;
+    }
+
+    const selectedWhite = searchWhite?.value ?? '';
+    const selectedBlack = searchBlack?.value ?? '';
+    const selectedYear = searchYear?.value ?? '';
+    const textQuery = String(searchText?.value ?? '')
+      .trim()
+      .toLowerCase();
+
+    const matched = searchTable.rows.filter((row) => {
+      if (selectedWhite && row.white !== selectedWhite) {
+        return false;
+      }
+      if (selectedBlack && row.black !== selectedBlack) {
+        return false;
+      }
+      if (selectedYear && String(row.year ?? '') !== selectedYear) {
+        return false;
+      }
+      if (textQuery && !row.text.includes(textQuery)) {
+        return false;
+      }
+      return true;
+    });
+
+    searchMatchedRows = matched;
+
+    searchResultMeta.textContent = `Matches: ${matched.length}`;
+    searchResults.innerHTML = '';
+
+    const maxResults = 500;
+    for (const row of matched.slice(0, maxResults)) {
+      const option = document.createElement('option');
+      option.value = String(row.id);
+      const yearText = row.year ?? '?';
+      option.textContent = `#${row.id} ${row.white} vs ${row.black} (${yearText}) • ${row.event}`;
+      searchResults.appendChild(option);
+    }
+
+    if (matched.length > maxResults) {
+      const option = document.createElement('option');
+      option.disabled = true;
+      option.textContent = `… showing first ${maxResults} matches`;
+      searchResults.appendChild(option);
+    }
+
+    renderSearchCounts({ resetPage: true });
+  };
+
+  const openSearchModal = () => {
+    if (!searchModal) {
+      return;
+    }
+
+    setSelectOptions(searchWhite, searchTable.whites);
+    setSelectOptions(searchBlack, searchTable.blacks);
+    setSelectOptions(searchYear, searchTable.years);
+    searchCountPage = 0;
+    setSearchTab('filters');
+    updateSearchResults();
+    searchModal.classList.remove('hidden');
+    searchModal.setAttribute('aria-hidden', 'false');
+  };
+
+  const closeSearchModal = () => {
+    if (!searchModal) {
+      return;
+    }
+
+    searchModal.classList.add('hidden');
+    searchModal.setAttribute('aria-hidden', 'true');
   };
 
   const setReplayControlsDisabled = (disabled) => {
@@ -378,6 +692,9 @@ async function bootstrap() {
     }
     if (navEnd) {
       navEnd.disabled = disabled;
+    }
+    if (searchModalOpen) {
+      searchModalOpen.disabled = disabled;
     }
   };
 
@@ -755,6 +1072,68 @@ async function bootstrap() {
   };
 
   gameSelect.addEventListener('change', loadReplay);
+  searchModalOpen?.addEventListener('click', openSearchModal);
+  searchModalClose?.addEventListener('click', closeSearchModal);
+  searchModal?.addEventListener('click', (event) => {
+    if (event.target === searchModal) {
+      closeSearchModal();
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeSearchModal();
+    }
+  });
+
+  searchWhite?.addEventListener('change', updateSearchResults);
+  searchBlack?.addEventListener('change', updateSearchResults);
+  searchYear?.addEventListener('change', updateSearchResults);
+  searchText?.addEventListener('input', updateSearchResults);
+  searchTabFilters?.addEventListener('click', () => setSearchTab('filters'));
+  searchTabCounts?.addEventListener('click', () => setSearchTab('counts'));
+  searchCountGroup?.addEventListener('change', () => {
+    renderSearchCounts({ resetPage: true });
+  });
+  searchCountPageSize?.addEventListener('change', () => {
+    renderSearchCounts({ resetPage: true });
+  });
+  searchCountPrevBtn?.addEventListener('click', () => {
+    searchCountPage -= 1;
+    renderSearchCounts();
+  });
+  searchCountNextBtn?.addEventListener('click', () => {
+    searchCountPage += 1;
+    renderSearchCounts();
+  });
+
+  searchOpenSelectedBtn?.addEventListener('click', () => {
+    const selectedId = Number(searchResults?.value ?? NaN);
+    if (Number.isInteger(selectedId) && openGameById(selectedId, { autoPlay: false })) {
+      closeSearchModal();
+    }
+  });
+
+  searchOpenPlaySelectedBtn?.addEventListener('click', () => {
+    const selectedId = Number(searchResults?.value ?? NaN);
+    if (Number.isInteger(selectedId) && openGameById(selectedId, { autoPlay: true })) {
+      closeSearchModal();
+    }
+  });
+
+  searchOpenByIdBtn?.addEventListener('click', () => {
+    const inputId = Number(searchGameId?.value ?? NaN);
+    if (openGameById(inputId, { autoPlay: false })) {
+      closeSearchModal();
+    }
+  });
+
+  searchOpenPlayByIdBtn?.addEventListener('click', () => {
+    const inputId = Number(searchGameId?.value ?? NaN);
+    if (openGameById(inputId, { autoPlay: true })) {
+      closeSearchModal();
+    }
+  });
+
   navStart?.addEventListener('click', () => replayer.start());
   navPrev?.addEventListener('click', () => replayer.prev());
   navPlay?.addEventListener('click', () => replayer.togglePlay());
@@ -798,18 +1177,21 @@ async function bootstrap() {
       return;
     }
 
-    const current = Number(gameSelect.value || 0);
-    let next = Math.floor(Math.random() * games.length);
-    if (games.length > 1 && next === current) {
-      next = (next + 1) % games.length;
+    const currentId = Number(gameSelect.value || games[0]?.id || 0);
+    let nextIndex = Math.floor(Math.random() * games.length);
+    let nextGame = games[nextIndex];
+
+    if (games.length > 1 && Number(nextGame?.id) === currentId) {
+      nextIndex = (nextIndex + 1) % games.length;
+      nextGame = games[nextIndex];
     }
 
-    gameSelect.value = String(next);
+    gameSelect.value = String(nextGame?.id ?? currentId);
     loadReplay();
     replayer.play();
   });
 
-  gameSelect.value = '0';
+  gameSelect.value = String(games[0]?.id ?? 0);
   loadReplay();
 }
 

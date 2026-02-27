@@ -8,8 +8,14 @@
   </head>
   <body>
     <main id="app">
-      <h1>Muonium Stack Chess Replay</h1>
-      <section id="status"></section>
+      <section class="headerRow">
+        <h1>Muonium Stack Chess Replay</h1>
+        <div class="headerActions">
+          <button id="searchModalOpen" class="topActionBtn topActionSearch">Search Games</button>
+          <button id="benchmarkFastBtn" class="topActionBtn topActionBenchmark">Run Benchmark</button>
+          <button id="benchmarkBtn" class="topActionBtn topActionVisual">Run Visual Benchmark</button>
+        </div>
+      </section>
       <section id="replayLayout">
         <section id="boardPane">
           <div class="playerRow playerBlack">
@@ -43,8 +49,6 @@
           Move arrow
         </label>
         <button id="randomBtn">Random Autoplay</button>
-        <button id="benchmarkFastBtn">Run Benchmark</button>
-        <button id="benchmarkBtn">Run Visual Benchmark</button>
       </section>
       <section id="loadProgressWrap">
         <span>Load Progress</span>
@@ -77,6 +81,89 @@
         <button id="benchmarkStopBtn" disabled>Stop</button>
         </div>
       </section>
+
+      <section id="searchModal" class="modal hidden" aria-hidden="true">
+        <div class="modalCard">
+          <div class="modalHeader">
+            <h3>Game Search</h3>
+            <button id="searchModalClose" title="Close">✕</button>
+          </div>
+
+          <div class="modalTabs">
+            <button id="searchTabFilters" class="modalTab isActive">Search</button>
+            <button id="searchTabCounts" class="modalTab">Counts</button>
+          </div>
+
+          <div id="searchTabPanelFilters" class="modalTabPanel">
+            <div class="modalGrid">
+              <label>
+                White
+                <select id="searchWhite"></select>
+              </label>
+              <label>
+                Black
+                <select id="searchBlack"></select>
+              </label>
+              <label>
+                Year
+                <select id="searchYear"></select>
+              </label>
+              <label>
+                Free text
+                <input id="searchText" type="text" placeholder="event, player, result..." />
+              </label>
+              <label>
+                Game ID
+                <input id="searchGameId" type="number" min="0" step="1" placeholder="e.g. 123" />
+              </label>
+            </div>
+
+            <div class="modalActions">
+              <button id="searchOpenByIdBtn">Open by ID</button>
+              <button id="searchOpenPlayByIdBtn">Open & Play by ID</button>
+            </div>
+
+            <div id="searchResultMeta">Matches: 0</div>
+            <select id="searchResults" size="10"></select>
+
+            <div class="modalActions">
+              <button id="searchOpenSelectedBtn">Open Selected</button>
+              <button id="searchOpenPlaySelectedBtn">Open & Play Selected</button>
+            </div>
+          </div>
+
+          <div id="searchTabPanelCounts" class="modalTabPanel hidden">
+            <div class="modalGrid">
+              <label>
+                Group by
+                <select id="searchCountGroup">
+                  <option value="players">Players</option>
+                  <option value="tournaments">Tournaments</option>
+                  <option value="years">Years</option>
+                </select>
+              </label>
+              <label>
+                Page size
+                <select id="searchCountPageSize">
+                  <option value="10" selected>10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="searchCountMeta">Unique: 0 • Filtered games: 0</div>
+            <select id="searchCountResults" size="10"></select>
+
+            <div class="modalActions countPager">
+              <button id="searchCountPrevBtn">Prev</button>
+              <span id="searchCountPageInfo">Page 1 / 1</span>
+              <button id="searchCountNextBtn">Next</button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="status"></section>
     </main>
   </body>
 </html>

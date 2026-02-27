@@ -16,7 +16,64 @@ body {
 }
 
 h1 {
-  margin-top: 0;
+  margin: 0;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.topActionBtn {
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 10px 16px;
+}
+
+.topActionSearch {
+  border: 1px solid #1f4bc3;
+  background: #2563eb;
+}
+
+.topActionSearch:hover {
+  background: #1d4ed8;
+}
+
+.topActionBenchmark {
+  border: 1px solid #0f766e;
+  background: #0d9488;
+}
+
+.topActionBenchmark:hover {
+  background: #0f766e;
+}
+
+.topActionVisual {
+  border: 1px solid #6d28d9;
+  background: #7c3aed;
+}
+
+.topActionVisual:hover {
+  background: #6d28d9;
+}
+
+.topActionBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .toolbar {
@@ -107,7 +164,7 @@ h1 {
 
 #status {
   min-height: 24px;
-  margin-bottom: 12px;
+  margin-top: 12px;
 }
 
 #loadProgressWrap {
@@ -225,6 +282,136 @@ h1 {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 28, 45, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1200;
+}
+
+.modalCard {
+  width: min(860px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #d9deea;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+}
+
+.modalHeader button {
+  border: 1px solid #c7cfdf;
+  border-radius: 8px;
+  background: #f8faff;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+}
+
+.modalGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.modalTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.modalTab {
+  border: 1px solid #c7cfdf;
+  border-radius: 8px;
+  background: #f8faff;
+  cursor: pointer;
+  padding: 7px 10px;
+}
+
+.modalTab.isActive {
+  background: #eef3ff;
+  border-color: #a9b9d6;
+  font-weight: 600;
+}
+
+.modalTabPanel {
+  display: block;
+}
+
+.modalGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.modalGrid select,
+.modalGrid input,
+#searchResults {
+  border: 1px solid #c7cfdf;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.modalActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.modalActions button {
+  border: 1px solid #c7cfdf;
+  border-radius: 8px;
+  background: #f8faff;
+  cursor: pointer;
+  padding: 7px 10px;
+}
+
+#searchResultMeta {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #3b4b67;
+}
+
+#searchCountMeta {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #3b4b67;
+}
+
+.countPager {
+  align-items: center;
+  justify-content: space-between;
+}
+
+#searchCountPageInfo {
+  font-size: 13px;
+  color: #3b4b67;
 }
 
 #board td {
