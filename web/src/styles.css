@@ -54,6 +54,15 @@ h1 {
   background: #1d4ed8;
 }
 
+.topActionUpload {
+  border: 1px solid #b45309;
+  background: #d97706;
+}
+
+.topActionUpload:hover {
+  background: #b45309;
+}
+
 .topActionBenchmark {
   border: 1px solid #0f766e;
   background: #0d9488;
@@ -209,6 +218,12 @@ h1 {
 #pgnPane h2 {
   margin: 0 0 10px;
   font-size: 18px;
+}
+
+#datasetLoadInfo {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #3b4b67;
 }
 
 #pgnViewer {
@@ -369,6 +384,32 @@ h1 {
 
 .modalTabPanel {
   display: block;
+}
+
+.pgnDropZone {
+  border: 2px dashed #c7cfdf;
+  border-radius: 10px;
+  padding: 18px;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  margin-bottom: 10px;
+  background: #f8faff;
+}
+
+.pgnDropZone.isDragOver {
+  border-color: #2563eb;
+  background: #eef3ff;
+}
+
+#pgnFileInput {
+  max-width: 100%;
+}
+
+#pgnImportStatus {
+  font-size: 13px;
+  color: #3b4b67;
 }
 
 .modalGrid label {

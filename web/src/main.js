@@ -1,5 +1,5 @@
 import initWasm from './wasm_pkg/wasm_core.js';
-import { createGameDb } from './db.js';
+import { createGameDb, createGameDbFromPgn } from './db.js';
 import { GrafeoAdapter } from './graph.js';
 import { createReplayer } from './replay.js';
 import './styles.css';
@@ -41,6 +41,7 @@ const PIECE_TO_UNICODE = {
 };
 
 const PLAYER_DATASET_STORAGE_KEY = 'muon.selectedPlayerDataset';
+const MAX_PGN_FILE_BYTES = 100 * 1024 * 1024;
 const PLAYER_DATASETS = [
   {
     id: 'carlsen',
@@ -89,6 +90,17 @@ function renderDatasetOptions(selectEl, selectedDatasetId) {
 
 function formatElapsedMs(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatFileSize(bytes) {
+  const size = Math.max(0, Number(bytes) || 0);
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${size} B`;
 }
 
 function formatBenchmarkDuration(elapsedSec) {
@@ -296,12 +308,15 @@ async function bootstrap() {
   const gameSelect = document.querySelector('#gameSelect');
   const moveArrowToggle = document.querySelector('#moveArrowToggle');
   const searchModalOpen = document.querySelector('#searchModalOpen');
+  const uploadPgnOpen = document.querySelector('#uploadPgnOpen');
   const searchModal = document.querySelector('#searchModal');
   const searchModalClose = document.querySelector('#searchModalClose');
   const searchTabFilters = document.querySelector('#searchTabFilters');
   const searchTabCounts = document.querySelector('#searchTabCounts');
+  const searchTabUpload = document.querySelector('#searchTabUpload');
   const searchTabPanelFilters = document.querySelector('#searchTabPanelFilters');
   const searchTabPanelCounts = document.querySelector('#searchTabPanelCounts');
+  const searchTabPanelUpload = document.querySelector('#searchTabPanelUpload');
   const searchWhite = document.querySelector('#searchWhite');
   const searchBlack = document.querySelector('#searchBlack');
   const searchYear = document.querySelector('#searchYear');
@@ -320,6 +335,9 @@ async function bootstrap() {
   const searchCountPrevBtn = document.querySelector('#searchCountPrevBtn');
   const searchCountNextBtn = document.querySelector('#searchCountNextBtn');
   const searchCountPageInfo = document.querySelector('#searchCountPageInfo');
+  const pgnDropZone = document.querySelector('#pgnDropZone');
+  const pgnFileInput = document.querySelector('#pgnFileInput');
+  const pgnImportStatus = document.querySelector('#pgnImportStatus');
   const randomBtn = document.querySelector('#randomBtn');
   const benchmarkFastBtn = document.querySelector('#benchmarkFastBtn');
   const benchmarkBtn = document.querySelector('#benchmarkBtn');
@@ -346,6 +364,7 @@ async function bootstrap() {
   const benchmarkVisualEta = document.querySelector('#benchmarkVisualEta');
   const benchmarkVisualArrowLatency = document.querySelector('#benchmarkVisualArrowLatency');
   const benchmarkVisualState = document.querySelector('#benchmarkVisualState');
+  const datasetLoadInfo = document.querySelector('#datasetLoadInfo');
   const whiteName = document.querySelector('#whiteName');
   const blackName = document.querySelector('#blackName');
   const whiteCaptures = document.querySelector('#whiteCaptures');
@@ -384,7 +403,7 @@ async function bootstrap() {
   await initWasm();
 
   statusEl.textContent = `Downloading ${activeDataset.label} SQLite... (${formatElapsedMs(performance.now() - loadStartedAt)})`;
-  const db = await createGameDb({
+  let db = await createGameDb({
     dbUrl: activeDataset.dbUrl,
     onProgress: (progress) => {
       if (!loadProgressText) {
@@ -416,17 +435,33 @@ async function bootstrap() {
     loadProgressText.textContent = `${loadProgressText.textContent} (ready in ${elapsed})`;
   }
 
-  const games = db.listGames();
+  const setDatasetLoadInfo = ({ sourceLabel, totalGames, elapsedMs, fileSizeLabel = null }) => {
+    if (!datasetLoadInfo) {
+      return;
+    }
+
+    const elapsedText = formatElapsedMs(elapsedMs);
+    const fileText = fileSizeLabel ? ` • file size ${fileSizeLabel}` : '';
+    datasetLoadInfo.textContent = `${sourceLabel}: loaded ${totalGames} games • load time ${elapsedText}${fileText}`;
+  };
+
+  let games = db.listGames();
   if (games.length === 0) {
     statusEl.textContent = `No game loaded (loaded 0 games in ${formatElapsedMs(performance.now() - loadStartedAt)})`;
     return;
   }
 
-  const gamesById = new Map(games.map((game) => [Number(game.id), game]));
-  const searchTable = precomputeSearchTable(games);
+  let gamesById = new Map(games.map((game) => [Number(game.id), game]));
+  let searchTable = precomputeSearchTable(games);
   let searchMatchedRows = searchTable.rows;
   let searchCountPage = 0;
   let activeSearchTab = 'filters';
+
+  setDatasetLoadInfo({
+    sourceLabel: activeDataset.label,
+    totalGames: games.length,
+    elapsedMs: performance.now() - loadStartedAt,
+  });
 
   for (const game of games) {
     const opt = document.createElement('option');
@@ -547,14 +582,162 @@ async function bootstrap() {
     return opened;
   };
 
+  const refillGameSelectOptions = () => {
+    if (!gameSelect) {
+      return;
+    }
+
+    gameSelect.innerHTML = '';
+    for (const game of games) {
+      const opt = document.createElement('option');
+      opt.value = String(game.id);
+      opt.textContent = `${game.white_player} vs ${game.black_player} | ${game.event}`;
+      gameSelect.appendChild(opt);
+    }
+  };
+
+  const applyDbToUi = (nextDb, { sourceLabel, elapsedMs = 0, fileSizeLabel = null } = {}) => {
+    db = nextDb;
+    games = db.listGames();
+    if (games.length === 0) {
+      throw new Error('No valid games found in selected PGN.');
+    }
+
+    gamesById = new Map(games.map((game) => [Number(game.id), game]));
+    searchTable = precomputeSearchTable(games);
+    searchMatchedRows = searchTable.rows;
+    searchCountPage = 0;
+
+    refillGameSelectOptions();
+    vectorAdapter.upsertGames(games);
+    graphAdapter.indexGames(games.slice(0, 20));
+
+    benchmarkHasRun = false;
+    setBenchmarkPanelVisible(false);
+    setBenchmarkModeLabel('Idle');
+
+    if (loadProgressText) {
+      loadProgressText.textContent = `${sourceLabel}: loaded ${games.length} / ${games.length} games`;
+    }
+
+    setDatasetLoadInfo({
+      sourceLabel,
+      totalGames: games.length,
+      elapsedMs,
+      fileSizeLabel,
+    });
+
+    gameSelect.value = String(games[0]?.id ?? 0);
+    loadReplay();
+    updateSearchResults();
+  };
+
+  const importPgnFile = async (file) => {
+    if (!file) {
+      return;
+    }
+
+    const fileName = String(file.name ?? '').toLowerCase();
+    if (!fileName.endsWith('.pgn')) {
+      const message = 'Invalid file type. Please upload a .pgn file.';
+      if (pgnImportStatus) {
+        pgnImportStatus.textContent = message;
+      }
+      statusEl.textContent = message;
+      return;
+    }
+
+    if (file.size > MAX_PGN_FILE_BYTES) {
+      const message = 'File too large. Maximum PGN size is 100 MB.';
+      if (pgnImportStatus) {
+        pgnImportStatus.textContent = message;
+      }
+      statusEl.textContent = message;
+      return;
+    }
+
+    try {
+      setReplayControlsDisabled(true);
+      const importStartedAt = performance.now();
+      const fileSizeLabel = formatFileSize(file.size);
+      if (pgnImportStatus) {
+        pgnImportStatus.textContent = `Importing ${file.name} (${fileSizeLabel})...`;
+      }
+      statusEl.textContent = `Importing ${file.name} (${fileSizeLabel})...`;
+
+      const pgnText = await file.text();
+      const uploadDb = await createGameDbFromPgn({
+        pgnText,
+        cacheKey: `${file.name}-${file.size}-${file.lastModified}`,
+        onProgress: (progress) => {
+          if (!pgnImportStatus) {
+            return;
+          }
+
+          if (progress.phase === 'parse') {
+            const loaded = Number(progress.loaded ?? 0);
+            const total = Number(progress.total ?? 0);
+            const elapsed = formatElapsedMs(performance.now() - importStartedAt);
+            pgnImportStatus.textContent = `Parsing ${file.name} (${fileSizeLabel})... ${loaded}/${total} • ${elapsed}`;
+            return;
+          }
+
+          if (progress.phase === 'games') {
+            const total = Number(progress.total ?? 0);
+            const elapsed = formatElapsedMs(performance.now() - importStartedAt);
+            pgnImportStatus.textContent = `Preparing in-memory SQLite... loaded ${total} games • ${elapsed}`;
+          }
+        },
+      });
+
+      activeDataset = {
+        id: 'uploaded',
+        label: `Uploaded (${file.name})`,
+        dbUrl: 'memory',
+      };
+      const elapsedMs = performance.now() - importStartedAt;
+      applyDbToUi(uploadDb, {
+        sourceLabel: activeDataset.label,
+        elapsedMs,
+        fileSizeLabel,
+      });
+      closeSearchModal();
+
+      const elapsed = formatElapsedMs(elapsedMs);
+      const success = `Loaded ${activeDataset.label}: ${games.length} games • ${fileSizeLabel} • ${elapsed}`;
+      statusEl.textContent = success;
+      if (pgnImportStatus) {
+        pgnImportStatus.textContent = success;
+      }
+      if (loadProgressText) {
+        loadProgressText.textContent = `${activeDataset.label}: loaded ${games.length} / ${games.length} games • ${fileSizeLabel} • ${elapsed}`;
+      }
+    } catch (error) {
+      const message = `PGN import failed: ${error?.message ?? 'Invalid PGN'}`;
+      statusEl.textContent = message;
+      if (pgnImportStatus) {
+        pgnImportStatus.textContent = message;
+      }
+    } finally {
+      setReplayControlsDisabled(false);
+      if (pgnFileInput) {
+        pgnFileInput.value = '';
+      }
+    }
+  };
+
   const setSearchTab = (tab) => {
-    activeSearchTab = tab === 'counts' ? 'counts' : 'filters';
+    activeSearchTab = tab === 'counts' || tab === 'upload' ? tab : 'filters';
     const isFilters = activeSearchTab === 'filters';
+    const isCounts = activeSearchTab === 'counts';
+    const isUpload = activeSearchTab === 'upload';
 
     searchTabFilters?.classList.toggle('isActive', isFilters);
-    searchTabCounts?.classList.toggle('isActive', !isFilters);
+    searchTabCounts?.classList.toggle('isActive', isCounts);
+    searchTabUpload?.classList.toggle('isActive', isUpload);
     searchTabPanelFilters?.classList.toggle('hidden', !isFilters);
-    searchTabPanelCounts?.classList.toggle('hidden', isFilters);
+    searchTabPanelCounts?.classList.toggle('hidden', !isCounts);
+    searchTabPanelUpload?.classList.toggle('hidden', !isUpload);
   };
 
   const buildSearchCountRows = () => {
@@ -709,7 +892,7 @@ async function bootstrap() {
     renderSearchCounts({ resetPage: true });
   };
 
-  const openSearchModal = () => {
+  const openSearchModal = (initialTab = 'filters') => {
     if (!searchModal) {
       return;
     }
@@ -718,7 +901,10 @@ async function bootstrap() {
     setSelectOptions(searchBlack, searchTable.blacks);
     setSelectOptions(searchYear, searchTable.years);
     searchCountPage = 0;
-    setSearchTab('filters');
+    setSearchTab(initialTab);
+    if (pgnImportStatus) {
+      pgnImportStatus.textContent = 'No file selected.';
+    }
     updateSearchResults();
     searchModal.classList.remove('hidden');
     searchModal.setAttribute('aria-hidden', 'false');
@@ -760,6 +946,9 @@ async function bootstrap() {
     }
     if (searchModalOpen) {
       searchModalOpen.disabled = disabled;
+    }
+    if (uploadPgnOpen) {
+      uploadPgnOpen.disabled = disabled;
     }
   };
 
@@ -1145,7 +1334,8 @@ async function bootstrap() {
   };
 
   gameSelect.addEventListener('change', loadReplay);
-  searchModalOpen?.addEventListener('click', openSearchModal);
+  searchModalOpen?.addEventListener('click', () => openSearchModal('filters'));
+  uploadPgnOpen?.addEventListener('click', () => openSearchModal('upload'));
   searchModalClose?.addEventListener('click', closeSearchModal);
   searchModal?.addEventListener('click', (event) => {
     if (event.target === searchModal) {
@@ -1164,6 +1354,7 @@ async function bootstrap() {
   searchText?.addEventListener('input', updateSearchResults);
   searchTabFilters?.addEventListener('click', () => setSearchTab('filters'));
   searchTabCounts?.addEventListener('click', () => setSearchTab('counts'));
+  searchTabUpload?.addEventListener('click', () => setSearchTab('upload'));
   searchCountGroup?.addEventListener('change', () => {
     renderSearchCounts({ resetPage: true });
   });
@@ -1177,6 +1368,27 @@ async function bootstrap() {
   searchCountNextBtn?.addEventListener('click', () => {
     searchCountPage += 1;
     renderSearchCounts();
+  });
+
+  pgnFileInput?.addEventListener('change', async (event) => {
+    const file = event.target?.files?.[0];
+    await importPgnFile(file);
+  });
+
+  pgnDropZone?.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    pgnDropZone.classList.add('isDragOver');
+  });
+
+  pgnDropZone?.addEventListener('dragleave', () => {
+    pgnDropZone.classList.remove('isDragOver');
+  });
+
+  pgnDropZone?.addEventListener('drop', async (event) => {
+    event.preventDefault();
+    pgnDropZone.classList.remove('isDragOver');
+    const file = event.dataTransfer?.files?.[0];
+    await importPgnFile(file);
   });
 
   searchOpenSelectedBtn?.addEventListener('click', () => {

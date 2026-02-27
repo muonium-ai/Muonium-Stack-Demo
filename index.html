@@ -12,6 +12,7 @@
         <h1>Muonium Stack Chess Replay</h1>
         <div class="headerActions">
           <button id="searchModalOpen" class="topActionBtn topActionSearch">Search Games</button>
+          <button id="uploadPgnOpen" class="topActionBtn topActionUpload">Upload PGN</button>
           <button id="randomBtn" class="topActionBtn topActionBenchmark">Random Autoplay</button>
           <button id="benchmarkFastBtn" class="topActionBtn topActionBenchmark">Run Benchmark</button>
           <button id="benchmarkBtn" class="topActionBtn topActionVisual">Run Visual Benchmark</button>
@@ -67,6 +68,7 @@
               <button id="benchmarkStopBtn" disabled>Stop</button>
             </div>
           </section>
+          <div id="datasetLoadInfo">Loaded 0 games • load time 0.0s</div>
           <h2>PGN Moves</h2>
           <div id="pgnViewer"></div>
         </section>
@@ -96,6 +98,7 @@
           <div class="modalTabs">
             <button id="searchTabFilters" class="modalTab isActive">Search</button>
             <button id="searchTabCounts" class="modalTab">Counts</button>
+            <button id="searchTabUpload" class="modalTab">Upload PGN</button>
           </div>
 
           <div id="searchTabPanelFilters" class="modalTabPanel">
@@ -164,6 +167,15 @@
               <span id="searchCountPageInfo">Page 1 / 1</span>
               <button id="searchCountNextBtn">Next</button>
             </div>
+          </div>
+
+          <div id="searchTabPanelUpload" class="modalTabPanel hidden">
+            <div id="pgnDropZone" class="pgnDropZone">
+              <strong>Drag & drop a .pgn file here</strong>
+              <span>or choose one manually (max 100 MB)</span>
+              <input id="pgnFileInput" type="file" accept=".pgn" />
+            </div>
+            <div id="pgnImportStatus">No file selected.</div>
           </div>
         </div>
       </section>
