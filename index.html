@@ -9,6 +9,32 @@
   <body>
     <main id="app">
       <h1>Muonium Stack Chess Replay</h1>
+      <section id="status"></section>
+      <section id="replayLayout">
+        <section id="boardPane">
+          <div class="playerRow playerBlack">
+            <div class="playerName" id="blackName">Black</div>
+            <div class="captures" id="blackCaptures"></div>
+          </div>
+          <section id="board"></section>
+          <div class="playerRow playerWhite">
+            <div class="playerName" id="whiteName">White</div>
+            <div class="captures" id="whiteCaptures"></div>
+          </div>
+          <div id="resultBanner"></div>
+        </section>
+        <section id="pgnPane">
+          <h2>PGN Moves</h2>
+          <div id="pgnViewer"></div>
+          <div id="transportControls" aria-label="Replay controls">
+            <button id="navStart" title="Start">⏮</button>
+            <button id="navPrev" title="Previous">⏪</button>
+            <button id="navPlay" title="Play/Pause">▶</button>
+            <button id="navNext" title="Next">⏩</button>
+            <button id="navEnd" title="End">⏭</button>
+          </div>
+        </section>
+      </section>
       <section class="toolbar">
         <label for="gameSelect">Game</label>
         <select id="gameSelect"></select>
@@ -19,6 +45,10 @@
         <button id="randomBtn">Random Autoplay</button>
         <button id="benchmarkFastBtn">Run Benchmark</button>
         <button id="benchmarkBtn">Run Visual Benchmark</button>
+      </section>
+      <section id="loadProgressWrap">
+        <span>Load Progress</span>
+        <span id="loadProgressText">Loaded 0 / 0 games</span>
       </section>
       <section id="benchmarkPanel">
         <div class="benchmarkHeader">
@@ -46,36 +76,6 @@
         <button id="benchmarkPauseBtn" disabled>Pause</button>
         <button id="benchmarkStopBtn" disabled>Stop</button>
         </div>
-      </section>
-      <section id="loadProgressWrap">
-        <span>Load Progress</span>
-        <span id="loadProgressText">Loaded 0 / 0 games</span>
-      </section>
-      <section id="status"></section>
-      <section id="replayLayout">
-        <section id="boardPane">
-          <div class="playerRow playerBlack">
-            <div class="playerName" id="blackName">Black</div>
-            <div class="captures" id="blackCaptures"></div>
-          </div>
-          <section id="board"></section>
-          <div class="playerRow playerWhite">
-            <div class="playerName" id="whiteName">White</div>
-            <div class="captures" id="whiteCaptures"></div>
-          </div>
-          <div id="resultBanner"></div>
-        </section>
-        <section id="pgnPane">
-          <h2>PGN Moves</h2>
-          <div id="pgnViewer"></div>
-          <div id="transportControls" aria-label="Replay controls">
-            <button id="navStart" title="Start">⏮</button>
-            <button id="navPrev" title="Previous">⏪</button>
-            <button id="navPlay" title="Play/Pause">▶</button>
-            <button id="navNext" title="Next">⏩</button>
-            <button id="navEnd" title="End">⏭</button>
-          </div>
-        </section>
       </section>
     </main>
   </body>
