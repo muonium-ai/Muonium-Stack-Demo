@@ -1,6 +1,7 @@
 :root {
   color-scheme: light;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --board-box-size: 544px;
 }
 
 body {
@@ -94,7 +95,7 @@ h1 {
 #benchmarkPanel {
   display: grid;
   gap: 8px;
-  margin-bottom: 12px;
+  margin: 0 0 12px;
   background: #fff;
   border: 1px solid #d9deea;
   border-radius: 8px;
@@ -185,13 +186,20 @@ h1 {
   margin-bottom: 12px;
 }
 
+.navGroupTop {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
 #boardPane {
   flex: 0 0 auto;
+  width: var(--board-box-size);
 }
 
 #pgnPane {
-  flex: 1 1 auto;
-  min-width: 320px;
+  flex: 0 0 auto;
+  width: var(--board-box-size);
   background: #ffffff;
   border: 1px solid #d9deea;
   border-radius: 8px;
@@ -204,8 +212,12 @@ h1 {
 }
 
 #pgnViewer {
-  height: 520px;
-  overflow: auto;
+  box-sizing: border-box;
+  width: var(--board-box-size);
+  height: var(--board-box-size);
+  max-height: var(--board-box-size);
+  overflow-y: auto;
+  overflow-x: hidden;
   line-height: 1.9;
   font-size: 16px;
 }
@@ -213,7 +225,6 @@ h1 {
 #transportControls {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
 }
 
 #transportControls button {
@@ -433,9 +444,5 @@ h1 {
 @media (max-width: 1100px) {
   #replayLayout {
     flex-direction: column;
-  }
-
-  #pgnViewer {
-    height: 300px;
   }
 }

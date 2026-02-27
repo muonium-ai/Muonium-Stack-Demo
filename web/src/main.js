@@ -284,6 +284,7 @@ async function bootstrap() {
   const navEnd = document.querySelector('#navEnd');
   const loadProgressText = document.querySelector('#loadProgressText');
   const benchmarkModeLabel = document.querySelector('#benchmarkModeLabel');
+  const benchmarkPanel = document.querySelector('#benchmarkPanel');
   const benchmarkRowRegular = document.querySelector('#benchmarkRowRegular');
   const benchmarkRowVisual = document.querySelector('#benchmarkRowVisual');
   const benchmarkRegularGames = document.querySelector('#benchmarkRegularGames');
@@ -317,6 +318,7 @@ async function bootstrap() {
   let benchmarkPauseStartedAt = 0;
   let benchmarkPausedTotalMs = 0;
   let benchmarkMode = 'idle';
+  let benchmarkHasRun = false;
 
   statusEl.textContent = 'Initializing WASM...';
   await initWasm();
@@ -732,6 +734,10 @@ async function bootstrap() {
     }
   };
 
+  const setBenchmarkPanelVisible = (visible) => {
+    benchmarkPanel?.classList.toggle('hidden', !visible);
+  };
+
   const benchmarkRows = {
     regular: {
       games: benchmarkRegularGames,
@@ -801,6 +807,8 @@ async function bootstrap() {
 
     benchmarkRunning = true;
     benchmarkMode = 'regular';
+    benchmarkHasRun = true;
+    setBenchmarkPanelVisible(true);
     let completed = 0;
     let totalMoves = 0;
     const summary = db.getRegularBenchmarkSummary();
@@ -853,6 +861,8 @@ async function bootstrap() {
 
     benchmarkRunning = true;
     benchmarkMode = 'visual';
+    benchmarkHasRun = true;
+    setBenchmarkPanelVisible(true);
     benchmarkPaused = false;
     benchmarkStopRequested = false;
     benchmarkPauseStartedAt = 0;
@@ -1190,6 +1200,8 @@ async function bootstrap() {
     loadReplay();
     replayer.play();
   });
+
+  setBenchmarkPanelVisible(benchmarkHasRun);
 
   gameSelect.value = String(games[0]?.id ?? 0);
   loadReplay();

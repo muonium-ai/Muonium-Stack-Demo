@@ -12,12 +12,22 @@
         <h1>Muonium Stack Chess Replay</h1>
         <div class="headerActions">
           <button id="searchModalOpen" class="topActionBtn topActionSearch">Search Games</button>
+          <button id="randomBtn" class="topActionBtn topActionBenchmark">Random Autoplay</button>
           <button id="benchmarkFastBtn" class="topActionBtn topActionBenchmark">Run Benchmark</button>
           <button id="benchmarkBtn" class="topActionBtn topActionVisual">Run Visual Benchmark</button>
         </div>
       </section>
       <section id="replayLayout">
         <section id="boardPane">
+          <section class="navGroupTop" aria-label="Replay controls">
+            <div id="transportControls">
+              <button id="navStart" title="Start">⏮</button>
+              <button id="navPrev" title="Previous">⏪</button>
+              <button id="navPlay" title="Play/Pause">▶</button>
+              <button id="navNext" title="Next">⏩</button>
+              <button id="navEnd" title="End">⏭</button>
+            </div>
+          </section>
           <div class="playerRow playerBlack">
             <div class="playerName" id="blackName">Black</div>
             <div class="captures" id="blackCaptures"></div>
@@ -30,15 +40,35 @@
           <div id="resultBanner"></div>
         </section>
         <section id="pgnPane">
+          <section id="benchmarkPanel" class="hidden">
+            <div class="benchmarkHeader">
+              <strong>Benchmark</strong>
+              <span id="benchmarkModeLabel">Mode: Idle</span>
+            </div>
+            <div class="benchmarkRow" id="benchmarkRowRegular">
+              <span class="benchmarkKind">Regular</span>
+              <span id="benchmarkRegularGames">Games: 0 / 0</span>
+              <span id="benchmarkRegularMoves">Moves: 0 / 0</span>
+              <span id="benchmarkRegularMps">Moves/s: 0.0</span>
+              <span id="benchmarkRegularEta">ETA: --</span>
+              <span id="benchmarkRegularState">Idle</span>
+            </div>
+            <div class="benchmarkRow" id="benchmarkRowVisual">
+              <span class="benchmarkKind">Visual</span>
+              <span id="benchmarkVisualGames">Games: 0 / 0</span>
+              <span id="benchmarkVisualMoves">Moves: 0 / 0</span>
+              <span id="benchmarkVisualMps">Moves/s: 0.0</span>
+              <span id="benchmarkVisualEta">ETA: --</span>
+              <span id="benchmarkVisualArrowLatency">Arrow latency: --</span>
+              <span id="benchmarkVisualState">Idle</span>
+            </div>
+            <div class="benchmarkActions">
+              <button id="benchmarkPauseBtn" disabled>Pause</button>
+              <button id="benchmarkStopBtn" disabled>Stop</button>
+            </div>
+          </section>
           <h2>PGN Moves</h2>
           <div id="pgnViewer"></div>
-          <div id="transportControls" aria-label="Replay controls">
-            <button id="navStart" title="Start">⏮</button>
-            <button id="navPrev" title="Previous">⏪</button>
-            <button id="navPlay" title="Play/Pause">▶</button>
-            <button id="navNext" title="Next">⏩</button>
-            <button id="navEnd" title="End">⏭</button>
-          </div>
         </section>
       </section>
       <section class="toolbar">
@@ -48,38 +78,10 @@
           <input id="moveArrowToggle" type="checkbox" checked />
           Move arrow
         </label>
-        <button id="randomBtn">Random Autoplay</button>
       </section>
       <section id="loadProgressWrap">
         <span>Load Progress</span>
         <span id="loadProgressText">Loaded 0 / 0 games</span>
-      </section>
-      <section id="benchmarkPanel">
-        <div class="benchmarkHeader">
-          <strong>Benchmark</strong>
-          <span id="benchmarkModeLabel">Mode: Idle</span>
-        </div>
-        <div class="benchmarkRow" id="benchmarkRowRegular">
-          <span class="benchmarkKind">Regular</span>
-          <span id="benchmarkRegularGames">Games: 0 / 0</span>
-          <span id="benchmarkRegularMoves">Moves: 0 / 0</span>
-          <span id="benchmarkRegularMps">Moves/s: 0.0</span>
-          <span id="benchmarkRegularEta">ETA: --</span>
-          <span id="benchmarkRegularState">Idle</span>
-        </div>
-        <div class="benchmarkRow" id="benchmarkRowVisual">
-          <span class="benchmarkKind">Visual</span>
-          <span id="benchmarkVisualGames">Games: 0 / 0</span>
-          <span id="benchmarkVisualMoves">Moves: 0 / 0</span>
-          <span id="benchmarkVisualMps">Moves/s: 0.0</span>
-          <span id="benchmarkVisualEta">ETA: --</span>
-          <span id="benchmarkVisualArrowLatency">Arrow latency: --</span>
-          <span id="benchmarkVisualState">Idle</span>
-        </div>
-        <div class="benchmarkActions">
-        <button id="benchmarkPauseBtn" disabled>Pause</button>
-        <button id="benchmarkStopBtn" disabled>Stop</button>
-        </div>
       </section>
 
       <section id="searchModal" class="modal hidden" aria-hidden="true">
