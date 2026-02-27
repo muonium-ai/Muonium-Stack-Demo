@@ -372,6 +372,7 @@ async function bootstrap() {
   const benchmarkBtn = document.querySelector('#benchmarkBtn');
   const benchmarkPauseBtn = document.querySelector('#benchmarkPauseBtn');
   const benchmarkStopBtn = document.querySelector('#benchmarkStopBtn');
+  const benchmarkHideBtn = document.querySelector('#benchmarkHideBtn');
   const navStart = document.querySelector('#navStart');
   const navPrev = document.querySelector('#navPrev');
   const navPlay = document.querySelector('#navPlay');
@@ -585,16 +586,6 @@ async function bootstrap() {
     activeGame = game;
     const replay = db.getReplay(gameId);
     replayer.loadReplay(replay);
-
-    const similar = vectorAdapter.search(
-      `${game.white_player ?? ''} ${game.black_player ?? ''}`,
-      3,
-    );
-    if (similar.length > 0) {
-      statusEl.textContent = `${statusEl.textContent} | Similar: ${similar
-        .map((s) => `${s.game.white_player}-${s.game.black_player}`)
-        .join(', ')}`;
-    }
 
     return true;
   };
@@ -1495,6 +1486,9 @@ async function bootstrap() {
       return;
     }
     benchmarkStopRequested = true;
+  });
+  benchmarkHideBtn?.addEventListener('click', () => {
+    setBenchmarkPanelVisible(false);
   });
   randomBtn?.addEventListener('click', () => {
     if (games.length === 0) {

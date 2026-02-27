@@ -24,6 +24,12 @@
   --color-btn-visual: #7c3aed;
   --color-btn-visual-hover: #6d28d9;
   --color-btn-visual-border: #6d28d9;
+  --color-btn-pause: #ca8a04;
+  --color-btn-pause-hover: #a16207;
+  --color-btn-pause-border: #854d0e;
+  --color-btn-stop: #dc2626;
+  --color-btn-stop-hover: #b91c1c;
+  --color-btn-stop-border: #991b1b;
   --color-text-on-primary: #ffffff;
   --color-board-border: #333333;
   --color-board-light: #f0d9b5;
@@ -57,6 +63,12 @@
   --color-btn-visual: #6d28d9;
   --color-btn-visual-hover: #5b21b6;
   --color-btn-visual-border: #4c1d95;
+  --color-btn-pause: #ca8a04;
+  --color-btn-pause-hover: #a16207;
+  --color-btn-pause-border: #854d0e;
+  --color-btn-stop: #dc2626;
+  --color-btn-stop-hover: #b91c1c;
+  --color-btn-stop-border: #991b1b;
   --color-board-border: #0f172a;
   --color-board-light: #8aa1c4;
   --color-board-dark: #2f425d;
@@ -89,6 +101,12 @@
   --color-btn-visual: #6b46c1;
   --color-btn-visual-hover: #553c9a;
   --color-btn-visual-border: #44337a;
+  --color-btn-pause: #b7791f;
+  --color-btn-pause-hover: #975a16;
+  --color-btn-pause-border: #7b4a13;
+  --color-btn-stop: #c53030;
+  --color-btn-stop-hover: #9b2c2c;
+  --color-btn-stop-border: #822727;
   --color-board-border: #2f5233;
   --color-board-light: #d9ead3;
   --color-board-dark: #7da27f;
@@ -121,6 +139,12 @@
   --color-btn-visual: #7c3aed;
   --color-btn-visual-hover: #6d28d9;
   --color-btn-visual-border: #5b21b6;
+  --color-btn-pause: #d97706;
+  --color-btn-pause-hover: #b45309;
+  --color-btn-pause-border: #92400e;
+  --color-btn-stop: #e11d48;
+  --color-btn-stop-hover: #be123c;
+  --color-btn-stop-border: #9f1239;
   --color-board-border: #1b4965;
   --color-board-light: #cae9ff;
   --color-board-dark: #62b6cb;
@@ -153,6 +177,12 @@
   --color-btn-visual: #be185d;
   --color-btn-visual-hover: #9d174d;
   --color-btn-visual-border: #831843;
+  --color-btn-pause: #d97706;
+  --color-btn-pause-hover: #b45309;
+  --color-btn-pause-border: #92400e;
+  --color-btn-stop: #dc2626;
+  --color-btn-stop-hover: #b91c1c;
+  --color-btn-stop-border: #991b1b;
   --color-board-border: #7c3f2a;
   --color-board-light: #ffd6ba;
   --color-board-dark: #d38b5d;
@@ -218,6 +248,18 @@ h1 {
   justify-content: flex-end;
 }
 
+.topInlineToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
 .topActionBtn {
   border-radius: 10px;
   color: var(--color-text-on-primary);
@@ -276,6 +318,10 @@ h1 {
   margin-bottom: 12px;
 }
 
+.hiddenDataControls {
+  display: none !important;
+}
+
 .inlineToggle {
   display: inline-flex;
   align-items: center;
@@ -298,6 +344,12 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.benchmarkHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 #benchmarkModeLabel {
@@ -345,6 +397,11 @@ h1 {
   padding: 6px 10px;
 }
 
+#benchmarkHideBtn {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
 #benchmarkPanel button:hover:not(:disabled) {
   background: var(--color-focus-bg);
 }
@@ -352,6 +409,26 @@ h1 {
 #benchmarkPanel button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+#benchmarkPauseBtn {
+  color: var(--color-text-on-primary);
+  border-color: var(--color-btn-pause-border);
+  background: var(--color-btn-pause);
+}
+
+#benchmarkPauseBtn:hover:not(:disabled) {
+  background: var(--color-btn-pause-hover);
+}
+
+#benchmarkStopBtn {
+  color: var(--color-text-on-primary);
+  border-color: var(--color-btn-stop-border);
+  background: var(--color-btn-stop);
+}
+
+#benchmarkStopBtn:hover:not(:disabled) {
+  background: var(--color-btn-stop-hover);
 }
 
 #status {

@@ -15,8 +15,16 @@
             <span>Theme</span>
             <select id="themeSelect"></select>
           </label>
+          <label class="headerTheme" for="playerDatasetSelect">
+            <span>PGN</span>
+            <select id="playerDatasetSelect"></select>
+          </label>
         </div>
         <div class="headerActions">
+          <label class="topInlineToggle" for="moveArrowToggle">
+            <input id="moveArrowToggle" type="checkbox" checked />
+            Move arrow
+          </label>
           <button id="searchModalOpen" class="topActionBtn topActionSearch">Search Games</button>
           <button id="uploadPgnOpen" class="topActionBtn topActionUpload">Upload PGN</button>
           <button id="randomBtn" class="topActionBtn topActionBenchmark">Random Autoplay</button>
@@ -50,7 +58,10 @@
           <section id="benchmarkPanel" class="hidden">
             <div class="benchmarkHeader">
               <strong>Benchmark</strong>
-              <span id="benchmarkModeLabel">Mode: Idle</span>
+              <div class="benchmarkHeaderActions">
+                <span id="benchmarkModeLabel">Mode: Idle</span>
+                <button id="benchmarkHideBtn" type="button">Hide</button>
+              </div>
             </div>
             <div class="benchmarkRow" id="benchmarkRowRegular">
               <span class="benchmarkKind">Regular</span>
@@ -79,19 +90,9 @@
           <div id="pgnViewer"></div>
         </section>
       </section>
-      <section class="toolbar">
-        <label for="playerDatasetSelect">Player (PGN)</label>
-        <select id="playerDatasetSelect"></select>
-        <label for="gameSelect">Game</label>
+      <section class="hiddenDataControls" aria-hidden="true">
         <select id="gameSelect"></select>
-        <label class="inlineToggle" for="moveArrowToggle">
-          <input id="moveArrowToggle" type="checkbox" checked />
-          Move arrow
-        </label>
-      </section>
-      <section id="loadProgressWrap">
-        <span>Load Progress</span>
-        <span id="loadProgressText">Loaded 0 / 0 games</span>
+        <span id="loadProgressText"></span>
       </section>
 
       <section id="searchModal" class="modal hidden" aria-hidden="true">
