@@ -214,6 +214,31 @@ export class PhysicsRuntime {
     }
 
     this.pause();
+
+    this.groundBody = null;
+    this.triggerBallBody = null;
+    this.triggerBallCollider = null;
+    this.plankBody = null;
+    this.plankCollider = null;
+    this.leverAnchorBody = null;
+    this.leverBody = null;
+    this.leverCollider = null;
+    this.leverJoint = null;
+    this.leverLeftWeightCollider = null;
+    this.leverRightWeightCollider = null;
+    this.gateBody = null;
+    this.gateCollider = null;
+    this.rampBody = null;
+    this.rampCollider = null;
+    this.rollingBody = null;
+    this.rollingCollider = null;
+    this.triggerHandles = {
+      triggerBall: null,
+      plank: null,
+      lever: null,
+      gate: null,
+    };
+
     this.world = new this.rapier.World({ x: 0, y: -9.81, z: 0 });
     this.eventQueue = new this.rapier.EventQueue(true);
     this.metricsStore.reset();
@@ -343,11 +368,17 @@ export class PhysicsRuntime {
     }
 
     if (this.leverLeftWeightCollider) {
-      this.world.removeCollider(this.leverLeftWeightCollider, true);
+      try {
+        this.world.removeCollider(this.leverLeftWeightCollider, true);
+      } catch {
+      }
       this.leverLeftWeightCollider = null;
     }
     if (this.leverRightWeightCollider) {
-      this.world.removeCollider(this.leverRightWeightCollider, true);
+      try {
+        this.world.removeCollider(this.leverRightWeightCollider, true);
+      } catch {
+      }
       this.leverRightWeightCollider = null;
     }
 
