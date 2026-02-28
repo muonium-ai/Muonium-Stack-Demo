@@ -126,7 +126,7 @@ Exit criteria:
 - [x] T-000053: Puzzle mode with scoring
 - [x] T-000054: Redis-like WASM metrics ingestion/aggregation layer
 - [x] T-000055: HUD overlay for real-time operational stats
-- [ ] T-000056: Live graph panel from telemetry stream
+- [x] T-000056: Live graph panel from telemetry stream
 - [ ] T-000057: Particle/impact visual effects module
 - [ ] T-000058: Performance harness + target validation
 - [ ] T-000059: Optional time-travel replay snapshots

@@ -1,13 +1,14 @@
 import './styles.css';
 import { PhysicsRuntime } from './physics/runtime.js';
 import { PlaygroundRenderer } from './render/scene.js';
+import { LiveGraphPanel } from './ui/liveGraphPanel.js';
 
 const app = document.querySelector('#app');
 
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000055 HUD overlay for real-time simulation stats</p>
+    <p class="subtitle">T-000056 Live telemetry graph panel</p>
 
     <section class="controls" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
@@ -32,6 +33,13 @@ app.innerHTML = `
         <input id="metricsIntervalInput" type="number" min="16" max="2000" step="1" value="100" />
       </label>
       <button id="metricsIntervalBtn" type="button" disabled>Apply Metrics Interval</button>
+      <label>
+        Graph window
+        <select id="graphWindowSelect">
+          <option value="short">Short</option>
+          <option value="medium" selected>Medium</option>
+        </select>
+      </label>
       <button id="hudToggleBtn" type="button" disabled>Hide HUD</button>
     </section>
 
@@ -220,6 +228,16 @@ app.innerHTML = `
         <div><dt>Graph samples</dt><dd id="metricsGraphSamplesMetric">0</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry graphTelemetry" aria-label="Live graph telemetry panel">
+      <h2>Live graph</h2>
+      <p class="graphLegend">
+        <span class="swatch velocity"></span>Velocity
+        <span class="swatch torque"></span>Torque
+        <span class="swatch impact"></span>Impact force
+      </p>
+      <canvas id="graphCanvas" class="graphCanvas" width="640" height="180"></canvas>
+    </section>
   </section>
 `;
 
@@ -233,6 +251,7 @@ const resetBtn = document.querySelector('#resetBtn');
 const speedSelect = document.querySelector('#speedSelect');
 const metricsIntervalInput = document.querySelector('#metricsIntervalInput');
 const metricsIntervalBtn = document.querySelector('#metricsIntervalBtn');
+const graphWindowSelect = document.querySelector('#graphWindowSelect');
 const hudToggleBtn = document.querySelector('#hudToggleBtn');
 const ballCountInput = document.querySelector('#ballCountInput');
 const ballMaterialSelect = document.querySelector('#ballMaterialSelect');
@@ -302,8 +321,9 @@ const hudFpsMetric = document.querySelector('#hudFpsMetric');
 const hudStepMetric = document.querySelector('#hudStepMetric');
 const hudCollisionsMetric = document.querySelector('#hudCollisionsMetric');
 const hudEnergyStateMetric = document.querySelector('#hudEnergyStateMetric');
+const graphCanvas = document.querySelector('#graphCanvas');
 const viewport = document.querySelector('#viewport');
-const graphSamples = [];
+const graphPanel = new LiveGraphPanel(graphCanvas);
 let hudVisible = true;
 let previousCollisionCount = 0;
 
@@ -392,21 +412,19 @@ runtime.onTiming((timing, snapshot) => {
 });
 
 runtime.onMetricsStream((packet) => {
-  graphSamples.push({
+  graphPanel.ingest({
     tick: packet.tick,
-    fps: packet.gauges.fps,
+    velocity: Number(packet.hashes.roll.velocity_avg ?? 0),
     torque: Number(packet.hashes.lever.torque ?? 0),
+    impact: Number(packet.hashes.ball.impact_force_max ?? 0),
   });
-  if (graphSamples.length > 180) {
-    graphSamples.shift();
-  }
 
   metricsTickMetric.textContent = String(packet.tick);
   metricsIntervalMetric.textContent = `${Math.round(packet.intervalMs)} ms`;
   metricsFpsMetric.textContent = packet.gauges.fps.toFixed(2);
   metricsOpsMetric.textContent = String(packet.opCounts.total);
   metricsEventsMetric.textContent = String(packet.opCounts.lpush);
-  metricsGraphSamplesMetric.textContent = String(graphSamples.length);
+  metricsGraphSamplesMetric.textContent = String(graphPanel.getSampleCount());
 
   const fps = Number(packet.gauges.fps ?? 0);
   const stepMs = Number(packet.gauges.physicsStepTimeMs ?? 0);
@@ -625,6 +643,11 @@ metricsIntervalBtn.addEventListener('click', () => {
   setStatus(`metrics interval set to ${result.intervalMs} ms`);
 });
 
+graphWindowSelect.addEventListener('change', (event) => {
+  const activeWindow = graphPanel.setWindow(event.target.value);
+  setStatus(`graph window set to ${activeWindow}`);
+});
+
 hudToggleBtn.addEventListener('click', () => {
   hudVisible = !hudVisible;
   hudOverlay.hidden = !hudVisible;
@@ -635,6 +658,7 @@ hudToggleBtn.addEventListener('click', () => {
 setStatus('idle (click Initialize Rapier)');
 
 window.addEventListener('beforeunload', () => {
+  graphPanel.dispose();
   runtime.dispose();
   renderer.dispose();
 });
