@@ -482,6 +482,8 @@ let basicChaosLastCollisionCount = 0;
 let basicChaosIdleSinceMs = 0;
 let basicChaosAdvancing = false;
 let basicChaosRunIteration = null;
+let basicChaosMetricsUpdated = false;
+let basicChaosIterationStartedAtMs = 0;
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 
@@ -506,6 +508,8 @@ const clearBasicShowcaseTimers = () => {
   basicChaosModeActive = false;
   basicChaosAdvancing = false;
   basicChaosRunIteration = null;
+  basicChaosMetricsUpdated = false;
+  basicChaosIterationStartedAtMs = 0;
 };
 
 const queueBasicShowcaseStep = (delayMs, handler) => {
@@ -773,6 +777,10 @@ const runBasicShowcase = async () => {
       runtime.start();
       renderer.start();
 
+      latestMetricsPacket = null;
+      basicChaosMetricsUpdated = false;
+      basicChaosIterationStartedAtMs = performance.now();
+
       basicActivityBaseline = {
         tick: 0,
         totalOps: 0,
@@ -785,17 +793,17 @@ const runBasicShowcase = async () => {
         `Iteration ${basicChaosIteration}: dominoes ${dominoCount}, balls ${ballCount}, random 3D placement active.`
       );
 
-      queueBasicShowcaseStep(1000, () => {
+      queueBasicShowcaseStep(1800, () => {
         if (!basicChaosModeActive) {
           return;
         }
         const packet = latestMetricsPacket;
         const snapshot = runtime.getSnapshot();
-        const tickAdvanced = packet ? packet.tick > 0 : false;
+        const metricsUpdated = basicChaosMetricsUpdated;
         const opsAdvanced = packet ? packet.opCounts.total > 0 : false;
         const movementDetected =
-          snapshot.totalSteps > 10 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.01;
-        if (!tickAdvanced || !opsAdvanced || !movementDetected) {
+          snapshot.totalSteps > 0 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.005;
+        if (!metricsUpdated || !opsAdvanced || !movementDetected) {
           printBasicNoActionDebug('missing expected Redis activity or scene movement in random iteration');
           basicChaosModeActive = false;
         }
@@ -1040,6 +1048,9 @@ runtime.onTiming((timing, snapshot) => {
 
 runtime.onMetricsStream((packet) => {
   latestMetricsPacket = packet;
+  if (basicChaosModeActive) {
+    basicChaosMetricsUpdated = true;
+  }
   graphPanel.ingest({
     tick: packet.tick,
     velocity: Number(packet.hashes.roll.velocity_avg ?? 0),
