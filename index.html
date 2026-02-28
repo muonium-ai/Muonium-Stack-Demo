@@ -110,6 +110,20 @@
           <p id="playEngineStatus">Stockfish WASM: loading...</p>
           <div class="playConfigGrid">
             <label>
+              Play mode
+              <select id="playModeSelect">
+                <option value="engine" selected>Stockfish vs Stockfish</option>
+                <option value="human">Human vs Stockfish</option>
+              </select>
+            </label>
+            <label>
+              Human side
+              <select id="playHumanSideSelect">
+                <option value="white" selected>White</option>
+                <option value="black">Black</option>
+              </select>
+            </label>
+            <label>
               White opening
               <select id="playWhiteOpeningSelect"></select>
             </label>

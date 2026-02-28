@@ -77,19 +77,34 @@ function parseFenBoard(fen) {
   return board;
 }
 
-function renderPlayBoard(container, fen) {
+function renderPlayBoard(container, fen, { selectedSquare = '', legalTargetSquares = [] } = {}) {
   if (!container) {
     return;
   }
 
+  const selected = String(selectedSquare || '').toLowerCase();
+  const legalTargets = new Set(
+    Array.isArray(legalTargetSquares)
+      ? legalTargetSquares.map((square) => String(square || '').toLowerCase())
+      : [],
+  );
   const board = parseFenBoard(fen);
   const table = document.createElement('table');
+  const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
   for (let rank = 0; rank < 8; rank += 1) {
     const tr = document.createElement('tr');
     for (let file = 0; file < 8; file += 1) {
       const td = document.createElement('td');
+      const square = `${files[file]}${8 - rank}`;
+      td.dataset.square = square;
       td.className = (rank + file) % 2 === 0 ? 'light' : 'dark';
+      if (square === selected) {
+        td.classList.add('isSelected');
+      }
+      if (legalTargets.has(square)) {
+        td.classList.add('isLegalTarget');
+      }
 
       const piece = board[rank]?.[file] ?? '';
       if (piece) {
@@ -587,6 +602,8 @@ async function bootstrap() {
   const playMoveInfo = document.querySelector('#playMoveInfo');
   const playModeInfo = document.querySelector('#playModeInfo');
   const playEngineStatus = document.querySelector('#playEngineStatus');
+  const playModeSelect = document.querySelector('#playModeSelect');
+  const playHumanSideSelect = document.querySelector('#playHumanSideSelect');
   const playWhiteOpeningSelect = document.querySelector('#playWhiteOpeningSelect');
   const playBlackDefenseSelect = document.querySelector('#playBlackDefenseSelect');
   const playEngineDepthSelect = document.querySelector('#playEngineDepthSelect');
@@ -688,14 +705,35 @@ async function bootstrap() {
   let playOpeningCatalog = createPlayOpeningCatalog([]);
   let playAutoplayToken = 0;
   let playAutoplayRunning = false;
+  let playMode = 'engine';
+  let playHumanSide = 'white';
+  let playHumanThinking = false;
+  let playSelectedSquare = '';
+  let playSelectedMoves = [];
   const playChess = new Chess();
   const playUciMoves = [];
 
   const toUciMove = (move) =>
     `${String(move?.from ?? '')}${String(move?.to ?? '')}${String(move?.promotion ?? '')}`.toLowerCase();
 
+  const humanTurnColor = () => (playHumanSide === 'black' ? 'b' : 'w');
+  const engineTurnColor = () => (humanTurnColor() === 'w' ? 'b' : 'w');
+  const serviceForTurnColor = (turnColor) => (turnColor === 'w' ? stockfishWhiteService : stockfishBlackService);
+  const currentPlayMoveLabel = () => {
+    const history = playChess.history();
+    return history.length > 0 ? history[history.length - 1] : 'start';
+  };
+
+  const clearPlaySelection = () => {
+    playSelectedSquare = '';
+    playSelectedMoves = [];
+  };
+
   const renderActivePlayState = (moveLabel = 'start') => {
-    renderPlayBoard(playBoard, playChess.fen());
+    renderPlayBoard(playBoard, playChess.fen(), {
+      selectedSquare: playSelectedSquare,
+      legalTargetSquares: playSelectedMoves.map((move) => move.to),
+    });
     if (playMoveInfo) {
       playMoveInfo.textContent = `Move ${playChess.history().length} • ${moveLabel}`;
     }
@@ -707,21 +745,43 @@ async function bootstrap() {
     }
   };
 
-  const setPlayControlsDisabled = (isRunning) => {
+  const syncPlayModeUi = () => {
+    const isEngineMode = playMode === 'engine';
+    const isBusy = playAutoplayRunning || playHumanThinking;
+
+    if (playModeInfo) {
+      playModeInfo.textContent = isEngineMode
+        ? 'Mode: Stockfish vs Stockfish'
+        : `Mode: Human (${playHumanSide === 'white' ? 'White' : 'Black'}) vs Stockfish`;
+    }
+
     if (playAutoplayStartBtn) {
-      playAutoplayStartBtn.disabled = isRunning;
+      playAutoplayStartBtn.textContent = isEngineMode ? 'Start Autoplay' : 'Start Human Game';
+      playAutoplayStartBtn.disabled = isBusy;
     }
+
     if (playAutoplayStopBtn) {
-      playAutoplayStopBtn.disabled = !isRunning;
+      playAutoplayStopBtn.disabled = !isEngineMode || !playAutoplayRunning;
     }
+
+    if (playModeSelect) {
+      playModeSelect.disabled = isBusy;
+    }
+
+    if (playHumanSideSelect) {
+      playHumanSideSelect.disabled = isBusy || isEngineMode;
+    }
+
     if (playWhiteOpeningSelect) {
-      playWhiteOpeningSelect.disabled = isRunning;
+      playWhiteOpeningSelect.disabled = isBusy || !isEngineMode;
     }
+
     if (playBlackDefenseSelect) {
-      playBlackDefenseSelect.disabled = isRunning;
+      playBlackDefenseSelect.disabled = isBusy || !isEngineMode;
     }
+
     if (playEngineDepthSelect) {
-      playEngineDepthSelect.disabled = isRunning;
+      playEngineDepthSelect.disabled = isBusy;
     }
   };
 
@@ -753,6 +813,7 @@ async function bootstrap() {
   };
 
   const applySelectedOpeningMoves = () => {
+    clearPlaySelection();
     playChess.reset();
     playUciMoves.length = 0;
 
@@ -779,15 +840,101 @@ async function bootstrap() {
     renderActivePlayState(preMoves.length > 0 ? preMoves.join(' ') : 'start');
   };
 
+  const resetHumanGame = () => {
+    clearPlaySelection();
+    playChess.reset();
+    playUciMoves.length = 0;
+    renderActivePlayState('start');
+  };
+
+  const applyBestMoveFromEngine = (bestMoveRaw) => {
+    const bestMove = String(bestMoveRaw ?? '').trim().toLowerCase();
+    const uciMatch = bestMove.match(/^([a-h][1-8])([a-h][1-8])([qrbn])?$/i);
+    if (!uciMatch) {
+      return { ok: false, error: `no playable move (${bestMove || 'none'})` };
+    }
+
+    const [, from, to, promotion] = uciMatch;
+    const played = playChess.move({ from, to, promotion: promotion?.toLowerCase() });
+    if (!played) {
+      return { ok: false, error: `illegal move (${bestMove})` };
+    }
+
+    playUciMoves.push(`${from}${to}${promotion ?? ''}`.toLowerCase());
+    clearPlaySelection();
+    renderActivePlayState(played.san);
+    return { ok: true, bestMove, san: played.san };
+  };
+
   const stopPlayAutoplay = ({ reasonText = 'Stockfish WASM: autoplay stopped' } = {}) => {
     playAutoplayToken += 1;
     playAutoplayRunning = false;
-    setPlayControlsDisabled(false);
+    playHumanThinking = false;
+    syncPlayModeUi();
     setPlayEngineStatus(reasonText);
   };
 
+  const runHumanEngineReply = async () => {
+    if (playMode !== 'human' || playChess.isGameOver()) {
+      return;
+    }
+
+    const expectedTurn = engineTurnColor();
+    if (playChess.turn() !== expectedTurn) {
+      return;
+    }
+
+    const service = serviceForTurnColor(expectedTurn);
+    if (!service.isReady()) {
+      setPlayEngineStatus('Stockfish WASM: unavailable (engine not ready)');
+      return;
+    }
+
+    playHumanThinking = true;
+    playAutoplayToken += 1;
+    const runToken = playAutoplayToken;
+    syncPlayModeUi();
+    setPlayEngineStatus('Stockfish WASM: engine thinking...');
+
+    try {
+      const depth = Math.max(1, Number(playEngineDepthSelect?.value ?? 10) || 10);
+      const result = await service.getBestMove({ uciMoves: playUciMoves, depth });
+      if (runToken !== playAutoplayToken) {
+        return;
+      }
+
+      const applied = applyBestMoveFromEngine(result.bestMove);
+      if (!applied.ok) {
+        setPlayEngineStatus(`Stockfish WASM: ${applied.error}`);
+        return;
+      }
+
+      if (playChess.isGameOver()) {
+        if (playChess.isCheckmate()) {
+          const winner = playChess.turn() === 'w' ? 'Black' : 'White';
+          setPlayEngineStatus(`Stockfish WASM: completed (${winner} won by checkmate)`);
+        } else if (playChess.isDraw()) {
+          setPlayEngineStatus('Stockfish WASM: completed (draw)');
+        } else {
+          setPlayEngineStatus('Stockfish WASM: completed (game over)');
+        }
+      } else {
+        setPlayEngineStatus(`Stockfish WASM: ready • engine played ${applied.bestMove}`);
+      }
+    } catch (error) {
+      if (runToken === playAutoplayToken) {
+        setPlayEngineStatus(`Stockfish WASM: error (${error?.message ?? 'unknown'})`);
+      }
+    } finally {
+      if (runToken === playAutoplayToken) {
+        playHumanThinking = false;
+        syncPlayModeUi();
+      }
+    }
+  };
+
   const runPlayAutoplay = async () => {
-    if (playAutoplayRunning) {
+    if (playAutoplayRunning || playMode !== 'engine') {
       return;
     }
 
@@ -801,7 +948,7 @@ async function bootstrap() {
     playAutoplayRunning = true;
     playAutoplayToken += 1;
     const runToken = playAutoplayToken;
-    setPlayControlsDisabled(true);
+    syncPlayModeUi();
     setPlayEngineStatus('Stockfish WASM: autoplay running...');
 
     try {
@@ -814,22 +961,11 @@ async function bootstrap() {
           return;
         }
 
-        const bestMove = String(result.bestMove ?? '').trim().toLowerCase();
-        const uciMatch = bestMove.match(/^([a-h][1-8])([a-h][1-8])([qrbn])?$/i);
-        if (!uciMatch) {
-          setPlayEngineStatus(`Stockfish WASM: no playable move (${bestMove || 'none'})`);
+        const applied = applyBestMoveFromEngine(result.bestMove);
+        if (!applied.ok) {
+          setPlayEngineStatus(`Stockfish WASM: ${applied.error}`);
           break;
         }
-
-        const [, from, to, promotion] = uciMatch;
-        const played = playChess.move({ from, to, promotion: promotion?.toLowerCase() });
-        if (!played) {
-          setPlayEngineStatus(`Stockfish WASM: illegal move (${bestMove})`);
-          break;
-        }
-
-        playUciMoves.push(`${from}${to}${promotion ?? ''}`.toLowerCase());
-        renderActivePlayState(played.san);
         await new Promise((resolve) => setTimeout(resolve, 180));
       }
 
@@ -854,14 +990,14 @@ async function bootstrap() {
     } finally {
       if (runToken === playAutoplayToken) {
         playAutoplayRunning = false;
-        setPlayControlsDisabled(false);
+        syncPlayModeUi();
       }
     }
   };
 
   const setAppTab = (tab) => {
-    if (tab !== 'play' && playAutoplayRunning) {
-      stopPlayAutoplay({ reasonText: 'Stockfish WASM: autoplay stopped (switched tab)' });
+    if (tab !== 'play' && (playAutoplayRunning || playHumanThinking)) {
+      stopPlayAutoplay({ reasonText: 'Stockfish WASM: play stopped (switched tab)' });
     }
 
     activeAppTab = tab === 'play' ? 'play' : 'benchmark';
@@ -925,9 +1061,9 @@ async function bootstrap() {
   });
 
   setAppTab('benchmark');
-  if (playModeInfo) {
-    playModeInfo.textContent = 'Mode: Stockfish vs Stockfish';
-  }
+  playMode = String(playModeSelect?.value ?? 'engine') === 'human' ? 'human' : 'engine';
+  playHumanSide = String(playHumanSideSelect?.value ?? 'white') === 'black' ? 'black' : 'white';
+  syncPlayModeUi();
   renderActivePlayState();
   appTabBenchmark?.addEventListener('click', () => setAppTab('benchmark'));
   appTabPlay?.addEventListener('click', () => setAppTab('play'));
@@ -1093,17 +1229,69 @@ async function bootstrap() {
     updateOpeningInfo();
   });
 
+  playModeSelect?.addEventListener('change', () => {
+    if (playAutoplayRunning || playHumanThinking) {
+      stopPlayAutoplay({ reasonText: 'Stockfish WASM: play stopped (mode changed)' });
+    }
+
+    playMode = String(playModeSelect.value ?? 'engine') === 'human' ? 'human' : 'engine';
+    clearPlaySelection();
+    syncPlayModeUi();
+
+    if (playMode === 'engine') {
+      applySelectedOpeningMoves();
+      if (stockfishWhiteService.isReady() && stockfishBlackService.isReady()) {
+        setPlayEngineStatus('Stockfish WASM: ready (white + black engines)');
+      }
+    } else {
+      resetHumanGame();
+      if (stockfishWhiteService.isReady() && stockfishBlackService.isReady()) {
+        setPlayEngineStatus('Stockfish WASM: ready (human mode)');
+      }
+    }
+  });
+
+  playHumanSideSelect?.addEventListener('change', () => {
+    if (playAutoplayRunning || playHumanThinking) {
+      return;
+    }
+    playHumanSide = String(playHumanSideSelect.value ?? 'white') === 'black' ? 'black' : 'white';
+    syncPlayModeUi();
+    if (playMode === 'human') {
+      resetHumanGame();
+      if (stockfishWhiteService.isReady() && stockfishBlackService.isReady()) {
+        setPlayEngineStatus('Stockfish WASM: ready (human mode)');
+      }
+    }
+  });
+
   playWhiteOpeningSelect?.addEventListener('change', () => {
+    if (playMode !== 'engine' || playAutoplayRunning || playHumanThinking) {
+      return;
+    }
     refreshBlackDefenseOptions();
     applySelectedOpeningMoves();
   });
 
   playBlackDefenseSelect?.addEventListener('change', () => {
+    if (playMode !== 'engine' || playAutoplayRunning || playHumanThinking) {
+      return;
+    }
     applySelectedOpeningMoves();
   });
 
   playAutoplayStartBtn?.addEventListener('click', async () => {
-    await runPlayAutoplay();
+    if (playMode === 'engine') {
+      await runPlayAutoplay();
+      return;
+    }
+
+    resetHumanGame();
+    if (humanTurnColor() === 'b') {
+      await runHumanEngineReply();
+    } else {
+      setPlayEngineStatus('Stockfish WASM: ready • your move');
+    }
   });
 
   playAutoplayStopBtn?.addEventListener('click', () => {
@@ -1114,10 +1302,101 @@ async function bootstrap() {
     if (playAutoplayRunning) {
       stopPlayAutoplay({ reasonText: 'Stockfish WASM: autoplay stopped (reset)' });
     }
-    applySelectedOpeningMoves();
-    if (stockfishWhiteService.isReady() && stockfishBlackService.isReady()) {
-      setPlayEngineStatus('Stockfish WASM: ready (white + black engines)');
+    if (playMode === 'engine') {
+      applySelectedOpeningMoves();
+      if (stockfishWhiteService.isReady() && stockfishBlackService.isReady()) {
+        setPlayEngineStatus('Stockfish WASM: ready (white + black engines)');
+      }
+      return;
     }
+
+    resetHumanGame();
+    if (stockfishWhiteService.isReady() && stockfishBlackService.isReady()) {
+      setPlayEngineStatus('Stockfish WASM: ready (human mode)');
+    }
+  });
+
+  playBoard?.addEventListener('click', async (event) => {
+    const cell = event.target instanceof Element ? event.target.closest('td[data-square]') : null;
+    if (!cell) {
+      return;
+    }
+
+    if (playMode !== 'human' || playAutoplayRunning || playHumanThinking) {
+      return;
+    }
+
+    if (playChess.isGameOver()) {
+      return;
+    }
+
+    const activeHumanColor = humanTurnColor();
+    if (playChess.turn() !== activeHumanColor) {
+      setPlayEngineStatus('Stockfish WASM: wait for engine move');
+      return;
+    }
+
+    const square = String(cell.dataset.square ?? '').toLowerCase();
+    if (!square) {
+      return;
+    }
+
+    if (playSelectedSquare) {
+      const matchingMoves = playSelectedMoves.filter((move) => move.to === square);
+      if (matchingMoves.length > 0) {
+        const preferredMove =
+          matchingMoves.find((move) => !move.promotion || move.promotion === 'q') ?? matchingMoves[0];
+
+        const played = playChess.move({
+          from: preferredMove.from,
+          to: preferredMove.to,
+          promotion: preferredMove.promotion,
+        });
+
+        if (!played) {
+          clearPlaySelection();
+          renderActivePlayState(currentPlayMoveLabel());
+          return;
+        }
+
+        playUciMoves.push(toUciMove(played));
+        clearPlaySelection();
+        renderActivePlayState(played.san);
+
+        if (playChess.isGameOver()) {
+          if (playChess.isCheckmate()) {
+            const winner = playChess.turn() === 'w' ? 'Black' : 'White';
+            setPlayEngineStatus(`Stockfish WASM: completed (${winner} won by checkmate)`);
+          } else if (playChess.isDraw()) {
+            setPlayEngineStatus('Stockfish WASM: completed (draw)');
+          } else {
+            setPlayEngineStatus('Stockfish WASM: completed (game over)');
+          }
+          return;
+        }
+
+        await runHumanEngineReply();
+        return;
+      }
+    }
+
+    const piece = playChess.get(square);
+    if (!piece || piece.color !== activeHumanColor) {
+      clearPlaySelection();
+      renderActivePlayState(currentPlayMoveLabel());
+      return;
+    }
+
+    const legalMoves = playChess.moves({ square, verbose: true });
+    if (!Array.isArray(legalMoves) || legalMoves.length === 0) {
+      clearPlaySelection();
+      renderActivePlayState(currentPlayMoveLabel());
+      return;
+    }
+
+    playSelectedSquare = square;
+    playSelectedMoves = legalMoves;
+    renderActivePlayState(currentPlayMoveLabel());
   });
 
   const vectorAdapter = new MuonVecAdapter();
@@ -2064,8 +2343,12 @@ async function bootstrap() {
   });
 
   setBenchmarkPanelVisible(benchmarkHasRun);
-  setPlayControlsDisabled(false);
-  applySelectedOpeningMoves();
+  syncPlayModeUi();
+  if (playMode === 'engine') {
+    applySelectedOpeningMoves();
+  } else {
+    resetHumanGame();
+  }
 
   gameSelect.value = String(games[0]?.id ?? 0);
   loadReplay();
