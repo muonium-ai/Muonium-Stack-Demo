@@ -20,6 +20,7 @@ export class TelemetryStore {
       hincrby: 0,
       lpush: 0,
     };
+    this.lastDominoCollisionEvents = 0;
   }
 
   reset() {
@@ -35,6 +36,7 @@ export class TelemetryStore {
       hincrby: 0,
       lpush: 0,
     };
+    this.lastDominoCollisionEvents = 0;
   }
 
   clearSubscribers() {
@@ -175,6 +177,13 @@ export class TelemetryStore {
     this.hset('metrics:puzzle', 'completion_time', Number(latestSnapshot.puzzle.lastCompletionSeconds.toFixed(4)));
     this.hset('metrics:puzzle', 'physics_efficiency_score', Number(latestSnapshot.puzzle.lastScore.toFixed(2)));
 
+    this.hincrby('metrics:counters', 'aggregate_flushes', 1);
+    const collisionDelta = Math.max(0, latestSnapshot.domino.collisionEvents - this.lastDominoCollisionEvents);
+    this.lastDominoCollisionEvents = latestSnapshot.domino.collisionEvents;
+    if (collisionDelta > 0) {
+      this.hincrby('metrics:counters', 'domino_collision_delta_total', collisionDelta);
+    }
+
     this.lpush('timeline:frames', {
       timestampMs: nowMs,
       fps: Number(fps.toFixed(2)),
@@ -204,6 +213,7 @@ export class TelemetryStore {
         lever: this.hgetall('metrics:lever'),
         roll: this.hgetall('metrics:roll'),
         puzzle: this.hgetall('metrics:puzzle'),
+        counters: this.hgetall('metrics:counters'),
       },
       timelineHead: this.lrange('timeline:frames', 0, 0)[0] ?? null,
       opCounts: { ...this.operationCounts },
