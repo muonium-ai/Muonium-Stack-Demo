@@ -12,6 +12,7 @@ import {
   resolveInitialThemeId,
   setActiveTheme,
 } from './theme.js';
+import { createPlayBenchmarkDb } from './playBenchmarkDb.js';
 import { createStockfishService } from './stockfish.js';
 import { MuonVecAdapter } from './vector.js';
 
@@ -77,7 +78,11 @@ function parseFenBoard(fen) {
   return board;
 }
 
-function renderPlayBoard(container, fen, { selectedSquare = '', legalTargetSquares = [] } = {}) {
+function renderPlayBoard(
+  container,
+  fen,
+  { selectedSquare = '', legalTargetSquares = [], moveArrow = null, arrowVisible = false } = {},
+) {
   if (!container) {
     return;
   }
@@ -90,6 +95,7 @@ function renderPlayBoard(container, fen, { selectedSquare = '', legalTargetSquar
   );
   const board = parseFenBoard(fen);
   const table = document.createElement('table');
+  const tbody = document.createElement('tbody');
   const files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
   for (let rank = 0; rank < 8; rank += 1) {
@@ -117,11 +123,68 @@ function renderPlayBoard(container, fen, { selectedSquare = '', legalTargetSquar
 
       tr.appendChild(td);
     }
-    table.appendChild(tr);
+    tbody.appendChild(tr);
   }
+
+  table.appendChild(tbody);
+
+  const boardPixelSize = table.offsetWidth || 544;
+  const cellSize = boardPixelSize / 8;
+  const svgNs = 'http://www.w3.org/2000/svg';
+  const arrowSvg = document.createElementNS(svgNs, 'svg');
+  arrowSvg.setAttribute('class', 'moveArrowOverlay');
+  arrowSvg.setAttribute('viewBox', `0 0 ${boardPixelSize} ${boardPixelSize}`);
+
+  const defs = document.createElementNS(svgNs, 'defs');
+  const marker = document.createElementNS(svgNs, 'marker');
+  marker.setAttribute('id', 'play-move-arrow-head');
+  marker.setAttribute('markerWidth', '8');
+  marker.setAttribute('markerHeight', '8');
+  marker.setAttribute('refX', '6');
+  marker.setAttribute('refY', '3');
+  marker.setAttribute('orient', 'auto');
+  marker.setAttribute('markerUnits', 'strokeWidth');
+
+  const markerPath = document.createElementNS(svgNs, 'path');
+  markerPath.setAttribute('d', 'M0,0 L0,6 L6,3 z');
+  markerPath.setAttribute('fill', '#2563eb');
+  marker.appendChild(markerPath);
+  defs.appendChild(marker);
+  arrowSvg.appendChild(defs);
+
+  const arrowLine = document.createElementNS(svgNs, 'line');
+  arrowLine.setAttribute('stroke', '#2563eb');
+  arrowLine.setAttribute('stroke-width', '6');
+  arrowLine.setAttribute('stroke-linecap', 'round');
+  arrowLine.setAttribute('stroke-opacity', '0.85');
+  arrowLine.setAttribute('marker-end', 'url(#play-move-arrow-head)');
+  arrowLine.style.display = 'none';
+
+  if (arrowVisible && moveArrow?.from && moveArrow?.to) {
+    const fromFile = files.indexOf(String(moveArrow.from)[0]);
+    const fromRank = Number(String(moveArrow.from)[1]);
+    const toFile = files.indexOf(String(moveArrow.to)[0]);
+    const toRank = Number(String(moveArrow.to)[1]);
+
+    if (fromFile >= 0 && toFile >= 0 && fromRank >= 1 && fromRank <= 8 && toRank >= 1 && toRank <= 8) {
+      const x1 = fromFile * cellSize + cellSize / 2;
+      const y1 = (8 - fromRank) * cellSize + cellSize / 2;
+      const x2 = toFile * cellSize + cellSize / 2;
+      const y2 = (8 - toRank) * cellSize + cellSize / 2;
+
+      arrowLine.setAttribute('x1', String(x1));
+      arrowLine.setAttribute('y1', String(y1));
+      arrowLine.setAttribute('x2', String(x2));
+      arrowLine.setAttribute('y2', String(y2));
+      arrowLine.style.display = 'block';
+    }
+  }
+
+  arrowSvg.appendChild(arrowLine);
 
   container.innerHTML = '';
   container.appendChild(table);
+  container.appendChild(arrowSvg);
 }
 
 const PLAYER_DATASET_STORAGE_KEY = 'muon.selectedPlayerDataset';
@@ -239,6 +302,42 @@ function formatGroupedDecimal(value) {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(safeValue);
+}
+
+function resultFromChess(chess) {
+  if (!chess) {
+    return '*';
+  }
+  if (chess.isCheckmate()) {
+    return chess.turn() === 'w' ? '0-1' : '1-0';
+  }
+  if (chess.isDraw()) {
+    return '1/2-1/2';
+  }
+  return '*';
+}
+
+function buildSimplePgn({ event = 'Play Benchmark', white = 'Stockfish', black = 'Stockfish', result = '*', moves = [] } = {}) {
+  const safeMoves = Array.isArray(moves) ? moves : [];
+  const lines = [
+    `[Event "${String(event)}"]`,
+    `[White "${String(white)}"]`,
+    `[Black "${String(black)}"]`,
+    `[Result "${String(result)}"]`,
+    '',
+  ];
+
+  const moveTokens = [];
+  for (let index = 0; index < safeMoves.length; index += 1) {
+    if (index % 2 === 0) {
+      moveTokens.push(`${Math.floor(index / 2) + 1}.`);
+    }
+    moveTokens.push(String(safeMoves[index] ?? ''));
+  }
+  moveTokens.push(result);
+  lines.push(moveTokens.join(' ').trim());
+
+  return lines.join('\n').trim();
 }
 
 function normalizeSanForCompare(move) {
@@ -600,6 +699,7 @@ async function bootstrap() {
   const benchmarkOnlyControls = Array.from(document.querySelectorAll('.benchmarkOnlyControl'));
   const playBoard = document.querySelector('#playBoard');
   const playMoveInfo = document.querySelector('#playMoveInfo');
+  const playPgnViewer = document.querySelector('#playPgnViewer');
   const playModeInfo = document.querySelector('#playModeInfo');
   const playEngineStatus = document.querySelector('#playEngineStatus');
   const playModeSelect = document.querySelector('#playModeSelect');
@@ -607,9 +707,15 @@ async function bootstrap() {
   const playWhiteOpeningSelect = document.querySelector('#playWhiteOpeningSelect');
   const playBlackDefenseSelect = document.querySelector('#playBlackDefenseSelect');
   const playEngineDepthSelect = document.querySelector('#playEngineDepthSelect');
+  const playArrowToggle = document.querySelector('#playArrowToggle');
+  const playArrowDurationSelect = document.querySelector('#playArrowDurationSelect');
   const playAutoplayStartBtn = document.querySelector('#playAutoplayStartBtn');
   const playAutoplayStopBtn = document.querySelector('#playAutoplayStopBtn');
   const playResetBtn = document.querySelector('#playResetBtn');
+  const playBenchmarkGamesInput = document.querySelector('#playBenchmarkGamesInput');
+  const playBenchmarkRunBtn = document.querySelector('#playBenchmarkRunBtn');
+  const playBenchmarkDownloadBtn = document.querySelector('#playBenchmarkDownloadBtn');
+  const playBenchmarkStatus = document.querySelector('#playBenchmarkStatus');
   const boardEl = document.querySelector('#board');
   const themeSelect = document.querySelector('#themeSelect');
   const playerDatasetSelect = document.querySelector('#playerDatasetSelect');
@@ -688,6 +794,12 @@ async function bootstrap() {
     activeMoveIndex: -1,
     spans: [],
   };
+  const playPgnState = {
+    movesRef: null,
+    moveCount: 0,
+    activeMoveIndex: -1,
+    spans: [],
+  };
 
   let activeGame = null;
   let activeReplayMoves = [];
@@ -710,6 +822,12 @@ async function bootstrap() {
   let playHumanThinking = false;
   let playSelectedSquare = '';
   let playSelectedMoves = [];
+  let playLastArrow = null;
+  let playArrowHideTimer = 0;
+  let playArrowEnabled = Boolean(playArrowToggle?.checked ?? true);
+  let playArrowDurationMs = Math.max(0, Number(playArrowDurationSelect?.value ?? 120) || 120);
+  let playBenchmarkRunning = false;
+  let playBenchmarkDb = null;
   const playChess = new Chess();
   const playUciMoves = [];
 
@@ -729,13 +847,51 @@ async function bootstrap() {
     playSelectedMoves = [];
   };
 
+  const setPlayArrowFromMove = (move) => {
+    if (!move?.from || !move?.to) {
+      playLastArrow = null;
+      return;
+    }
+    playLastArrow = {
+      from: String(move.from).toLowerCase(),
+      to: String(move.to).toLowerCase(),
+    };
+  };
+
+  const clearPlayArrowTimer = () => {
+    if (playArrowHideTimer) {
+      clearTimeout(playArrowHideTimer);
+      playArrowHideTimer = 0;
+    }
+  };
+
+  const schedulePlayArrowHide = (moveLabel) => {
+    clearPlayArrowTimer();
+    if (!playArrowEnabled || playArrowDurationMs <= 0 || !playLastArrow) {
+      return;
+    }
+
+    playArrowHideTimer = window.setTimeout(() => {
+      playArrowHideTimer = 0;
+      playLastArrow = null;
+      renderActivePlayState(moveLabel);
+    }, playArrowDurationMs);
+  };
+
   const renderActivePlayState = (moveLabel = 'start') => {
     renderPlayBoard(playBoard, playChess.fen(), {
       selectedSquare: playSelectedSquare,
       legalTargetSquares: playSelectedMoves.map((move) => move.to),
+      moveArrow: playLastArrow,
+      arrowVisible: playArrowEnabled && playArrowDurationMs > 0 && Boolean(playLastArrow),
+    });
+    const playMoves = playChess.history();
+    renderPgnViewer(playPgnViewer, playMoves, playMoves.length, playPgnState, {
+      forceFull: playMoves.length === 0,
+      scrollActive: true,
     });
     if (playMoveInfo) {
-      playMoveInfo.textContent = `Move ${playChess.history().length} • ${moveLabel}`;
+      playMoveInfo.textContent = `Move ${playMoves.length} • ${moveLabel}`;
     }
   };
 
@@ -745,9 +901,15 @@ async function bootstrap() {
     }
   };
 
+  const updatePlayBenchmarkStatus = (text) => {
+    if (playBenchmarkStatus) {
+      playBenchmarkStatus.textContent = text;
+    }
+  };
+
   const syncPlayModeUi = () => {
     const isEngineMode = playMode === 'engine';
-    const isBusy = playAutoplayRunning || playHumanThinking;
+    const isBusy = playAutoplayRunning || playHumanThinking || playBenchmarkRunning;
 
     if (playModeInfo) {
       playModeInfo.textContent = isEngineMode
@@ -783,6 +945,21 @@ async function bootstrap() {
     if (playEngineDepthSelect) {
       playEngineDepthSelect.disabled = isBusy;
     }
+    if (playArrowToggle) {
+      playArrowToggle.disabled = isBusy;
+    }
+    if (playArrowDurationSelect) {
+      playArrowDurationSelect.disabled = isBusy;
+    }
+    if (playBenchmarkGamesInput) {
+      playBenchmarkGamesInput.disabled = isBusy;
+    }
+    if (playBenchmarkRunBtn) {
+      playBenchmarkRunBtn.disabled = isBusy;
+    }
+    if (playBenchmarkDownloadBtn) {
+      playBenchmarkDownloadBtn.disabled = isBusy;
+    }
   };
 
   const stockfishWhiteService = createStockfishService();
@@ -814,6 +991,8 @@ async function bootstrap() {
 
   const applySelectedOpeningMoves = () => {
     clearPlaySelection();
+    clearPlayArrowTimer();
+    playLastArrow = null;
     playChess.reset();
     playUciMoves.length = 0;
 
@@ -842,6 +1021,8 @@ async function bootstrap() {
 
   const resetHumanGame = () => {
     clearPlaySelection();
+    clearPlayArrowTimer();
+    playLastArrow = null;
     playChess.reset();
     playUciMoves.length = 0;
     renderActivePlayState('start');
@@ -862,7 +1043,9 @@ async function bootstrap() {
 
     playUciMoves.push(`${from}${to}${promotion ?? ''}`.toLowerCase());
     clearPlaySelection();
+    setPlayArrowFromMove(played);
     renderActivePlayState(played.san);
+    schedulePlayArrowHide(played.san);
     return { ok: true, bestMove, san: played.san };
   };
 
@@ -870,6 +1053,7 @@ async function bootstrap() {
     playAutoplayToken += 1;
     playAutoplayRunning = false;
     playHumanThinking = false;
+    clearPlayArrowTimer();
     syncPlayModeUi();
     setPlayEngineStatus(reasonText);
   };
@@ -995,6 +1179,158 @@ async function bootstrap() {
     }
   };
 
+  const runPlayBenchmark = async () => {
+    if (playBenchmarkRunning || !playBenchmarkDb) {
+      return;
+    }
+
+    if (!stockfishWhiteService.isReady() || !stockfishBlackService.isReady()) {
+      setPlayEngineStatus('Stockfish WASM: unavailable (engine not ready)');
+      return;
+    }
+
+    const targetGames = Math.max(1, Number(playBenchmarkGamesInput?.value ?? 10) || 10);
+    const depth = Math.max(1, Number(playEngineDepthSelect?.value ?? 10) || 10);
+    const runId = playBenchmarkDb.createRun({ depth, targetGames });
+
+    playBenchmarkRunning = true;
+    syncPlayModeUi();
+    updatePlayBenchmarkStatus(
+      `Benchmark run #${runId}: starting ${targetGames} games at depth ${depth}...`,
+    );
+
+    let recordedMovesTotal = 0;
+
+    try {
+      for (let gameIndex = 1; gameIndex <= targetGames; gameIndex += 1) {
+        const benchChess = new Chess();
+        const benchUciMoves = [];
+        const benchMoveRecords = [];
+
+        const openingWhite = String(playWhiteOpeningSelect?.value ?? '').trim();
+        const openingBlack = String(playBlackDefenseSelect?.value ?? '').trim();
+
+        if (openingWhite) {
+          const move = benchChess.move(openingWhite);
+          if (move) {
+            benchUciMoves.push(toUciMove(move));
+            benchMoveRecords.push({
+              ply: benchMoveRecords.length + 1,
+              side: move.color,
+              uci: toUciMove(move),
+              san: move.san,
+              fen: benchChess.fen(),
+            });
+          }
+        }
+
+        if (openingBlack && !benchChess.isGameOver()) {
+          const move = benchChess.move(openingBlack);
+          if (move) {
+            benchUciMoves.push(toUciMove(move));
+            benchMoveRecords.push({
+              ply: benchMoveRecords.length + 1,
+              side: move.color,
+              uci: toUciMove(move),
+              san: move.san,
+              fen: benchChess.fen(),
+            });
+          }
+        }
+
+        const maxPly = 260;
+        while (!benchChess.isGameOver() && benchMoveRecords.length < maxPly) {
+          const turnColor = benchChess.turn();
+          const service = serviceForTurnColor(turnColor);
+          const bestResult = await service.getBestMove({ uciMoves: benchUciMoves, depth });
+          const bestMove = String(bestResult.bestMove ?? '').trim().toLowerCase();
+          const uciMatch = bestMove.match(/^([a-h][1-8])([a-h][1-8])([qrbn])?$/i);
+          if (!uciMatch) {
+            break;
+          }
+
+          const [, from, to, promotion] = uciMatch;
+          const played = benchChess.move({ from, to, promotion: promotion?.toLowerCase() });
+          if (!played) {
+            break;
+          }
+
+          const uci = `${from}${to}${promotion ?? ''}`.toLowerCase();
+          benchUciMoves.push(uci);
+          benchMoveRecords.push({
+            ply: benchMoveRecords.length + 1,
+            side: played.color,
+            uci,
+            san: played.san,
+            fen: benchChess.fen(),
+          });
+        }
+
+        const result = resultFromChess(benchChess);
+        const pgnText = buildSimplePgn({
+          event: `Play Benchmark Run ${runId}`,
+          white: 'Stockfish',
+          black: 'Stockfish',
+          result,
+          moves: benchChess.history(),
+        });
+
+        playBenchmarkDb.recordCompletedGame({
+          runId,
+          gameIndex,
+          result,
+          pgnText,
+          moves: benchMoveRecords,
+        });
+
+        recordedMovesTotal += benchMoveRecords.length;
+        updatePlayBenchmarkStatus(
+          `Benchmark run #${runId}: recorded game ${gameIndex}/${targetGames} • total moves ${recordedMovesTotal}`,
+        );
+      }
+
+      const totals = playBenchmarkDb.getTotals();
+      updatePlayBenchmarkStatus(
+        `Benchmark DB: ${totals.runs} runs • ${totals.games} games • ${totals.moves} moves`,
+      );
+      setPlayEngineStatus(`Stockfish WASM: benchmark run #${runId} completed`);
+    } catch (error) {
+      updatePlayBenchmarkStatus(
+        `Benchmark run #${runId}: failed (${error?.message ?? 'unknown'})`,
+      );
+    } finally {
+      playBenchmarkRunning = false;
+      syncPlayModeUi();
+    }
+  };
+
+  const downloadPlayBenchmarkPgn = () => {
+    if (!playBenchmarkDb) {
+      return;
+    }
+
+    const pgnText = playBenchmarkDb.getAllGamesAsPgn();
+    if (!pgnText.trim()) {
+      updatePlayBenchmarkStatus('Benchmark DB: no games recorded to export');
+      return;
+    }
+
+    const blob = new Blob([`${pgnText}\n`], { type: 'application/x-chess-pgn;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'play-benchmark-games.pgn';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    const totals = playBenchmarkDb.getTotals();
+    updatePlayBenchmarkStatus(
+      `Benchmark DB: ${totals.runs} runs • ${totals.games} games • ${totals.moves} moves • PGN downloaded`,
+    );
+  };
+
   const setAppTab = (tab) => {
     if (tab !== 'play' && (playAutoplayRunning || playHumanThinking)) {
       stopPlayAutoplay({ reasonText: 'Stockfish WASM: play stopped (switched tab)' });
@@ -1086,6 +1422,12 @@ async function bootstrap() {
       ? 'Stockfish WASM: ready (white + black engines)'
       : `Stockfish WASM: unavailable (${reason || isolationHint})`;
   }
+
+  playBenchmarkDb = await createPlayBenchmarkDb();
+  const initialTotals = playBenchmarkDb.getTotals();
+  updatePlayBenchmarkStatus(
+    `Benchmark DB: ${initialTotals.runs} runs • ${initialTotals.games} games • ${initialTotals.moves} moves`,
+  );
 
   statusEl.textContent = `Downloading ${activeDataset.label} SQLite... (${formatElapsedMs(performance.now() - loadStartedAt)})`;
   let db = await createGameDb({
@@ -1229,6 +1571,29 @@ async function bootstrap() {
     updateOpeningInfo();
   });
 
+  playArrowToggle?.addEventListener('change', () => {
+    playArrowEnabled = Boolean(playArrowToggle.checked);
+    if (!playArrowEnabled) {
+      clearPlayArrowTimer();
+      playLastArrow = null;
+    }
+    renderActivePlayState(currentPlayMoveLabel());
+  });
+
+  playArrowDurationSelect?.addEventListener('change', () => {
+    playArrowDurationMs = Math.max(0, Number(playArrowDurationSelect.value) || 0);
+    if (playArrowDurationMs <= 0) {
+      clearPlayArrowTimer();
+      playLastArrow = null;
+      renderActivePlayState(currentPlayMoveLabel());
+      return;
+    }
+
+    if (playLastArrow && playArrowEnabled) {
+      schedulePlayArrowHide(currentPlayMoveLabel());
+    }
+  });
+
   playModeSelect?.addEventListener('change', () => {
     if (playAutoplayRunning || playHumanThinking) {
       stopPlayAutoplay({ reasonText: 'Stockfish WASM: play stopped (mode changed)' });
@@ -1316,6 +1681,14 @@ async function bootstrap() {
     }
   });
 
+  playBenchmarkRunBtn?.addEventListener('click', async () => {
+    await runPlayBenchmark();
+  });
+
+  playBenchmarkDownloadBtn?.addEventListener('click', () => {
+    downloadPlayBenchmarkPgn();
+  });
+
   playBoard?.addEventListener('click', async (event) => {
     const cell = event.target instanceof Element ? event.target.closest('td[data-square]') : null;
     if (!cell) {
@@ -1361,7 +1734,9 @@ async function bootstrap() {
 
         playUciMoves.push(toUciMove(played));
         clearPlaySelection();
+        setPlayArrowFromMove(played);
         renderActivePlayState(played.san);
+        schedulePlayArrowHide(played.san);
 
         if (playChess.isGameOver()) {
           if (playChess.isCheckmate()) {

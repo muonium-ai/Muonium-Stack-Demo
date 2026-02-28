@@ -139,14 +139,37 @@
                 <option value="12">12</option>
               </select>
             </label>
+            <label class="playInlineToggle" for="playArrowToggle">
+              <span>Move arrow</span>
+              <input id="playArrowToggle" type="checkbox" checked />
+            </label>
+            <label>
+              Arrow latency
+              <select id="playArrowDurationSelect">
+                <option value="0">Off</option>
+                <option value="120" selected>120ms</option>
+                <option value="300">300ms</option>
+              </select>
+            </label>
           </div>
           <section id="playBoard" class="playBoard" aria-label="Play board"></section>
           <p id="playMoveInfo">Move 0 • start</p>
+          <h3 class="playMovesTitle">Play Moves</h3>
+          <div id="playPgnViewer"></div>
           <div class="playPanelControls">
             <button id="playAutoplayStartBtn" type="button">Start Autoplay</button>
             <button id="playAutoplayStopBtn" type="button" disabled>Stop</button>
             <button id="playResetBtn" type="button">Reset</button>
           </div>
+          <div class="playBenchmarkRow">
+            <label>
+              Benchmark games
+              <input id="playBenchmarkGamesInput" type="number" min="1" max="500" step="1" value="10" />
+            </label>
+            <button id="playBenchmarkRunBtn" type="button">Run Play Benchmark</button>
+            <button id="playBenchmarkDownloadBtn" type="button">Download Benchmark PGN</button>
+          </div>
+          <p id="playBenchmarkStatus">Benchmark DB: 0 runs • 0 games • 0 moves</p>
         </section>
       </section>
 

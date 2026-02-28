@@ -371,6 +371,13 @@ h1 {
   color: var(--color-text-muted);
 }
 
+.playInlineToggle {
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px !important;
+}
+
 .playConfigGrid select {
   border: 1px solid var(--color-border-strong);
   border-radius: 8px;
@@ -413,6 +420,26 @@ h1 {
   font-weight: 600;
 }
 
+.playMovesTitle {
+  margin: 10px 0 6px;
+  font-size: 15px;
+}
+
+#playPgnViewer {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 110px;
+  max-height: 180px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  line-height: 1.8;
+  font-size: 15px;
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
 .playPanelControls {
   display: flex;
   align-items: center;
@@ -437,6 +464,58 @@ h1 {
 .playPanelControls button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.playBenchmarkRow {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.playBenchmarkRow label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.playBenchmarkRow input {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: 7px 9px;
+  font-size: 14px;
+  width: 110px;
+}
+
+.playBenchmarkRow button {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.playBenchmarkRow button:hover:not(:disabled) {
+  background: var(--color-focus-bg);
+}
+
+.playBenchmarkRow button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#playBenchmarkStatus {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 600;
 }
 
 .toolbar {
