@@ -145,6 +145,12 @@ export class PhysicsRuntime {
       aggregateIntervalMs: 100,
       timelineLimit: 512,
     });
+    this.replayCapture = {
+      enabled: false,
+      intervalSteps: 6,
+      maxSnapshots: 600,
+    };
+    this.replaySnapshots = [];
 
     this.lastTiming = {
       frameTimeMs: 0,
@@ -207,6 +213,7 @@ export class PhysicsRuntime {
     this.world = new this.rapier.World({ x: 0, y: -9.81, z: 0 });
     this.eventQueue = new this.rapier.EventQueue(true);
     this.metricsStore.reset();
+    this.replaySnapshots = [];
     this.accumulatorSeconds = 0;
     this.stepCount = 0;
     this.dominoBodies = [];
@@ -910,6 +917,13 @@ export class PhysicsRuntime {
         bestCompletionSeconds: this.puzzleMetrics.bestCompletionSeconds,
         lastScore: this.puzzleMetrics.lastScore,
       },
+      replay: {
+        captureEnabled: this.replayCapture.enabled,
+        intervalSteps: this.replayCapture.intervalSteps,
+        maxSnapshots: this.replayCapture.maxSnapshots,
+        count: this.replaySnapshots.length,
+        latestIndex: Math.max(0, this.replaySnapshots.length - 1),
+      },
       metricsPipeline: this.metricsStore.exportState(),
       domino: {
         count: this.dominoMetrics.count,
@@ -952,6 +966,48 @@ export class PhysicsRuntime {
     return { ok: true, intervalMs };
   }
 
+  setReplayCaptureConfig(configInput = {}) {
+    if (configInput.enabled !== undefined) {
+      this.replayCapture.enabled = Boolean(configInput.enabled);
+    }
+    if (configInput.intervalSteps !== undefined) {
+      this.replayCapture.intervalSteps = Math.max(1, Math.min(120, Math.round(Number(configInput.intervalSteps) || 1)));
+    }
+    if (configInput.maxSnapshots !== undefined) {
+      this.replayCapture.maxSnapshots = Math.max(60, Math.min(5000, Math.round(Number(configInput.maxSnapshots) || 600)));
+      if (this.replaySnapshots.length > this.replayCapture.maxSnapshots) {
+        this.replaySnapshots = this.replaySnapshots.slice(this.replaySnapshots.length - this.replayCapture.maxSnapshots);
+      }
+    }
+    this.emitState();
+    return {
+      ok: true,
+      config: {
+        ...this.replayCapture,
+      },
+      count: this.replaySnapshots.length,
+    };
+  }
+
+  clearReplaySnapshots() {
+    this.replaySnapshots = [];
+    this.emitState();
+    return { ok: true };
+  }
+
+  getReplaySnapshot(index) {
+    if (!this.replaySnapshots.length) {
+      return { ok: false, error: 'no replay snapshots available' };
+    }
+    const boundedIndex = Math.max(0, Math.min(this.replaySnapshots.length - 1, Math.round(Number(index) || 0)));
+    return {
+      ok: true,
+      index: boundedIndex,
+      total: this.replaySnapshots.length,
+      snapshot: this.inflateReplaySnapshot(this.replaySnapshots[boundedIndex]),
+    };
+  }
+
   dispose() {
     this.pause();
     this.timingSubscribers.clear();
@@ -984,6 +1040,7 @@ export class PhysicsRuntime {
       this.collectRollingMetrics();
       this.advanceTriggerMechanism();
       this.evaluatePuzzleAttempt();
+      this.captureReplaySnapshot();
     }
     const stepEnd = performance.now();
 
@@ -1349,6 +1406,153 @@ export class PhysicsRuntime {
       score *= 0.75;
     }
     return Math.round(score * 10) / 10;
+  }
+
+  captureReplaySnapshot() {
+    if (!this.replayCapture.enabled) {
+      return;
+    }
+    if (this.stepCount % this.replayCapture.intervalSteps !== 0) {
+      return;
+    }
+
+    const snapshot = this.getSnapshot();
+    const compact = this.compactReplaySnapshot(snapshot);
+    this.replaySnapshots.push(compact);
+    if (this.replaySnapshots.length > this.replayCapture.maxSnapshots) {
+      this.replaySnapshots.shift();
+    }
+  }
+
+  compactReplaySnapshot(snapshot) {
+    const toVec = (transform) => [
+      Number(transform.x.toFixed(4)),
+      Number(transform.y.toFixed(4)),
+      Number(transform.z.toFixed(4)),
+      Number(transform.qx.toFixed(4)),
+      Number(transform.qy.toFixed(4)),
+      Number(transform.qz.toFixed(4)),
+      Number(transform.qw.toFixed(4)),
+    ];
+
+    return {
+      s: snapshot.totalSteps,
+      c: [
+        Number(snapshot.cubeX.toFixed(4)),
+        Number(snapshot.cubeY.toFixed(4)),
+        Number(snapshot.cubeZ.toFixed(4)),
+        Number(snapshot.cubeQx.toFixed(4)),
+        Number(snapshot.cubeQy.toFixed(4)),
+        Number(snapshot.cubeQz.toFixed(4)),
+        Number(snapshot.cubeQw.toFixed(4)),
+      ],
+      bt: (snapshot.ballTransforms ?? []).map((transform) => toVec(transform)),
+      dt: (snapshot.dominoTransforms ?? []).map((transform) => toVec(transform)),
+      tm: {
+        p: toVec(snapshot.triggerMechanismTransforms.plank),
+        l: toVec(snapshot.triggerMechanismTransforms.lever),
+        g: toVec(snapshot.triggerMechanismTransforms.gate),
+      },
+      rm: {
+        ramp: toVec(snapshot.rollingTransforms.ramp),
+        roller: toVec(snapshot.rollingTransforms.roller),
+      },
+      bm: snapshot.ballMaterialPreset,
+      dm: snapshot.dominoMaterialPreset,
+      b: {
+        count: snapshot.ball.count,
+        fallTimeAvgSeconds: Number(snapshot.ball.fallTimeAvgSeconds.toFixed(4)),
+        bounceCount: snapshot.ball.bounceCount,
+        maxHeight: Number(snapshot.ball.maxHeight.toFixed(4)),
+        impactForceMax: Number(snapshot.ball.impactForceMax.toFixed(4)),
+      },
+      d: {
+        count: snapshot.domino.count,
+        fallTimeAvgSeconds: Number(snapshot.domino.fallTimeAvgSeconds.toFixed(4)),
+        collisionEvents: snapshot.domino.collisionEvents,
+        maxVelocity: Number(snapshot.domino.maxVelocity.toFixed(4)),
+        chainSpeedPerSecond: Number(snapshot.domino.chainSpeedPerSecond.toFixed(4)),
+      },
+      l: {
+        torque: Number(snapshot.lever.torque.toFixed(4)),
+        rotationSpeed: Number(snapshot.lever.rotationSpeed.toFixed(4)),
+        equilibriumTimeSeconds: Number(snapshot.lever.equilibriumTimeSeconds.toFixed(4)),
+      },
+      r: {
+        rampAngleDeg: Number(snapshot.rolling.rampAngleDeg.toFixed(2)),
+        frictionCoeff: Number(snapshot.rolling.frictionCoeff.toFixed(4)),
+        mass: Number(snapshot.rolling.mass.toFixed(4)),
+        distance: Number(snapshot.rolling.distance.toFixed(4)),
+        velocityAvg: Number(snapshot.rolling.velocityAvg.toFixed(4)),
+        energyLoss: Number(snapshot.rolling.energyLoss.toFixed(4)),
+      },
+      p: {
+        status: snapshot.puzzle.status,
+        attempts: snapshot.puzzle.attempts,
+        successes: snapshot.puzzle.successes,
+        lastCompletionSeconds: Number(snapshot.puzzle.lastCompletionSeconds.toFixed(4)),
+        bestCompletionSeconds: Number(snapshot.puzzle.bestCompletionSeconds.toFixed(4)),
+        lastScore: Number(snapshot.puzzle.lastScore.toFixed(2)),
+      },
+    };
+  }
+
+  inflateReplaySnapshot(compact) {
+    const fromVec = (value) => ({
+      x: value[0],
+      y: value[1],
+      z: value[2],
+      qx: value[3],
+      qy: value[4],
+      qz: value[5],
+      qw: value[6],
+    });
+
+    const live = this.getSnapshot();
+    return {
+      ...live,
+      totalSteps: compact.s,
+      cubeX: compact.c[0],
+      cubeY: compact.c[1],
+      cubeZ: compact.c[2],
+      cubeQx: compact.c[3],
+      cubeQy: compact.c[4],
+      cubeQz: compact.c[5],
+      cubeQw: compact.c[6],
+      ballTransforms: compact.bt.map((value) => fromVec(value)),
+      dominoTransforms: compact.dt.map((value) => fromVec(value)),
+      triggerMechanismTransforms: {
+        plank: fromVec(compact.tm.p),
+        lever: fromVec(compact.tm.l),
+        gate: fromVec(compact.tm.g),
+      },
+      rollingTransforms: {
+        ramp: fromVec(compact.rm.ramp),
+        roller: fromVec(compact.rm.roller),
+      },
+      ballMaterialPreset: compact.bm,
+      dominoMaterialPreset: compact.dm,
+      ball: {
+        ...live.ball,
+        ...compact.b,
+      },
+      domino: {
+        ...live.domino,
+        ...compact.d,
+      },
+      lever: {
+        ...live.lever,
+        ...compact.l,
+      },
+      rolling: {
+        ...live.rolling,
+        ...compact.r,
+      },
+      puzzle: {
+        ...live.puzzle,
+        ...compact.p,
+      },
+    };
   }
 
   emitTiming(timing) {

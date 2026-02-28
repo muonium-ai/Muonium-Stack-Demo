@@ -129,7 +129,7 @@ Exit criteria:
 - [x] T-000056: Live graph panel from telemetry stream
 - [x] T-000057: Particle/impact visual effects module
 - [x] T-000058: Performance harness + target validation
-- [ ] T-000059: Optional time-travel replay snapshots
+- [x] T-000059: Optional time-travel replay snapshots
 - [ ] T-000060: Demo hardening, docs, and integration handoff pack
 
 ## Execution Policy

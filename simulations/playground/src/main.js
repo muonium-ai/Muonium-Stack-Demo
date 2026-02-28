@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000057 Event-driven particle effects and visual feedback</p>
+    <p class="subtitle">T-000059 Optional time-travel replay snapshots</p>
 
     <section class="controls" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
@@ -126,6 +126,20 @@ app.innerHTML = `
       <button id="puzzleResetBtn" type="button" disabled>Reset Puzzle Progress</button>
     </section>
 
+    <section class="controls replayControls" aria-label="Replay controls">
+      <label class="toggleWrap" for="replayCaptureToggle">
+        Capture replay
+        <input id="replayCaptureToggle" type="checkbox" />
+      </label>
+      <label>
+        Capture interval (steps)
+        <input id="replayIntervalInput" type="number" min="1" max="120" step="1" value="6" />
+      </label>
+      <button id="replayConfigBtn" type="button" disabled>Apply Replay Config</button>
+      <button id="replayClearBtn" type="button" disabled>Clear Snapshots</button>
+      <button id="replayOpenBtn" type="button" disabled>Open Replay</button>
+    </section>
+
     <p id="runtimeStatus" class="status">Status: idle</p>
 
     <section class="viewportPanel" aria-label="Playground viewport">
@@ -239,6 +253,24 @@ app.innerHTML = `
       </p>
       <canvas id="graphCanvas" class="graphCanvas" width="640" height="180"></canvas>
     </section>
+
+    <section class="telemetry replayTelemetry" aria-label="Replay telemetry panel">
+      <h2>Replay</h2>
+      <dl>
+        <div><dt>Snapshots</dt><dd id="replayCountMetric">0</dd></div>
+        <div><dt>Replay index</dt><dd id="replayIndexMetric">0</dd></div>
+        <div><dt>Replay mode</dt><dd id="replayModeMetric">off</dd></div>
+      </dl>
+      <label class="replayScrubWrap">
+        Scrub
+        <input id="replayScrubInput" type="range" min="0" max="0" step="1" value="0" />
+      </label>
+      <section class="controls replayPlaybackControls" aria-label="Replay playback controls">
+        <button id="replayPlayPauseBtn" type="button" disabled>Play Replay</button>
+        <button id="replayRestartBtn" type="button" disabled>Restart From Scrub</button>
+        <button id="replayExitBtn" type="button" disabled>Exit Replay</button>
+      </section>
+    </section>
   </section>
 `;
 
@@ -275,6 +307,15 @@ const rollingMassInput = document.querySelector('#rollingMassInput');
 const rollingApplyBtn = document.querySelector('#rollingApplyBtn');
 const puzzleStartBtn = document.querySelector('#puzzleStartBtn');
 const puzzleResetBtn = document.querySelector('#puzzleResetBtn');
+const replayCaptureToggle = document.querySelector('#replayCaptureToggle');
+const replayIntervalInput = document.querySelector('#replayIntervalInput');
+const replayConfigBtn = document.querySelector('#replayConfigBtn');
+const replayClearBtn = document.querySelector('#replayClearBtn');
+const replayOpenBtn = document.querySelector('#replayOpenBtn');
+const replayPlayPauseBtn = document.querySelector('#replayPlayPauseBtn');
+const replayRestartBtn = document.querySelector('#replayRestartBtn');
+const replayExitBtn = document.querySelector('#replayExitBtn');
+const replayScrubInput = document.querySelector('#replayScrubInput');
 const runtimeStatus = document.querySelector('#runtimeStatus');
 
 const frameTime = document.querySelector('#frameTime');
@@ -318,6 +359,9 @@ const metricsFpsMetric = document.querySelector('#metricsFpsMetric');
 const metricsOpsMetric = document.querySelector('#metricsOpsMetric');
 const metricsEventsMetric = document.querySelector('#metricsEventsMetric');
 const metricsGraphSamplesMetric = document.querySelector('#metricsGraphSamplesMetric');
+const replayCountMetric = document.querySelector('#replayCountMetric');
+const replayIndexMetric = document.querySelector('#replayIndexMetric');
+const replayModeMetric = document.querySelector('#replayModeMetric');
 const hudOverlay = document.querySelector('#hudOverlay');
 const hudFpsMetric = document.querySelector('#hudFpsMetric');
 const hudStepMetric = document.querySelector('#hudStepMetric');
@@ -329,6 +373,11 @@ const graphPanel = new LiveGraphPanel(graphCanvas);
 let hudVisible = true;
 let effectsEnabled = true;
 let previousCollisionCount = 0;
+let replayModeActive = false;
+let replayPlaying = false;
+let replayCurrentIndex = 0;
+let replayAnimationId = null;
+let replayLastTimestampMs = 0;
 
 renderer.init(viewport);
 
@@ -337,22 +386,90 @@ const setStatus = (message, isError = false) => {
   runtimeStatus.dataset.state = isError ? 'error' : 'ok';
 };
 
+const stopReplayLoop = () => {
+  replayPlaying = false;
+  replayLastTimestampMs = 0;
+  replayPlayPauseBtn.textContent = 'Play Replay';
+  if (replayAnimationId !== null) {
+    cancelAnimationFrame(replayAnimationId);
+    replayAnimationId = null;
+  }
+};
+
+const renderReplayIndex = (index) => {
+  const result = runtime.getReplaySnapshot(index);
+  if (!result.ok) {
+    setStatus(`replay snapshot unavailable (${result.error})`, true);
+    return false;
+  }
+  replayCurrentIndex = result.index;
+  replayScrubInput.value = String(replayCurrentIndex);
+  replayIndexMetric.textContent = `${replayCurrentIndex}`;
+  renderer.applySnapshot(result.snapshot);
+  return true;
+};
+
+const exitReplayMode = () => {
+  stopReplayLoop();
+  replayModeActive = false;
+  replayModeMetric.textContent = 'off';
+  replayExitBtn.disabled = true;
+  replayPlayPauseBtn.disabled = true;
+  replayRestartBtn.disabled = true;
+
+  const liveSnapshot = runtime.getSnapshot();
+  renderer.applySnapshot(liveSnapshot);
+  if (liveSnapshot.running) {
+    renderer.start();
+  }
+  runtime.setReplayCaptureConfig({});
+};
+
+const replayTick = (timestampMs) => {
+  if (!replayPlaying || !replayModeActive) {
+    return;
+  }
+
+  if (!replayLastTimestampMs) {
+    replayLastTimestampMs = timestampMs;
+  }
+
+  const elapsed = timestampMs - replayLastTimestampMs;
+  if (elapsed >= 1000 / 24) {
+    replayLastTimestampMs = timestampMs;
+    const nextIndex = replayCurrentIndex + 1;
+    const maxIndex = Number(replayScrubInput.max);
+    if (nextIndex > maxIndex) {
+      stopReplayLoop();
+      return;
+    }
+    renderReplayIndex(nextIndex);
+  }
+
+  replayAnimationId = requestAnimationFrame((nextTimestampMs) => replayTick(nextTimestampMs));
+};
+
 runtime.onState((snapshot) => {
   initBtn.disabled = snapshot.initialized;
-  startBtn.disabled = !snapshot.initialized || snapshot.running;
-  pauseBtn.disabled = !snapshot.initialized || !snapshot.running;
+  startBtn.disabled = !snapshot.initialized || snapshot.running || replayModeActive;
+  pauseBtn.disabled = !snapshot.initialized || !snapshot.running || replayModeActive;
   resetBtn.disabled = !snapshot.initialized;
   metricsIntervalBtn.disabled = !snapshot.initialized;
   hudToggleBtn.disabled = !snapshot.initialized;
   effectsToggleBtn.disabled = !snapshot.initialized;
-  ballCreateBtn.disabled = !snapshot.initialized;
-  dominoCreateBtn.disabled = !snapshot.initialized;
-  dominoTriggerBtn.disabled = !snapshot.initialized;
-  triggerRunBtn.disabled = !snapshot.initialized;
-  leverApplyBtn.disabled = !snapshot.initialized;
-  rollingApplyBtn.disabled = !snapshot.initialized;
-  puzzleStartBtn.disabled = !snapshot.initialized;
-  puzzleResetBtn.disabled = !snapshot.initialized;
+  ballCreateBtn.disabled = !snapshot.initialized || replayModeActive;
+  dominoCreateBtn.disabled = !snapshot.initialized || replayModeActive;
+  dominoTriggerBtn.disabled = !snapshot.initialized || replayModeActive;
+  triggerRunBtn.disabled = !snapshot.initialized || replayModeActive;
+  leverApplyBtn.disabled = !snapshot.initialized || replayModeActive;
+  rollingApplyBtn.disabled = !snapshot.initialized || replayModeActive;
+  puzzleStartBtn.disabled = !snapshot.initialized || replayModeActive;
+  puzzleResetBtn.disabled = !snapshot.initialized || replayModeActive;
+  replayConfigBtn.disabled = !snapshot.initialized || replayModeActive;
+  replayClearBtn.disabled = !snapshot.initialized || replayModeActive;
+  replayOpenBtn.disabled = !snapshot.initialized || replayModeActive || snapshot.replay.count === 0;
+  replayCaptureToggle.disabled = !snapshot.initialized || replayModeActive;
+  replayIntervalInput.disabled = !snapshot.initialized || replayModeActive;
 
   gravityEnabledToggle.checked = snapshot.ball.gravityEnabled;
   gravityStrengthInput.value = snapshot.ball.gravityStrength.toFixed(1);
@@ -362,10 +479,21 @@ runtime.onState((snapshot) => {
   rollingFrictionInput.value = snapshot.rolling.frictionCoeff.toFixed(2);
   rollingMassInput.value = snapshot.rolling.mass.toFixed(1);
   metricsIntervalInput.value = String(snapshot.metricsPipeline.aggregateIntervalMs);
+  replayCaptureToggle.checked = snapshot.replay.captureEnabled;
+  replayIntervalInput.value = String(snapshot.replay.intervalSteps);
+  replayCountMetric.textContent = String(snapshot.replay.count);
+  replayScrubInput.max = String(Math.max(0, snapshot.replay.count - 1));
+  if (!replayModeActive) {
+    replayCurrentIndex = Math.max(0, snapshot.replay.count - 1);
+    replayScrubInput.value = String(replayCurrentIndex);
+    replayIndexMetric.textContent = String(replayCurrentIndex);
+  }
 });
 
 runtime.onTiming((timing, snapshot) => {
-  renderer.applySnapshot(snapshot);
+  if (!replayModeActive) {
+    renderer.applySnapshot(snapshot);
+  }
   frameTime.textContent = `${timing.frameTimeMs.toFixed(2)} ms`;
   stepTime.textContent = `${timing.physicsStepTimeMs.toFixed(3)} ms`;
   subSteps.textContent = String(timing.steppedFrames);
@@ -413,6 +541,14 @@ runtime.onTiming((timing, snapshot) => {
   puzzleBestMetric.textContent =
     snapshot.puzzle.bestCompletionSeconds > 0 ? `${snapshot.puzzle.bestCompletionSeconds.toFixed(3)} s` : '--';
   puzzleScoreMetric.textContent = snapshot.puzzle.lastScore.toFixed(1);
+
+  replayCountMetric.textContent = String(snapshot.replay.count);
+  if (!replayModeActive) {
+    replayScrubInput.max = String(Math.max(0, snapshot.replay.count - 1));
+    replayCurrentIndex = Math.max(0, snapshot.replay.count - 1);
+    replayScrubInput.value = String(replayCurrentIndex);
+    replayIndexMetric.textContent = String(replayCurrentIndex);
+  }
 });
 
 runtime.onMetricsStream((packet) => {
@@ -666,9 +802,92 @@ effectsToggleBtn.addEventListener('click', () => {
   setStatus(effectsEnabled ? 'visual effects enabled' : 'visual effects disabled');
 });
 
+replayConfigBtn.addEventListener('click', () => {
+  const result = runtime.setReplayCaptureConfig({
+    enabled: replayCaptureToggle.checked,
+    intervalSteps: Number(replayIntervalInput.value),
+  });
+  if (!result.ok) {
+    setStatus('failed to update replay config', true);
+    return;
+  }
+  setStatus(
+    `replay capture ${result.config.enabled ? 'enabled' : 'disabled'} @ interval ${result.config.intervalSteps} steps`
+  );
+});
+
+replayClearBtn.addEventListener('click', () => {
+  runtime.clearReplaySnapshots();
+  replayScrubInput.max = '0';
+  replayScrubInput.value = '0';
+  replayIndexMetric.textContent = '0';
+  setStatus('replay snapshots cleared');
+});
+
+replayOpenBtn.addEventListener('click', () => {
+  const liveSnapshot = runtime.getSnapshot();
+  if (liveSnapshot.replay.count === 0) {
+    setStatus('no replay snapshots available', true);
+    return;
+  }
+
+  runtime.pause();
+  renderer.pause();
+  replayModeActive = true;
+  replayModeMetric.textContent = 'on';
+  replayExitBtn.disabled = false;
+  replayPlayPauseBtn.disabled = false;
+  replayRestartBtn.disabled = false;
+
+  replayCurrentIndex = Number(replayScrubInput.value);
+  renderReplayIndex(replayCurrentIndex);
+  setStatus('replay mode opened');
+});
+
+replayScrubInput.addEventListener('input', (event) => {
+  if (!replayModeActive) {
+    return;
+  }
+  stopReplayLoop();
+  renderReplayIndex(Number(event.target.value));
+});
+
+replayPlayPauseBtn.addEventListener('click', () => {
+  if (!replayModeActive) {
+    return;
+  }
+  if (replayPlaying) {
+    stopReplayLoop();
+    setStatus('replay paused');
+    return;
+  }
+
+  replayPlaying = true;
+  replayPlayPauseBtn.textContent = 'Pause Replay';
+  replayLastTimestampMs = 0;
+  replayAnimationId = requestAnimationFrame((timestampMs) => replayTick(timestampMs));
+  setStatus('replay playing');
+});
+
+replayRestartBtn.addEventListener('click', () => {
+  if (!replayModeActive) {
+    return;
+  }
+  stopReplayLoop();
+  const selectedIndex = Number(replayScrubInput.value);
+  renderReplayIndex(selectedIndex);
+  setStatus(`replay restarted from snapshot ${selectedIndex}`);
+});
+
+replayExitBtn.addEventListener('click', () => {
+  exitReplayMode();
+  setStatus('replay mode exited');
+});
+
 setStatus('idle (click Initialize Rapier)');
 
 window.addEventListener('beforeunload', () => {
+  stopReplayLoop();
   graphPanel.dispose();
   runtime.dispose();
   renderer.dispose();
