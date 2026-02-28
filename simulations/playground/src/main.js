@@ -26,6 +26,30 @@ app.innerHTML = `
       </label>
     </section>
 
+    <section class="controls ballControls" aria-label="Falling balls controls">
+      <label>
+        Balls
+        <input id="ballCountInput" type="number" min="1" max="12" step="1" value="4" />
+      </label>
+      <label>
+        Ball material
+        <select id="ballMaterialSelect">
+          <option value="wood" selected>Wood</option>
+          <option value="rubber">Rubber</option>
+          <option value="metal">Metal</option>
+        </select>
+      </label>
+      <label class="toggleWrap" for="gravityEnabledToggle">
+        Gravity
+        <input id="gravityEnabledToggle" type="checkbox" checked />
+      </label>
+      <label>
+        Gravity strength
+        <input id="gravityStrengthInput" type="number" min="0" max="2.5" step="0.1" value="1.0" />
+      </label>
+      <button id="ballCreateBtn" type="button" disabled>Spawn Balls</button>
+    </section>
+
     <section class="controls dominoControls" aria-label="Domino controls">
       <label>
         Dominoes
@@ -76,6 +100,17 @@ app.innerHTML = `
         <div><dt>Chain speed</dt><dd id="dominoChainSpeedMetric">0.00 dom/s</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry" aria-label="Ball telemetry">
+      <h2>Ball metrics</h2>
+      <dl>
+        <div><dt>Ball count</dt><dd id="ballCountMetric">0</dd></div>
+        <div><dt>Fall time avg</dt><dd id="ballFallAvgMetric">0.000 s</dd></div>
+        <div><dt>Bounce count</dt><dd id="ballBounceMetric">0</dd></div>
+        <div><dt>Max height</dt><dd id="ballMaxHeightMetric">0.000</dd></div>
+        <div><dt>Impact force (max)</dt><dd id="ballImpactMetric">0.000</dd></div>
+      </dl>
+    </section>
   </section>
 `;
 
@@ -87,6 +122,11 @@ const startBtn = document.querySelector('#startBtn');
 const pauseBtn = document.querySelector('#pauseBtn');
 const resetBtn = document.querySelector('#resetBtn');
 const speedSelect = document.querySelector('#speedSelect');
+const ballCountInput = document.querySelector('#ballCountInput');
+const ballMaterialSelect = document.querySelector('#ballMaterialSelect');
+const gravityEnabledToggle = document.querySelector('#gravityEnabledToggle');
+const gravityStrengthInput = document.querySelector('#gravityStrengthInput');
+const ballCreateBtn = document.querySelector('#ballCreateBtn');
 const dominoCountInput = document.querySelector('#dominoCountInput');
 const dominoSpacingInput = document.querySelector('#dominoSpacingInput');
 const dominoMaterialSelect = document.querySelector('#dominoMaterialSelect');
@@ -106,6 +146,11 @@ const dominoFallAvgMetric = document.querySelector('#dominoFallAvgMetric');
 const dominoCollisionMetric = document.querySelector('#dominoCollisionMetric');
 const dominoVelocityMetric = document.querySelector('#dominoVelocityMetric');
 const dominoChainSpeedMetric = document.querySelector('#dominoChainSpeedMetric');
+const ballCountMetric = document.querySelector('#ballCountMetric');
+const ballFallAvgMetric = document.querySelector('#ballFallAvgMetric');
+const ballBounceMetric = document.querySelector('#ballBounceMetric');
+const ballMaxHeightMetric = document.querySelector('#ballMaxHeightMetric');
+const ballImpactMetric = document.querySelector('#ballImpactMetric');
 const viewport = document.querySelector('#viewport');
 
 renderer.init(viewport);
@@ -120,8 +165,12 @@ runtime.onState((snapshot) => {
   startBtn.disabled = !snapshot.initialized || snapshot.running;
   pauseBtn.disabled = !snapshot.initialized || !snapshot.running;
   resetBtn.disabled = !snapshot.initialized;
+  ballCreateBtn.disabled = !snapshot.initialized;
   dominoCreateBtn.disabled = !snapshot.initialized;
   dominoTriggerBtn.disabled = !snapshot.initialized;
+
+  gravityEnabledToggle.checked = snapshot.ball.gravityEnabled;
+  gravityStrengthInput.value = snapshot.ball.gravityStrength.toFixed(1);
 });
 
 runtime.onTiming((timing, snapshot) => {
@@ -139,6 +188,12 @@ runtime.onTiming((timing, snapshot) => {
   dominoCollisionMetric.textContent = String(snapshot.domino.collisionEvents);
   dominoVelocityMetric.textContent = snapshot.domino.maxVelocity.toFixed(3);
   dominoChainSpeedMetric.textContent = `${snapshot.domino.chainSpeedPerSecond.toFixed(2)} dom/s`;
+
+  ballCountMetric.textContent = String(snapshot.ball.count);
+  ballFallAvgMetric.textContent = `${snapshot.ball.fallTimeAvgSeconds.toFixed(3)} s`;
+  ballBounceMetric.textContent = String(snapshot.ball.bounceCount);
+  ballMaxHeightMetric.textContent = snapshot.ball.maxHeight.toFixed(3);
+  ballImpactMetric.textContent = snapshot.ball.impactForceMax.toFixed(3);
 });
 
 initBtn.addEventListener('click', async () => {
@@ -167,6 +222,36 @@ resetBtn.addEventListener('click', () => {
   runtime.resetWorld();
   renderer.reset();
   setStatus('world reset');
+});
+
+ballCreateBtn.addEventListener('click', () => {
+  const result = runtime.createFallingBalls({
+    count: Number(ballCountInput.value),
+    materialPreset: ballMaterialSelect.value,
+    gravityEnabled: gravityEnabledToggle.checked,
+    gravityStrength: Number(gravityStrengthInput.value),
+  });
+  if (!result.ok) {
+    setStatus(`ball spawn failed (${result.error})`, true);
+    return;
+  }
+  setStatus(`spawned ${result.config.count} ${result.config.materialPreset} balls`);
+});
+
+gravityEnabledToggle.addEventListener('change', () => {
+  runtime.setGravity(gravityEnabledToggle.checked, Number(gravityStrengthInput.value));
+  setStatus(
+    gravityEnabledToggle.checked
+      ? `gravity enabled (${Number(gravityStrengthInput.value).toFixed(1)}x)`
+      : 'gravity disabled'
+  );
+});
+
+gravityStrengthInput.addEventListener('change', () => {
+  runtime.setGravity(gravityEnabledToggle.checked, Number(gravityStrengthInput.value));
+  if (gravityEnabledToggle.checked) {
+    setStatus(`gravity strength set to ${Number(gravityStrengthInput.value).toFixed(1)}x`);
+  }
 });
 
 dominoCreateBtn.addEventListener('click', async () => {

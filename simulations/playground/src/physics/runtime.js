@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 const FIXED_TIMESTEP_SECONDS = 1 / 60;
 const MAX_STEPS_PER_FRAME = 8;
 const DOMINO_SIZE = { hx: 0.04, hy: 0.25, hz: 0.12 };
+const BALL_RADIUS = 0.18;
 const DOMINO_MATERIAL_PRESETS = {
   wood: {
     friction: 0.75,
@@ -23,6 +24,29 @@ const DOMINO_MATERIAL_PRESETS = {
     angularDamping: 0.03,
   },
 };
+const BALL_MATERIAL_PRESETS = {
+  wood: {
+    friction: 0.62,
+    restitution: 0.2,
+    linearDamping: 0.07,
+    angularDamping: 0.07,
+    density: 0.9,
+  },
+  rubber: {
+    friction: 0.86,
+    restitution: 0.82,
+    linearDamping: 0.03,
+    angularDamping: 0.03,
+    density: 1.1,
+  },
+  metal: {
+    friction: 0.5,
+    restitution: 0.06,
+    linearDamping: 0.02,
+    angularDamping: 0.02,
+    density: 2.4,
+  },
+};
 
 export class PhysicsRuntime {
   constructor() {
@@ -38,8 +62,8 @@ export class PhysicsRuntime {
     this.world = null;
     this.eventQueue = null;
     this.groundBody = null;
-    this.fallingBody = null;
-    this.fallingCollider = null;
+    this.triggerBallBody = null;
+    this.triggerBallCollider = null;
 
     this.dominoBodies = [];
     this.dominoColliderHandles = new Set();
@@ -50,6 +74,16 @@ export class PhysicsRuntime {
       startX: 1.2,
     };
     this.dominoMetrics = this.createEmptyDominoMetrics();
+
+    this.ballBodies = [];
+    this.ballBodyByColliderHandle = new Map();
+    this.ballConfig = {
+      count: 4,
+      materialPreset: 'wood',
+      gravityEnabled: true,
+      gravityStrength: 1,
+    };
+    this.ballMetrics = this.createEmptyBallMetrics();
 
     this.timingSubscribers = new Set();
     this.stateSubscribers = new Set();
@@ -119,21 +153,26 @@ export class PhysicsRuntime {
     this.dominoBodies = [];
     this.dominoColliderHandles.clear();
     this.dominoMetrics = this.createEmptyDominoMetrics();
+    this.ballBodies = [];
+    this.ballBodyByColliderHandle.clear();
+    this.ballMetrics = this.createEmptyBallMetrics();
 
     const groundBodyDesc = this.rapier.RigidBodyDesc.fixed().setTranslation(0, -0.6, 0);
     this.groundBody = this.world.createRigidBody(groundBodyDesc);
     const groundColliderDesc = this.rapier.ColliderDesc.cuboid(5, 0.5, 5);
     this.world.createCollider(groundColliderDesc, this.groundBody);
 
-    const fallingBodyDesc = this.rapier.RigidBodyDesc.dynamic().setTranslation(this.dominoConfig.startX, 2.5, 0);
-    this.fallingBody = this.world.createRigidBody(fallingBodyDesc);
-    const fallingColliderDesc = this.rapier.ColliderDesc.cuboid(0.3, 0.3, 0.3)
+    const triggerBodyDesc = this.rapier.RigidBodyDesc.dynamic().setTranslation(this.dominoConfig.startX, 2.5, 0);
+    this.triggerBallBody = this.world.createRigidBody(triggerBodyDesc);
+    const triggerColliderDesc = this.rapier.ColliderDesc.cuboid(0.3, 0.3, 0.3)
       .setRestitution(0.1)
       .setFriction(0.7)
       .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
-    this.fallingCollider = this.world.createCollider(fallingColliderDesc, this.fallingBody);
+    this.triggerBallCollider = this.world.createCollider(triggerColliderDesc, this.triggerBallBody);
 
+    this.setGravity(this.ballConfig.gravityEnabled, this.ballConfig.gravityStrength);
     this.createDominoChain(this.dominoConfig);
+    this.createFallingBalls(this.ballConfig);
 
     this.emitTiming({
       frameTimeMs: 0,
@@ -145,6 +184,24 @@ export class PhysicsRuntime {
       timestamp: performance.now(),
     });
     this.emitState();
+  }
+
+  setGravity(enabled, strength = 1) {
+    const gravityEnabled = Boolean(enabled);
+    const gravityStrength = Math.max(0, Math.min(2.5, Number(strength)));
+    this.ballConfig.gravityEnabled = gravityEnabled;
+    this.ballConfig.gravityStrength = gravityStrength;
+
+    if (this.world) {
+      const y = gravityEnabled ? -9.81 * gravityStrength : 0;
+      this.world.gravity = { x: 0, y, z: 0 };
+    }
+
+    this.emitState();
+    this.emitTiming({
+      ...this.lastTiming,
+      timestamp: performance.now(),
+    });
   }
 
   setSpeedMultiplier(value) {
@@ -205,9 +262,9 @@ export class PhysicsRuntime {
       this.dominoColliderHandles.add(collider.handle);
     }
 
-    this.fallingBody?.setTranslation({ x: startX, y: 2.5, z: 0 }, true);
-    this.fallingBody?.setLinvel({ x: 0, y: 0, z: 0 }, true);
-    this.fallingBody?.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    this.triggerBallBody?.setTranslation({ x: startX, y: 2.5, z: 0 }, true);
+    this.triggerBallBody?.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.triggerBallBody?.setAngvel({ x: 0, y: 0, z: 0 }, true);
 
     this.dominoMetrics = this.createEmptyDominoMetrics();
     this.dominoMetrics.count = count;
@@ -229,6 +286,87 @@ export class PhysicsRuntime {
     };
   }
 
+  createFallingBalls(configInput = {}) {
+    if (!this.world || !this.rapier) {
+      return { ok: false, error: 'initialize Rapier first' };
+    }
+
+    const count = Math.max(1, Math.min(12, Math.round(Number(configInput.count ?? this.ballConfig.count))));
+    const materialPreset =
+      BALL_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.ballConfig.materialPreset;
+    const gravityEnabled =
+      configInput.gravityEnabled === undefined ? this.ballConfig.gravityEnabled : Boolean(configInput.gravityEnabled);
+    const gravityStrength = Math.max(
+      0,
+      Math.min(2.5, Number(configInput.gravityStrength ?? this.ballConfig.gravityStrength))
+    );
+
+    this.ballConfig = {
+      ...this.ballConfig,
+      count,
+      materialPreset,
+      gravityEnabled,
+      gravityStrength,
+    };
+
+    for (const body of this.ballBodies) {
+      this.world.removeRigidBody(body);
+    }
+    this.ballBodies = [];
+    this.ballBodyByColliderHandle.clear();
+
+    const material = BALL_MATERIAL_PRESETS[materialPreset];
+    const startX = -1.8;
+    const spacing = 0.5;
+    const startZ = -0.7;
+
+    for (let index = 0; index < count; index += 1) {
+      const x = startX + index * spacing;
+      const y = 1.2 + index * 0.35;
+      const z = startZ + ((index % 2) * 1.4);
+
+      const bodyDesc = this.rapier.RigidBodyDesc.dynamic()
+        .setTranslation(x, y, z)
+        .setLinearDamping(material.linearDamping)
+        .setAngularDamping(material.angularDamping)
+        .setCanSleep(false);
+      const body = this.world.createRigidBody(bodyDesc);
+      const colliderDesc = this.rapier.ColliderDesc.ball(BALL_RADIUS)
+        .setDensity(material.density)
+        .setRestitution(material.restitution)
+        .setFriction(material.friction)
+        .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
+      const collider = this.world.createCollider(colliderDesc, body);
+
+      this.ballBodies.push(body);
+      this.ballBodyByColliderHandle.set(collider.handle, body);
+    }
+
+    this.ballMetrics = this.createEmptyBallMetrics();
+    this.ballMetrics.count = count;
+    this.ballMetrics.materialPreset = materialPreset;
+    this.ballMetrics.gravityEnabled = gravityEnabled;
+    this.ballMetrics.gravityStrength = gravityStrength;
+
+    for (const body of this.ballBodies) {
+      const t = body.translation();
+      this.ballMetrics.maxHeight = Math.max(this.ballMetrics.maxHeight, t.y);
+      this.ballMetrics.stateByBody.set(body, {
+        spawnTimeSeconds: this.stepCount * FIXED_TIMESTEP_SECONDS,
+        firstImpactTimeSeconds: null,
+        bounceCount: 0,
+        maxHeight: t.y,
+        maxImpactForce: 0,
+      });
+    }
+
+    this.setGravity(gravityEnabled, gravityStrength);
+    return {
+      ok: true,
+      config: { ...this.ballConfig },
+    };
+  }
+
   triggerDominoChain() {
     if (!this.dominoBodies.length) {
       return { ok: false, error: 'domino chain not created' };
@@ -243,9 +381,9 @@ export class PhysicsRuntime {
   }
 
   getSnapshot() {
-    const translation = this.fallingBody?.translation() ?? { x: 0, y: 0, z: 0 };
-    const linvel = this.fallingBody?.linvel() ?? { x: 0, y: 0, z: 0 };
-    const rotation = this.fallingBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
+    const translation = this.triggerBallBody?.translation() ?? { x: 0, y: 0, z: 0 };
+    const linvel = this.triggerBallBody?.linvel() ?? { x: 0, y: 0, z: 0 };
+    const rotation = this.triggerBallBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
     const dominoTransforms = this.dominoBodies.map((body) => {
       const t = body.translation();
       const q = body.rotation();
@@ -269,6 +407,34 @@ export class PhysicsRuntime {
     const chainDuration = Math.max(lastFall - firstFall, 0);
     const chainSpeed = chainDuration > 0 ? fallenTimes.length / chainDuration : 0;
 
+    const ballTransforms = this.ballBodies.map((body) => {
+      const t = body.translation();
+      const q = body.rotation();
+      return {
+        x: t.x,
+        y: t.y,
+        z: t.z,
+        qx: q.x,
+        qy: q.y,
+        qz: q.z,
+        qw: q.w,
+      };
+    });
+
+    const fallTimes = [];
+    let bounceCount = 0;
+    let maxImpactForce = 0;
+    let maxHeight = 0;
+    for (const state of this.ballMetrics.stateByBody.values()) {
+      if (state.firstImpactTimeSeconds !== null) {
+        fallTimes.push(state.firstImpactTimeSeconds - state.spawnTimeSeconds);
+      }
+      bounceCount += state.bounceCount;
+      maxImpactForce = Math.max(maxImpactForce, state.maxImpactForce);
+      maxHeight = Math.max(maxHeight, state.maxHeight);
+    }
+    const fallTimeAvgSeconds = fallTimes.length ? fallTimes.reduce((sum, value) => sum + value, 0) / fallTimes.length : 0;
+
     return {
       initialized: this.initialized,
       running: this.running,
@@ -282,8 +448,20 @@ export class PhysicsRuntime {
       cubeQy: rotation.y,
       cubeQz: rotation.z,
       cubeQw: rotation.w,
+      ballTransforms,
+      ballMaterialPreset: this.ballMetrics.materialPreset,
       dominoTransforms,
       dominoMaterialPreset: this.dominoMetrics.materialPreset,
+      ball: {
+        count: this.ballMetrics.count,
+        materialPreset: this.ballMetrics.materialPreset,
+        gravityEnabled: this.ballMetrics.gravityEnabled,
+        gravityStrength: this.ballMetrics.gravityStrength,
+        fallTimeAvgSeconds,
+        bounceCount,
+        maxHeight,
+        impactForceMax: maxImpactForce,
+      },
       domino: {
         count: this.dominoMetrics.count,
         spacing: this.dominoMetrics.spacing,
@@ -340,7 +518,7 @@ export class PhysicsRuntime {
       this.accumulatorSeconds -= FIXED_TIMESTEP_SECONDS;
       this.stepCount += 1;
       steppedFrames += 1;
-      this.collectDominoMetrics();
+      this.collectCollisionAndModuleMetrics();
     }
     const stepEnd = performance.now();
 
@@ -357,11 +535,7 @@ export class PhysicsRuntime {
     this.rafId = requestAnimationFrame((nextTimestampMs) => this.frame(nextTimestampMs));
   }
 
-  collectDominoMetrics() {
-    if (!this.dominoBodies.length) {
-      return;
-    }
-
+  collectCollisionAndModuleMetrics() {
     const nowSeconds = this.stepCount * FIXED_TIMESTEP_SECONDS;
 
     if (this.eventQueue) {
@@ -375,6 +549,23 @@ export class PhysicsRuntime {
           if (!this.dominoMetrics.triggered) {
             this.dominoMetrics.triggered = true;
             this.dominoMetrics.triggerTimeSeconds = nowSeconds;
+          }
+        }
+
+        const ballBody = this.ballBodyByColliderHandle.get(handle1) ?? this.ballBodyByColliderHandle.get(handle2);
+        if (ballBody) {
+          const state = this.ballMetrics.stateByBody.get(ballBody);
+          if (state) {
+            state.bounceCount += 1;
+            if (state.firstImpactTimeSeconds === null) {
+              state.firstImpactTimeSeconds = nowSeconds;
+            }
+            const velocity = ballBody.linvel();
+            const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2);
+            const mass = typeof ballBody.mass === 'function' ? ballBody.mass() : 1;
+            const impactForceEstimate = speed * mass;
+            state.maxImpactForce = Math.max(state.maxImpactForce, impactForceEstimate);
+            this.ballMetrics.impactEvents += 1;
           }
         }
       });
@@ -396,6 +587,16 @@ export class PhysicsRuntime {
         this.dominoMetrics.fallTimestampsSeconds[index] = relativeTime;
       }
     }
+
+    for (const body of this.ballBodies) {
+      const state = this.ballMetrics.stateByBody.get(body);
+      if (!state) {
+        continue;
+      }
+      const t = body.translation();
+      state.maxHeight = Math.max(state.maxHeight, t.y);
+      this.ballMetrics.maxHeight = Math.max(this.ballMetrics.maxHeight, t.y);
+    }
   }
 
   createEmptyDominoMetrics() {
@@ -408,6 +609,18 @@ export class PhysicsRuntime {
       fallTimestampsSeconds: [],
       triggered: false,
       triggerTimeSeconds: 0,
+    };
+  }
+
+  createEmptyBallMetrics() {
+    return {
+      count: 0,
+      materialPreset: this.ballConfig.materialPreset,
+      gravityEnabled: this.ballConfig.gravityEnabled,
+      gravityStrength: this.ballConfig.gravityStrength,
+      impactEvents: 0,
+      maxHeight: 0,
+      stateByBody: new Map(),
     };
   }
 

@@ -15,6 +15,8 @@ export class PlaygroundRenderer {
     this.fallingMesh = null;
     this.dominoGeometry = null;
     this.dominoMeshes = [];
+    this.ballGeometry = null;
+    this.ballMeshes = [];
   }
 
   init(container) {
@@ -61,6 +63,7 @@ export class PlaygroundRenderer {
     this.scene.add(this.fallingMesh);
 
     this.dominoGeometry = new THREE.BoxGeometry(0.08, 0.5, 0.24);
+    this.ballGeometry = new THREE.SphereGeometry(0.18, 18, 14);
 
     const grid = new THREE.GridHelper(8, 16, 0x3d5f92, 0x253b5c);
     grid.position.y = -0.09;
@@ -109,6 +112,7 @@ export class PlaygroundRenderer {
     }
     this.fallingMesh.position.set(snapshot.cubeX, snapshot.cubeY, snapshot.cubeZ);
     this.fallingMesh.quaternion.set(snapshot.cubeQx, snapshot.cubeQy, snapshot.cubeQz, snapshot.cubeQw);
+    this.syncBallMeshes(snapshot.ballTransforms ?? [], snapshot.ballMaterialPreset ?? 'wood');
     this.syncDominoMeshes(snapshot.dominoTransforms ?? [], snapshot.dominoMaterialPreset ?? 'wood');
     if (!this.running) {
       this.renderOnce();
@@ -146,8 +150,11 @@ export class PlaygroundRenderer {
     }
 
     this.dominoMeshes = [];
+    this.ballMeshes = [];
     this.dominoGeometry?.dispose();
+    this.ballGeometry?.dispose();
     this.dominoGeometry = null;
+    this.ballGeometry = null;
   }
 
   tick() {
@@ -201,6 +208,29 @@ export class PlaygroundRenderer {
     }
   }
 
+  syncBallMeshes(ballTransforms, materialPreset) {
+    while (this.ballMeshes.length < ballTransforms.length) {
+      const material = new THREE.MeshStandardMaterial({ color: this.colorForBallMaterial(materialPreset) });
+      const mesh = new THREE.Mesh(this.ballGeometry, material);
+      this.ballMeshes.push(mesh);
+      this.scene.add(mesh);
+    }
+
+    while (this.ballMeshes.length > ballTransforms.length) {
+      const mesh = this.ballMeshes.pop();
+      this.scene.remove(mesh);
+      mesh.material?.dispose?.();
+    }
+
+    for (let index = 0; index < ballTransforms.length; index += 1) {
+      const transform = ballTransforms[index];
+      const mesh = this.ballMeshes[index];
+      mesh.position.set(transform.x, transform.y, transform.z);
+      mesh.quaternion.set(transform.qx, transform.qy, transform.qz, transform.qw);
+      mesh.material.color.setHex(this.colorForBallMaterial(materialPreset));
+    }
+  }
+
   colorForMaterial(materialPreset) {
     switch (materialPreset) {
       case 'metal':
@@ -210,6 +240,18 @@ export class PlaygroundRenderer {
       case 'wood':
       default:
         return 0xc08b52;
+    }
+  }
+
+  colorForBallMaterial(materialPreset) {
+    switch (materialPreset) {
+      case 'metal':
+        return 0xb8c8e0;
+      case 'rubber':
+        return 0x4fd481;
+      case 'wood':
+      default:
+        return 0xcd9b63;
     }
   }
 }

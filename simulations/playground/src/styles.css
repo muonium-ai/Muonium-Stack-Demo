@@ -81,6 +81,14 @@ label {
   margin-bottom: 10px;
 }
 
+.ballControls {
+  margin-bottom: 10px;
+}
+
+.toggleWrap {
+  gap: 6px;
+}
+
 .viewportPanel {
   margin: 0 0 14px;
 }
