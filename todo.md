@@ -145,3 +145,9 @@ Exit criteria:
 - [x] T-000063: Basic mode one-click demo scenario
 - [x] T-000064: Redis capability showcase panel for Basic mode
 - [x] T-000065: Dual-mode UX polish and final demo script update
+
+## Post-Demo Optimization Wave
+
+- [ ] T-000066: Bundle splitting strategy for playground app
+- [ ] T-000067: Reduce chunk-size warning and formalize bundle budget
+- [ ] T-000068: Add scripted CI smoke checks for dual-mode playground
