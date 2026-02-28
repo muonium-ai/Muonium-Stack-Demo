@@ -33,6 +33,15 @@ export class PlaygroundRenderer {
     this.prevDominoSpeed = 0;
     this.prevImpactForce = 0;
     this.prevPuzzleStatus = 'idle';
+
+    this.cameraTarget = null;
+    this.cameraYaw = 0;
+    this.cameraPitch = 0;
+    this.cameraDistance = 0;
+    this.defaultCameraPose = {
+      position: new THREE.Vector3(3.6, 3.0, 5.8),
+      target: new THREE.Vector3(0, 0.6, 0),
+    };
   }
 
   init(container) {
@@ -47,6 +56,7 @@ export class PlaygroundRenderer {
     this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
     this.camera.position.set(3.6, 3.0, 5.8);
     this.camera.lookAt(0, 0.6, 0);
+    this.configureCameraStateFromPose();
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -165,6 +175,34 @@ export class PlaygroundRenderer {
     }
   }
 
+  panCamera(deltaX = 0, deltaZ = 0) {
+    if (!this.cameraTarget) {
+      return;
+    }
+    this.cameraTarget.x += Number(deltaX) || 0;
+    this.cameraTarget.z += Number(deltaZ) || 0;
+    this.updateCameraTransform();
+  }
+
+  tiltCamera(deltaRadians = 0) {
+    const delta = Number(deltaRadians) || 0;
+    this.cameraPitch = Math.max(-0.25, Math.min(1.2, this.cameraPitch + delta));
+    this.updateCameraTransform();
+  }
+
+  zoomCamera(deltaDistance = 0) {
+    const delta = Number(deltaDistance) || 0;
+    this.cameraDistance = Math.max(2.2, Math.min(18, this.cameraDistance + delta));
+    this.updateCameraTransform();
+  }
+
+  resetCameraView() {
+    this.camera.position.copy(this.defaultCameraPose.position);
+    this.cameraTarget.copy(this.defaultCameraPose.target);
+    this.configureCameraStateFromPose();
+    this.updateCameraTransform();
+  }
+
   reset() {
     if (!this.fallingMesh) {
       return;
@@ -262,6 +300,33 @@ export class PlaygroundRenderer {
     this.camera.updateProjectionMatrix();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(width, height, false);
+    this.renderOnce();
+  }
+
+  configureCameraStateFromPose() {
+    this.cameraTarget = this.defaultCameraPose.target.clone();
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.cameraTarget);
+    const distance = Math.max(offset.length(), 0.0001);
+    this.cameraDistance = distance;
+    this.cameraYaw = Math.atan2(offset.x, offset.z);
+    this.cameraPitch = Math.asin(offset.y / distance);
+  }
+
+  updateCameraTransform() {
+    if (!this.camera || !this.cameraTarget) {
+      return;
+    }
+    const cosPitch = Math.cos(this.cameraPitch);
+    const sinPitch = Math.sin(this.cameraPitch);
+    const sinYaw = Math.sin(this.cameraYaw);
+    const cosYaw = Math.cos(this.cameraYaw);
+
+    this.camera.position.set(
+      this.cameraTarget.x + this.cameraDistance * cosPitch * sinYaw,
+      this.cameraTarget.y + this.cameraDistance * sinPitch,
+      this.cameraTarget.z + this.cameraDistance * cosPitch * cosYaw
+    );
+    this.camera.lookAt(this.cameraTarget);
     this.renderOnce();
   }
 

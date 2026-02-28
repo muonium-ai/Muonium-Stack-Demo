@@ -19,6 +19,18 @@ app.innerHTML = `
       <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Simulation</button>
     </section>
 
+    <section class="controls basicOnly basicCameraControls" aria-label="Basic camera controls">
+      <button id="basicPanLeftBtn" type="button">Pan ←</button>
+      <button id="basicPanRightBtn" type="button">Pan →</button>
+      <button id="basicPanForwardBtn" type="button">Pan ↑</button>
+      <button id="basicPanBackBtn" type="button">Pan ↓</button>
+      <button id="basicTiltUpBtn" type="button">Tilt +</button>
+      <button id="basicTiltDownBtn" type="button">Tilt -</button>
+      <button id="basicZoomInBtn" type="button">Zoom +</button>
+      <button id="basicZoomOutBtn" type="button">Zoom -</button>
+      <button id="basicCameraResetBtn" type="button">Reset View</button>
+    </section>
+
     <section class="controls advancedOnly advancedNav" aria-label="Advanced navigation">
       <a href="#advancedControlsAnchor" class="advancedNavLink">Controls</a>
       <a href="#advancedSimulationAnchor" class="advancedNavLink">Simulation</a>
@@ -327,6 +339,15 @@ const shell = document.querySelector('.shell');
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
 const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
+const basicPanLeftBtn = document.querySelector('#basicPanLeftBtn');
+const basicPanRightBtn = document.querySelector('#basicPanRightBtn');
+const basicPanForwardBtn = document.querySelector('#basicPanForwardBtn');
+const basicPanBackBtn = document.querySelector('#basicPanBackBtn');
+const basicTiltUpBtn = document.querySelector('#basicTiltUpBtn');
+const basicTiltDownBtn = document.querySelector('#basicTiltDownBtn');
+const basicZoomInBtn = document.querySelector('#basicZoomInBtn');
+const basicZoomOutBtn = document.querySelector('#basicZoomOutBtn');
+const basicCameraResetBtn = document.querySelector('#basicCameraResetBtn');
 const basicRedisToggleBtn = document.querySelector('#basicRedisToggleBtn');
 const basicRedisBody = document.querySelector('#basicRedisBody');
 const basicRedisNarrative = document.querySelector('#basicRedisNarrative');
@@ -1269,6 +1290,42 @@ tabAdvancedBtn.addEventListener('click', () => {
 
 basicRunShowcaseBtn.addEventListener('click', async () => {
   await runBasicShowcase();
+});
+
+basicPanLeftBtn.addEventListener('click', () => {
+  renderer.panCamera(-0.45, 0);
+});
+
+basicPanRightBtn.addEventListener('click', () => {
+  renderer.panCamera(0.45, 0);
+});
+
+basicPanForwardBtn.addEventListener('click', () => {
+  renderer.panCamera(0, -0.45);
+});
+
+basicPanBackBtn.addEventListener('click', () => {
+  renderer.panCamera(0, 0.45);
+});
+
+basicTiltUpBtn.addEventListener('click', () => {
+  renderer.tiltCamera(0.1);
+});
+
+basicTiltDownBtn.addEventListener('click', () => {
+  renderer.tiltCamera(-0.1);
+});
+
+basicZoomInBtn.addEventListener('click', () => {
+  renderer.zoomCamera(-0.55);
+});
+
+basicZoomOutBtn.addEventListener('click', () => {
+  renderer.zoomCamera(0.55);
+});
+
+basicCameraResetBtn.addEventListener('click', () => {
+  renderer.resetCameraView();
 });
 
 replayConfigBtn.addEventListener('click', () => {

@@ -92,6 +92,16 @@ h1 {
   margin: 0 0 14px;
 }
 
+.shell[data-mode='basic'] .controls.basicOnly.basicCameraControls {
+  justify-content: center;
+  margin: 0 0 12px;
+}
+
+.shell[data-mode='basic'] .basicCameraControls button {
+  font-size: 0.95rem;
+  padding: 10px 12px;
+}
+
 .shell[data-mode='basic'] .basicPrimary {
   font-size: 1.2rem;
   font-weight: 700;
