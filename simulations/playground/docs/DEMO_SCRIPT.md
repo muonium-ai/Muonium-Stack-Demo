@@ -11,11 +11,29 @@ make -C simulations/playground dev
 ```
 
 2. Open `http://localhost:5174`
-3. Click **Initialize Rapier**
 
 ## Walkthrough sequence
 
-### 1) Baseline runtime and telemetry
+### 1) Basic mode one-click showcase (primary reviewer path)
+
+- Select **Basic** tab
+- Click **Run Showcase** once
+- Let the scripted sequence run through all stages (domino → trigger → rolling → puzzle finale)
+- Observe Redis Capability panel updates:
+	- stream tick/rate increase
+	- ops counters (`HSET`, `LPUSH`) change live
+	- timeline mapping line updates
+
+Expected: one-click deterministic flow runs end-to-end without manual tuning.
+
+### 2) Optional Advanced deep dive (technical reviewers)
+
+- Select **Advanced** tab
+- Click **Initialize Rapier**
+
+Expected: full controls and telemetry panels are available.
+
+### 3) Advanced baseline runtime and telemetry
 
 - Click **Start**
 - Verify timing telemetry updates
@@ -24,37 +42,23 @@ make -C simulations/playground dev
 
 Expected: no errors, stable updates in HUD and stream panel.
 
-### 2) Domino + trigger chain
+### 4) Advanced module spot checks
 
-- Click **Create Chain** (default values)
-- Click **Trigger Chain**
-- Click **Run Trigger Sequence**
-
-Expected: domino metrics and trigger order/latencies update.
-
-### 3) Ball and rolling modules
-
+- Click **Create Chain**, then **Trigger Chain**, then **Run Trigger Sequence**
 - Click **Spawn Balls**
 - Click **Apply Rolling Setup**
-- Click **Start** for a few seconds, then **Pause**
+- Click **Start Puzzle Attempt** and wait for completion/failure
 
-Expected: ball impacts/rolling energy metrics move from baseline.
+Expected: module metrics and status fields update correctly.
 
-### 4) Puzzle mode objective
-
-- Click **Start Puzzle Attempt**
-- Wait for completion/failure
-
-Expected: puzzle attempts/status/completion score update.
-
-### 5) Live graph panel
+### 5) Advanced live graph panel
 
 - Set **Graph window** to `short`, observe response
 - Set back to `medium`
 
 Expected: velocity/torque/impact lines continue updating without UI lag.
 
-### 6) Effects verification
+### 6) Advanced effects verification
 
 - Ensure effects visible during active impacts/fast chains
 - Click **Disable Effects**, re-run trigger/ball actions
@@ -62,7 +66,7 @@ Expected: velocity/torque/impact lines continue updating without UI lag.
 
 Expected: simulation remains correct with effects on/off.
 
-### 7) Replay verification
+### 7) Advanced replay verification
 
 - Enable **Capture replay**
 - Set interval to `6`, click **Apply Replay Config**

@@ -23,3 +23,10 @@ Build + benchmark:
 make -C simulations/playground build
 make -C simulations/playground bench
 ```
+
+## Demo mode entry points
+
+- Basic mode (one-click scripted showcase):
+	- `http://localhost:5174/?mode=basic`
+- Advanced mode (full controls and diagnostics):
+	- `http://localhost:5174/?mode=advanced`

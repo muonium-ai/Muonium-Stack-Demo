@@ -144,4 +144,4 @@ Exit criteria:
 - [x] T-000062: Promote current UI as Advanced mode
 - [x] T-000063: Basic mode one-click demo scenario
 - [x] T-000064: Redis capability showcase panel for Basic mode
-- [ ] T-000065: Dual-mode UX polish and final demo script update
+- [x] T-000065: Dual-mode UX polish and final demo script update

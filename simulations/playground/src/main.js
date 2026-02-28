@@ -552,19 +552,19 @@ const runBasicShowcase = async () => {
 
   runtime.start();
   renderer.start();
-  setStatus('showcase stage 1: domino + balls');
+  setStatus('basic showcase: stage 1 domino + balls');
 
   queueBasicShowcaseStep(700, () => {
     const result = runtime.triggerDominoChain();
     if (result.ok) {
-      setStatus('showcase stage 2: chain reaction launched');
+      setStatus('basic showcase: stage 2 chain reaction');
     }
   });
 
   queueBasicShowcaseStep(1600, () => {
     const result = runtime.runTriggerSequence();
     if (result.ok) {
-      setStatus('showcase stage 3: trigger sequence active');
+      setStatus('basic showcase: stage 3 trigger sequence');
     }
   });
 
@@ -578,7 +578,7 @@ const runBasicShowcase = async () => {
       rollingAngleInput.value = '28';
       rollingFrictionInput.value = '0.26';
       rollingMassInput.value = '2.1';
-      setStatus('showcase stage 4: rolling acceleration');
+      setStatus('basic showcase: stage 4 rolling acceleration');
     }
   });
 
@@ -587,7 +587,7 @@ const runBasicShowcase = async () => {
     if (result.ok) {
       runtime.start();
       renderer.start();
-      setStatus('showcase finale: puzzle challenge engaged');
+      setStatus('basic showcase: finale puzzle challenge');
     }
   });
 };
@@ -1091,13 +1091,13 @@ basicRedisToggleBtn.addEventListener('click', () => {
 
 tabBasicBtn.addEventListener('click', () => {
   applyUiMode('basic');
-  setStatus('basic mode active');
+  setStatus('basic mode active — click Run Showcase');
 });
 
 tabAdvancedBtn.addEventListener('click', () => {
   clearBasicShowcaseTimers();
   applyUiMode('advanced');
-  setStatus('advanced mode active');
+  setStatus('advanced mode active — full controls enabled');
 });
 
 basicRunShowcaseBtn.addEventListener('click', async () => {
@@ -1188,7 +1188,7 @@ replayExitBtn.addEventListener('click', () => {
 
 applyUiMode(resolveInitialUiMode(), false);
 setBasicRedisMinimized(false);
-setStatus('idle (select Basic or Advanced)');
+setStatus('idle — choose Basic for one-click demo or Advanced for full controls');
 
 window.addEventListener('beforeunload', () => {
   clearBasicShowcaseTimers();

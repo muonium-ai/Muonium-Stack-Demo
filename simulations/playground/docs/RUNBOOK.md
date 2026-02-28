@@ -63,9 +63,21 @@ Artifacts:
 
 1. Build succeeds (`make -C simulations/playground build`)
 2. Benchmark reports `PASS` (`make -C simulations/playground bench`)
-3. Replay controls work with capture enabled
-4. HUD + graph update continuously while simulation runs
-5. Effects toggle can disable/enable visual effects without simulation errors
+3. Basic mode smoke check:
+  - Select **Basic** tab
+  - Click **Run Showcase**
+  - Confirm Redis Capability panel shows increasing stream tick/ops/timeline values
+4. Advanced mode smoke check:
+  - Select **Advanced** tab
+  - Verify replay controls work with capture enabled
+  - Verify HUD + graph update continuously while simulation runs
+  - Verify Effects toggle can disable/enable visual effects without simulation errors
+
+## Mode entry points
+
+- **Basic mode**: one-click scripted showcase for non-technical demos (`Run Showcase`).
+- **Advanced mode**: full simulation control plane for deep technical review.
+- Active mode can be set by URL query parameter: `?mode=basic` or `?mode=advanced`.
 
 ## Troubleshooting
 
