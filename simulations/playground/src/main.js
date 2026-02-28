@@ -16,32 +16,7 @@ app.innerHTML = `
     </section>
 
     <section class="controls basicOnly" aria-label="Basic mode controls">
-      <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Showcase</button>
-    </section>
-
-    <section class="basicOnly basicRedisPanel" aria-label="Basic Redis showcase panel">
-      <header class="basicRedisHeader">
-        <h2>Redis Capability</h2>
-        <button id="basicRedisToggleBtn" type="button" class="basicRedisToggle">Minimize</button>
-      </header>
-      <section id="basicRedisBody" class="basicRedisBody">
-        <p id="basicRedisNarrative" class="basicRedisNarrative" aria-live="polite">
-          Run Showcase to stream live metrics as Redis-like operations.
-        </p>
-        <dl class="basicRedisGrid">
-          <div><dt>Stream tick</dt><dd id="basicRedisTick">0</dd></div>
-          <div><dt>Stream rate</dt><dd id="basicRedisRate">0.00 Hz</dd></div>
-          <div><dt>Total ops</dt><dd id="basicRedisOpsTotal">0</dd></div>
-          <div><dt>HSET ops</dt><dd id="basicRedisHsetOps">0</dd></div>
-          <div><dt>HINCRBY ops</dt><dd id="basicRedisHincrbyOps">0</dd></div>
-          <div><dt>LPUSH ops</dt><dd id="basicRedisLpushOps">0</dd></div>
-        </dl>
-        <dl class="basicRedisMap">
-          <div><dt>HSET metrics:hud.fps</dt><dd id="basicRedisHudFpsMap">0.00</dd></div>
-          <div><dt>HSET metrics:lever.torque</dt><dd id="basicRedisLeverTorqueMap">0.000</dd></div>
-          <div><dt>LPUSH timeline:frames</dt><dd id="basicRedisTimelineMap">idle</dd></div>
-        </dl>
-      </section>
+      <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Simulation</button>
     </section>
 
     <section class="controls advancedOnly advancedNav" aria-label="Advanced navigation">
@@ -200,6 +175,31 @@ app.innerHTML = `
       </aside>
     </section>
 
+    <section class="basicOnly basicRedisPanel" aria-label="Basic Redis showcase panel">
+      <header class="basicRedisHeader">
+        <h2>Redis Capability</h2>
+        <button id="basicRedisToggleBtn" type="button" class="basicRedisToggle">Minimize</button>
+      </header>
+      <section id="basicRedisBody" class="basicRedisBody">
+        <p id="basicRedisNarrative" class="basicRedisNarrative" aria-live="polite">
+          Run Simulation to stream live metrics as Redis-like operations.
+        </p>
+        <dl class="basicRedisGrid">
+          <div><dt>Stream tick</dt><dd id="basicRedisTick">0</dd></div>
+          <div><dt>Stream rate</dt><dd id="basicRedisRate">0.00 Hz</dd></div>
+          <div><dt>Total ops</dt><dd id="basicRedisOpsTotal">0</dd></div>
+          <div><dt>HSET ops</dt><dd id="basicRedisHsetOps">0</dd></div>
+          <div><dt>HINCRBY ops</dt><dd id="basicRedisHincrbyOps">0</dd></div>
+          <div><dt>LPUSH ops</dt><dd id="basicRedisLpushOps">0</dd></div>
+        </dl>
+        <dl class="basicRedisMap">
+          <div><dt>HSET metrics:hud.fps</dt><dd id="basicRedisHudFpsMap">0.00</dd></div>
+          <div><dt>HSET metrics:lever.torque</dt><dd id="basicRedisLeverTorqueMap">0.000</dd></div>
+          <div><dt>LPUSH timeline:frames</dt><dd id="basicRedisTimelineMap">idle</dd></div>
+        </dl>
+      </section>
+    </section>
+
     <section class="telemetry advancedOnly" aria-label="Runtime telemetry">
       <h2>Timing stream</h2>
       <dl>
@@ -322,6 +322,7 @@ app.innerHTML = `
 const runtime = new PhysicsRuntime();
 const renderer = new PlaygroundRenderer();
 const UI_MODE_STORAGE_KEY = 'playground.uiMode';
+const shell = document.querySelector('.shell');
 
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
@@ -442,6 +443,12 @@ let replayLastTimestampMs = 0;
 let uiMode = 'advanced';
 let basicShowcaseTimers = [];
 let basicRedisMinimized = false;
+let latestMetricsPacket = null;
+let basicNoActionDebugActive = false;
+let basicActivityBaseline = {
+  tick: 0,
+  totalOps: 0,
+};
 
 const clearBasicShowcaseTimers = () => {
   for (const timer of basicShowcaseTimers) {
@@ -456,6 +463,41 @@ const queueBasicShowcaseStep = (delayMs, handler) => {
     handler();
   }, delayMs);
   basicShowcaseTimers.push(timer);
+};
+
+const printBasicNoActionDebug = (reason) => {
+  const snapshot = runtime.getSnapshot();
+  const observedPacket = latestMetricsPacket;
+  const debugPayload = {
+    tag: 'DEBUG_BASIC_NO_ACTION',
+    reason,
+    uiMode,
+    replayModeActive,
+    baseline: basicActivityBaseline,
+    observed: observedPacket
+      ? {
+          tick: observedPacket.tick,
+          totalOps: observedPacket.opCounts.total,
+          hsetOps: observedPacket.opCounts.hset,
+          lpushOps: observedPacket.opCounts.lpush,
+        }
+      : null,
+    snapshot: {
+      initialized: snapshot.initialized,
+      running: snapshot.running,
+      totalSteps: snapshot.totalSteps,
+      dominoCollisions: snapshot.domino.collisionEvents,
+      rollingDistance: Number(snapshot.rolling.distance.toFixed(4)),
+      puzzleStatus: snapshot.puzzle.status,
+    },
+    timestamp: new Date().toISOString(),
+  };
+
+  const debugMessage = `DEBUG_BASIC_NO_ACTION ${JSON.stringify(debugPayload)}`;
+  basicNoActionDebugActive = true;
+  basicRedisNarrative.textContent = debugMessage;
+  setStatus('basic simulation: no activity detected (debug printed)', true);
+  console.error(debugMessage);
 };
 
 const applyBasicShowcasePreset = () => {
@@ -517,6 +559,7 @@ const applyBasicShowcasePreset = () => {
 
 const runBasicShowcase = async () => {
   clearBasicShowcaseTimers();
+  basicNoActionDebugActive = false;
 
   if (replayModeActive) {
     exitReplayMode();
@@ -552,7 +595,26 @@ const runBasicShowcase = async () => {
 
   runtime.start();
   renderer.start();
+
+  basicActivityBaseline = {
+    tick: latestMetricsPacket?.tick ?? 0,
+    totalOps: latestMetricsPacket?.opCounts?.total ?? 0,
+  };
+
   setStatus('basic showcase: stage 1 domino + balls');
+
+  queueBasicShowcaseStep(3600, () => {
+    const packet = latestMetricsPacket;
+    const snapshot = runtime.getSnapshot();
+    const tickAdvanced = packet ? packet.tick > basicActivityBaseline.tick : false;
+    const opsAdvanced = packet ? packet.opCounts.total > basicActivityBaseline.totalOps : false;
+    const movementDetected =
+      snapshot.totalSteps > 20 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.02;
+
+    if (!tickAdvanced || !opsAdvanced || !movementDetected) {
+      printBasicNoActionDebug('missing expected Redis activity or scene movement after Run Simulation');
+    }
+  });
 
   queueBasicShowcaseStep(700, () => {
     const result = runtime.triggerDominoChain();
@@ -622,6 +684,7 @@ const setBasicRedisMinimized = (nextState) => {
 const applyUiMode = (nextMode, persist = true) => {
   uiMode = nextMode === 'basic' ? 'basic' : 'advanced';
   const showBasic = uiMode === 'basic';
+  shell.dataset.mode = uiMode;
 
   for (const element of document.querySelectorAll('.basicOnly')) {
     element.hidden = !showBasic;
@@ -810,6 +873,7 @@ runtime.onTiming((timing, snapshot) => {
 });
 
 runtime.onMetricsStream((packet) => {
+  latestMetricsPacket = packet;
   graphPanel.ingest({
     tick: packet.tick,
     velocity: Number(packet.hashes.roll.velocity_avg ?? 0),
@@ -842,10 +906,12 @@ runtime.onMetricsStream((packet) => {
     basicRedisTimelineMap.textContent = 'idle';
   }
 
-  basicRedisNarrative.textContent =
-    packet.opCounts.total > 0
-      ? `Tick ${packet.tick}: HSET updates gauges, LPUSH appends frame timeline, HINCRBY remains available for counters.`
-      : 'Run Showcase to stream live metrics as Redis-like operations.';
+  if (!basicNoActionDebugActive) {
+    basicRedisNarrative.textContent =
+      packet.opCounts.total > 0
+        ? `Tick ${packet.tick}: HSET updates gauges, LPUSH appends frame timeline, HINCRBY remains available for counters.`
+        : 'Run Simulation to stream live metrics as Redis-like operations.';
+  }
 
   const fps = Number(packet.gauges.fps ?? 0);
   const stepMs = Number(packet.gauges.physicsStepTimeMs ?? 0);
