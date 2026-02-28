@@ -434,7 +434,7 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const count = Math.max(50, Math.min(200, Math.round(Number(configInput.count ?? this.dominoConfig.count))));
+    const count = Math.max(1, Math.min(200, Math.round(Number(configInput.count ?? this.dominoConfig.count))));
     const spacing = Math.max(0.22, Math.min(0.8, Number(configInput.spacing ?? this.dominoConfig.spacing)));
     const materialPreset =
       DOMINO_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.dominoConfig.materialPreset;
@@ -494,6 +494,70 @@ export class PhysicsRuntime {
     return {
       ok: true,
       config: { ...this.dominoConfig },
+    };
+  }
+
+  randomizeSceneObjects(configInput = {}) {
+    if (!this.world || !this.rapier) {
+      return { ok: false, error: 'initialize Rapier first' };
+    }
+
+    const areaHalfWidth = Math.max(1.5, Math.min(6, Number(configInput.areaHalfWidth ?? 3.4)));
+    const ballHeightMin = Math.max(0.8, Math.min(6, Number(configInput.ballHeightMin ?? 1.2)));
+    const ballHeightMax = Math.max(ballHeightMin + 0.2, Math.min(8, Number(configInput.ballHeightMax ?? 4.4)));
+
+    const randRange = (min, max) => min + Math.random() * (max - min);
+
+    for (const body of this.dominoBodies) {
+      const x = randRange(-areaHalfWidth, areaHalfWidth);
+      const y = DOMINO_SIZE.hy + randRange(0.0, 0.35);
+      const z = randRange(-areaHalfWidth, areaHalfWidth);
+      const yaw = randRange(-Math.PI, Math.PI);
+      const half = yaw / 2;
+
+      body.setTranslation({ x, y, z }, true);
+      body.setRotation({ x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) }, true);
+      body.setLinvel({ x: randRange(-0.35, 0.35), y: 0, z: randRange(-0.35, 0.35) }, true);
+      body.setAngvel({ x: 0, y: randRange(-0.8, 0.8), z: 0 }, true);
+    }
+
+    for (const body of this.ballBodies) {
+      const x = randRange(-areaHalfWidth, areaHalfWidth);
+      const y = randRange(ballHeightMin, ballHeightMax);
+      const z = randRange(-areaHalfWidth, areaHalfWidth);
+      body.setTranslation({ x, y, z }, true);
+      body.setLinvel({ x: randRange(-1.1, 1.1), y: randRange(-0.4, 0.4), z: randRange(-1.1, 1.1) }, true);
+      body.setAngvel({ x: randRange(-1.8, 1.8), y: randRange(-1.8, 1.8), z: randRange(-1.8, 1.8) }, true);
+    }
+
+    if (this.triggerBallBody) {
+      this.triggerBallBody.setTranslation(
+        {
+          x: randRange(-areaHalfWidth, areaHalfWidth),
+          y: randRange(ballHeightMin + 0.3, ballHeightMax + 0.8),
+          z: randRange(-areaHalfWidth, areaHalfWidth),
+        },
+        true
+      );
+      this.triggerBallBody.setLinvel(
+        {
+          x: randRange(-1.2, 1.2),
+          y: randRange(-0.3, 0.3),
+          z: randRange(-1.2, 1.2),
+        },
+        true
+      );
+      this.triggerBallBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+
+    this.emitState();
+    return {
+      ok: true,
+      config: {
+        areaHalfWidth,
+        ballHeightMin,
+        ballHeightMax,
+      },
     };
   }
 

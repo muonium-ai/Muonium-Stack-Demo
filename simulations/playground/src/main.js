@@ -470,12 +470,23 @@ let basicActivityBaseline = {
   tick: 0,
   totalOps: 0,
 };
+let basicChaosModeActive = false;
+let basicChaosIteration = 0;
+let basicChaosLastCollisionCount = 0;
+let basicChaosIdleSinceMs = 0;
+let basicChaosAdvancing = false;
+let basicChaosRunIteration = null;
+
+const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 
 const clearBasicShowcaseTimers = () => {
   for (const timer of basicShowcaseTimers) {
     clearTimeout(timer);
   }
   basicShowcaseTimers = [];
+  basicChaosModeActive = false;
+  basicChaosAdvancing = false;
+  basicChaosRunIteration = null;
 };
 
 const queueBasicShowcaseStep = (delayMs, handler) => {
@@ -679,91 +690,101 @@ const runBasicShowcase = async () => {
     renderer.setEffectsEnabled(true);
     effectsToggleBtn.textContent = 'Disable Effects';
 
-    currentStage = 'preset';
-    setBasicNarrative('Applying showcase preset...');
-    const presetResult = applyBasicShowcasePreset();
-    if (!presetResult.ok) {
-      setStatus(`showcase setup failed (${presetResult.error})`, true);
-      debugStageFailure('preset_failed', { presetError: presetResult.error });
-      return;
-    }
+    basicChaosModeActive = true;
+    basicChaosIteration = 0;
 
-    currentStage = 'run';
-    setBasicNarrative('Simulation running... waiting for Redis stream activity...');
-    runtime.start();
-    renderer.start();
+    const runRandomIteration = () => {
+      currentStage = 'random_iteration';
+      basicChaosIteration += 1;
+      basicChaosAdvancing = false;
 
-    basicActivityBaseline = {
-      tick: latestMetricsPacket?.tick ?? 0,
-      totalOps: latestMetricsPacket?.opCounts?.total ?? 0,
+      runtime.pause();
+      renderer.pause();
+      runtime.resetWorld();
+      renderer.reset();
+
+      const dominoCount = randomInt(1, 50);
+      const ballCount = randomInt(1, 50);
+      const spacing = Number((0.22 + Math.random() * 0.38).toFixed(2));
+      const dominoMaterial = ['wood', 'rubber', 'metal'][randomInt(0, 2)];
+      const ballMaterial = ['wood', 'rubber', 'metal'][randomInt(0, 2)];
+
+      const dominoResult = runtime.createDominoChain({
+        count: dominoCount,
+        spacing,
+        materialPreset: dominoMaterial,
+      });
+      if (!dominoResult.ok) {
+        debugStageFailure('random_domino_failed', { error: dominoResult.error ?? 'unknown' });
+        basicChaosModeActive = false;
+        return;
+      }
+
+      const ballResult = runtime.createFallingBalls({
+        count: ballCount,
+        materialPreset: ballMaterial,
+        gravityEnabled: true,
+        gravityStrength: Number((0.8 + Math.random() * 1.2).toFixed(1)),
+      });
+      if (!ballResult.ok) {
+        debugStageFailure('random_ball_failed', { error: ballResult.error ?? 'unknown' });
+        basicChaosModeActive = false;
+        return;
+      }
+
+      runtime.setLeverWeights(Number((0.6 + Math.random() * 3.2).toFixed(1)), Number((0.6 + Math.random() * 3.2).toFixed(1)));
+      runtime.configureRollingObject({
+        rampAngleDeg: randomInt(8, 34),
+        frictionCoeff: Number((0.1 + Math.random() * 0.9).toFixed(2)),
+        mass: Number((0.4 + Math.random() * 3.2).toFixed(1)),
+      });
+
+      const randomizeResult = runtime.randomizeSceneObjects({
+        areaHalfWidth: Number((2.4 + Math.random() * 2.2).toFixed(2)),
+        ballHeightMin: Number((1 + Math.random() * 1.2).toFixed(2)),
+        ballHeightMax: Number((3.5 + Math.random() * 2.4).toFixed(2)),
+      });
+      if (!randomizeResult.ok) {
+        debugStageFailure('randomize_scene_failed', { error: randomizeResult.error ?? 'unknown' });
+        basicChaosModeActive = false;
+        return;
+      }
+
+      runtime.start();
+      renderer.start();
+
+      basicActivityBaseline = {
+        tick: latestMetricsPacket?.tick ?? 0,
+        totalOps: latestMetricsPacket?.opCounts?.total ?? 0,
+      };
+      basicChaosLastCollisionCount = Number(runtime.getSnapshot().domino.collisionEvents ?? 0);
+      basicChaosIdleSinceMs = performance.now();
+
+      setStatus(`basic random iteration ${basicChaosIteration} running`);
+      setBasicNarrative(
+        `Iteration ${basicChaosIteration}: dominoes ${dominoCount}, balls ${ballCount}, random 3D placement active.`
+      );
+
+      queueBasicShowcaseStep(1000, () => {
+        if (!basicChaosModeActive) {
+          return;
+        }
+        const packet = latestMetricsPacket;
+        const snapshot = runtime.getSnapshot();
+        const tickAdvanced = packet ? packet.tick > basicActivityBaseline.tick : false;
+        const opsAdvanced = packet ? packet.opCounts.total > basicActivityBaseline.totalOps : false;
+        const movementDetected =
+          snapshot.totalSteps > 10 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.01;
+        if (!tickAdvanced || !opsAdvanced || !movementDetected) {
+          printBasicNoActionDebug('missing expected Redis activity or scene movement in random iteration');
+          basicChaosModeActive = false;
+        }
+      });
     };
 
-    setStatus('basic showcase: stage 1 domino + balls');
+    basicChaosRunIteration = runRandomIteration;
 
-    queueBasicShowcaseStep(3600, () => {
-      currentStage = 'verify_activity';
-      const packet = latestMetricsPacket;
-      const snapshot = runtime.getSnapshot();
-      const tickAdvanced = packet ? packet.tick > basicActivityBaseline.tick : false;
-      const opsAdvanced = packet ? packet.opCounts.total > basicActivityBaseline.totalOps : false;
-      const movementDetected =
-        snapshot.totalSteps > 20 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.02;
-
-      if (!tickAdvanced || !opsAdvanced || !movementDetected) {
-        printBasicNoActionDebug('missing expected Redis activity or scene movement after Run Simulation');
-        return;
-      }
-      setBasicNarrative('Redis stream active. Simulation healthy.');
-    });
-
-    queueBasicShowcaseStep(700, () => {
-      currentStage = 'domino_trigger';
-      const result = runtime.triggerDominoChain();
-      if (result.ok) {
-        setStatus('basic showcase: stage 2 chain reaction');
-        return;
-      }
-      debugStageFailure('trigger_domino_failed', { error: result.error ?? 'unknown' });
-    });
-
-    queueBasicShowcaseStep(1600, () => {
-      currentStage = 'trigger_sequence';
-      const result = runtime.runTriggerSequence();
-      if (result.ok) {
-        setStatus('basic showcase: stage 3 trigger sequence');
-        return;
-      }
-      debugStageFailure('trigger_sequence_failed', { error: result.error ?? 'unknown' });
-    });
-
-    queueBasicShowcaseStep(3000, () => {
-      currentStage = 'rolling_config';
-      const result = runtime.configureRollingObject({
-        rampAngleDeg: 28,
-        frictionCoeff: 0.26,
-        mass: 2.1,
-      });
-      if (result.ok) {
-        rollingAngleInput.value = '28';
-        rollingFrictionInput.value = '0.26';
-        rollingMassInput.value = '2.1';
-        setStatus('basic showcase: stage 4 rolling acceleration');
-        return;
-      }
-      debugStageFailure('rolling_config_failed', { error: result.error ?? 'unknown' });
-    });
-
-    queueBasicShowcaseStep(4600, () => {
-      currentStage = 'puzzle_start';
-      const result = runtime.startPuzzleAttempt();
-      if (result.ok) {
-        runtime.start();
-        renderer.start();
-        setStatus('basic showcase: finale puzzle challenge');
-        return;
-      }
-      debugStageFailure('puzzle_start_failed', { error: result.error ?? 'unknown' });
-    });
+    runRandomIteration();
   } catch (error) {
     debugStageFailure('unhandled_exception', {
       error: error instanceof Error ? error.message : String(error),
@@ -1041,6 +1062,26 @@ runtime.onMetricsStream((packet) => {
   const energyLoss = Number(packet.hashes.roll.energy_loss ?? 0);
   const collisionDelta = Math.max(0, collisionCount - previousCollisionCount);
   previousCollisionCount = collisionCount;
+
+  if (basicChaosModeActive) {
+    const nowMs = performance.now();
+    if (collisionCount !== basicChaosLastCollisionCount) {
+      basicChaosLastCollisionCount = collisionCount;
+      basicChaosIdleSinceMs = nowMs;
+      basicChaosAdvancing = false;
+    } else if (!basicChaosAdvancing && nowMs - basicChaosIdleSinceMs >= 500) {
+      basicChaosAdvancing = true;
+      setStatus(`collision idle 500ms, advancing iteration ${basicChaosIteration + 1}`);
+      setTimeout(() => {
+        if (!basicChaosModeActive) {
+          return;
+        }
+        if (typeof basicChaosRunIteration === 'function') {
+          basicChaosRunIteration();
+        }
+      }, 50);
+    }
+  }
 
   hudFpsMetric.textContent = fps.toFixed(2);
   hudStepMetric.textContent = `${stepMs.toFixed(3)} ms`;
