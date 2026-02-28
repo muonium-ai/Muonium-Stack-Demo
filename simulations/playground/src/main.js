@@ -500,6 +500,37 @@ const printBasicNoActionDebug = (reason) => {
   console.error(debugMessage);
 };
 
+const printBasicStageDebug = (reason, extra = {}) => {
+  const snapshot = runtime.getSnapshot();
+  const debugPayload = {
+    tag: 'DEBUG_BASIC_STAGE_FAILURE',
+    reason,
+    uiMode,
+    replayModeActive,
+    latestPacket: latestMetricsPacket
+      ? {
+          tick: latestMetricsPacket.tick,
+          totalOps: latestMetricsPacket.opCounts.total,
+        }
+      : null,
+    snapshot: {
+      initialized: snapshot.initialized,
+      running: snapshot.running,
+      totalSteps: snapshot.totalSteps,
+      dominoCollisions: snapshot.domino.collisionEvents,
+      rollingDistance: Number(snapshot.rolling.distance.toFixed(4)),
+      puzzleStatus: snapshot.puzzle.status,
+    },
+    ...extra,
+    timestamp: new Date().toISOString(),
+  };
+  const debugMessage = `DEBUG_BASIC_STAGE_FAILURE ${JSON.stringify(debugPayload)}`;
+  basicNoActionDebugActive = true;
+  basicRedisNarrative.textContent = debugMessage;
+  setStatus(`basic simulation failed (${reason})`, true);
+  console.error(debugMessage);
+};
+
 const applyBasicShowcasePreset = () => {
   runtime.setSpeedMultiplier(1.5);
   speedSelect.value = '1.5';
@@ -560,6 +591,7 @@ const applyBasicShowcasePreset = () => {
 const runBasicShowcase = async () => {
   clearBasicShowcaseTimers();
   basicNoActionDebugActive = false;
+  basicRedisNarrative.textContent = 'Starting simulation...';
 
   if (replayModeActive) {
     exitReplayMode();
@@ -570,6 +602,7 @@ const runBasicShowcase = async () => {
     const initResult = await runtime.init();
     if (!initResult.ok) {
       setStatus(`init failed (${initResult.error})`, true);
+      printBasicStageDebug('init_failed', { initError: initResult.error });
       return;
     }
   }
@@ -590,6 +623,7 @@ const runBasicShowcase = async () => {
   const presetResult = applyBasicShowcasePreset();
   if (!presetResult.ok) {
     setStatus(`showcase setup failed (${presetResult.error})`, true);
+    printBasicStageDebug('preset_failed', { presetError: presetResult.error });
     return;
   }
 
@@ -620,14 +654,18 @@ const runBasicShowcase = async () => {
     const result = runtime.triggerDominoChain();
     if (result.ok) {
       setStatus('basic showcase: stage 2 chain reaction');
+      return;
     }
+    printBasicStageDebug('trigger_domino_failed', { error: result.error ?? 'unknown' });
   });
 
   queueBasicShowcaseStep(1600, () => {
     const result = runtime.runTriggerSequence();
     if (result.ok) {
       setStatus('basic showcase: stage 3 trigger sequence');
+      return;
     }
+    printBasicStageDebug('trigger_sequence_failed', { error: result.error ?? 'unknown' });
   });
 
   queueBasicShowcaseStep(3000, () => {
@@ -641,7 +679,9 @@ const runBasicShowcase = async () => {
       rollingFrictionInput.value = '0.26';
       rollingMassInput.value = '2.1';
       setStatus('basic showcase: stage 4 rolling acceleration');
+      return;
     }
+    printBasicStageDebug('rolling_config_failed', { error: result.error ?? 'unknown' });
   });
 
   queueBasicShowcaseStep(4600, () => {
@@ -650,7 +690,9 @@ const runBasicShowcase = async () => {
       runtime.start();
       renderer.start();
       setStatus('basic showcase: finale puzzle challenge');
+      return;
     }
+    printBasicStageDebug('puzzle_start_failed', { error: result.error ?? 'unknown' });
   });
 };
 
@@ -659,6 +701,10 @@ renderer.init(viewport);
 const setStatus = (message, isError = false) => {
   runtimeStatus.textContent = `Status: ${message}`;
   runtimeStatus.dataset.state = isError ? 'error' : 'ok';
+
+  if (uiMode === 'basic' && isError && !basicNoActionDebugActive) {
+    basicRedisNarrative.textContent = `ERROR: ${message}`;
+  }
 };
 
 const resolveInitialUiMode = () => {
