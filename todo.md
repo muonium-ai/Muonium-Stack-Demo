@@ -121,7 +121,7 @@ Exit criteria:
 - [x] T-000048: Domino chain simulation module
 - [x] T-000049: Falling balls simulation module
 - [x] T-000050: Trigger mechanism scenario module
-- [ ] T-000051: Lever system module
+- [x] T-000051: Lever system module
 - [ ] T-000052: Rolling objects module
 - [ ] T-000053: Puzzle mode with scoring
 - [ ] T-000054: Redis-like WASM metrics ingestion/aggregation layer

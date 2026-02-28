@@ -75,6 +75,18 @@ app.innerHTML = `
       <button id="triggerRunBtn" type="button" disabled>Run Trigger Sequence</button>
     </section>
 
+    <section class="controls leverControls" aria-label="Lever controls">
+      <label>
+        Left weight
+        <input id="leverLeftWeightInput" type="number" min="0.2" max="8" step="0.1" value="1.5" />
+      </label>
+      <label>
+        Right weight
+        <input id="leverRightWeightInput" type="number" min="0.2" max="8" step="0.1" value="1.5" />
+      </label>
+      <button id="leverApplyBtn" type="button" disabled>Apply Lever Weights</button>
+    </section>
+
     <p id="runtimeStatus" class="status">Status: idle</p>
 
     <section class="viewportPanel" aria-label="Playground viewport">
@@ -125,6 +137,15 @@ app.innerHTML = `
         <div><dt>Precision score</dt><dd id="triggerPrecisionMetric">0.0</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry" aria-label="Lever telemetry">
+      <h2>Lever metrics</h2>
+      <dl>
+        <div><dt>Torque</dt><dd id="leverTorqueMetric">0.000</dd></div>
+        <div><dt>Rotation speed</dt><dd id="leverRotationMetric">0.000</dd></div>
+        <div><dt>Equilibrium time</dt><dd id="leverEquilibriumMetric">0.000 s</dd></div>
+      </dl>
+    </section>
   </section>
 `;
 
@@ -147,6 +168,9 @@ const dominoMaterialSelect = document.querySelector('#dominoMaterialSelect');
 const dominoCreateBtn = document.querySelector('#dominoCreateBtn');
 const dominoTriggerBtn = document.querySelector('#dominoTriggerBtn');
 const triggerRunBtn = document.querySelector('#triggerRunBtn');
+const leverLeftWeightInput = document.querySelector('#leverLeftWeightInput');
+const leverRightWeightInput = document.querySelector('#leverRightWeightInput');
+const leverApplyBtn = document.querySelector('#leverApplyBtn');
 const runtimeStatus = document.querySelector('#runtimeStatus');
 
 const frameTime = document.querySelector('#frameTime');
@@ -170,6 +194,9 @@ const triggerSequenceMetric = document.querySelector('#triggerSequenceMetric');
 const triggerOrderMetric = document.querySelector('#triggerOrderMetric');
 const triggerLatencyMetric = document.querySelector('#triggerLatencyMetric');
 const triggerPrecisionMetric = document.querySelector('#triggerPrecisionMetric');
+const leverTorqueMetric = document.querySelector('#leverTorqueMetric');
+const leverRotationMetric = document.querySelector('#leverRotationMetric');
+const leverEquilibriumMetric = document.querySelector('#leverEquilibriumMetric');
 const viewport = document.querySelector('#viewport');
 
 renderer.init(viewport);
@@ -188,9 +215,12 @@ runtime.onState((snapshot) => {
   dominoCreateBtn.disabled = !snapshot.initialized;
   dominoTriggerBtn.disabled = !snapshot.initialized;
   triggerRunBtn.disabled = !snapshot.initialized;
+  leverApplyBtn.disabled = !snapshot.initialized;
 
   gravityEnabledToggle.checked = snapshot.ball.gravityEnabled;
   gravityStrengthInput.value = snapshot.ball.gravityStrength.toFixed(1);
+  leverLeftWeightInput.value = snapshot.lever.leftWeight.toFixed(1);
+  leverRightWeightInput.value = snapshot.lever.rightWeight.toFixed(1);
 });
 
 runtime.onTiming((timing, snapshot) => {
@@ -221,6 +251,10 @@ runtime.onTiming((timing, snapshot) => {
     ? snapshot.trigger.latencies.map((value) => `${value.toFixed(3)}s`).join(', ')
     : '--';
   triggerPrecisionMetric.textContent = snapshot.trigger.precisionScore.toFixed(1);
+
+  leverTorqueMetric.textContent = snapshot.lever.torque.toFixed(3);
+  leverRotationMetric.textContent = snapshot.lever.rotationSpeed.toFixed(3);
+  leverEquilibriumMetric.textContent = `${snapshot.lever.equilibriumTimeSeconds.toFixed(3)} s`;
 });
 
 initBtn.addEventListener('click', async () => {
@@ -251,7 +285,16 @@ resetBtn.addEventListener('click', () => {
   setStatus('world reset');
 });
 
-ballCreateBtn.addEventListener('click', () => {
+ballCreateBtn.addEventListener('click', async () => {
+  if (!runtime.getSnapshot().initialized) {
+    setStatus('initializing Rapier for ball spawn...');
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      setStatus(`init failed (${initResult.error})`, true);
+      return;
+    }
+  }
+
   const result = runtime.createFallingBalls({
     count: Number(ballCountInput.value),
     materialPreset: ballMaterialSelect.value,
@@ -321,6 +364,15 @@ triggerRunBtn.addEventListener('click', () => {
     return;
   }
   setStatus('trigger sequence started');
+});
+
+leverApplyBtn.addEventListener('click', () => {
+  const result = runtime.setLeverWeights(Number(leverLeftWeightInput.value), Number(leverRightWeightInput.value));
+  if (!result.ok) {
+    setStatus('lever weight update failed', true);
+    return;
+  }
+  setStatus(`lever weights set (L ${result.config.leftWeight.toFixed(1)} / R ${result.config.rightWeight.toFixed(1)})`);
 });
 
 speedSelect.addEventListener('change', (event) => {

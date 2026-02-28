@@ -67,8 +67,12 @@ export class PhysicsRuntime {
     this.triggerBallCollider = null;
     this.plankBody = null;
     this.plankCollider = null;
+    this.leverAnchorBody = null;
     this.leverBody = null;
     this.leverCollider = null;
+    this.leverJoint = null;
+    this.leverLeftWeightCollider = null;
+    this.leverRightWeightCollider = null;
     this.gateBody = null;
     this.gateCollider = null;
     this.triggerHandles = {
@@ -77,6 +81,12 @@ export class PhysicsRuntime {
       lever: null,
       gate: null,
     };
+
+    this.leverConfig = {
+      leftWeight: 1.5,
+      rightWeight: 1.5,
+    };
+    this.leverMetrics = this.createEmptyLeverMetrics();
 
     this.dominoBodies = [];
     this.dominoColliderHandles = new Set();
@@ -103,7 +113,6 @@ export class PhysicsRuntime {
       sequenceRunning: false,
       leverActivated: false,
       gateActivated: false,
-      leverAngleRad: 0,
       gateOpenHeight: 0,
     };
 
@@ -179,11 +188,11 @@ export class PhysicsRuntime {
     this.ballBodyByColliderHandle.clear();
     this.ballMetrics = this.createEmptyBallMetrics();
     this.triggerMetrics = this.createEmptyTriggerMetrics();
+    this.leverMetrics = this.createEmptyLeverMetrics();
     this.triggerState = {
       sequenceRunning: false,
       leverActivated: false,
       gateActivated: false,
-      leverAngleRad: 0,
       gateOpenHeight: 0,
     };
 
@@ -232,11 +241,16 @@ export class PhysicsRuntime {
     this.plankCollider = this.world.createCollider(plankColliderDesc, this.plankBody);
     this.triggerHandles.plank = this.plankCollider.handle;
 
-    const leverDesc = this.rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(
-      this.dominoConfig.startX + 3.5,
-      0.4,
-      0
+    const leverPivot = { x: this.dominoConfig.startX + 3.5, y: 0.4, z: 0 };
+    this.leverAnchorBody = this.world.createRigidBody(
+      this.rapier.RigidBodyDesc.fixed().setTranslation(leverPivot.x, leverPivot.y, leverPivot.z)
     );
+
+    const leverDesc = this.rapier.RigidBodyDesc.dynamic()
+      .setTranslation(leverPivot.x, leverPivot.y, leverPivot.z)
+      .setLinearDamping(0.25)
+      .setAngularDamping(0.2)
+      .setCanSleep(false);
     this.leverBody = this.world.createRigidBody(leverDesc);
     const leverColliderDesc = this.rapier.ColliderDesc.cuboid(0.7, 0.06, 0.2)
       .setRestitution(0)
@@ -244,6 +258,9 @@ export class PhysicsRuntime {
       .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
     this.leverCollider = this.world.createCollider(leverColliderDesc, this.leverBody);
     this.triggerHandles.lever = this.leverCollider.handle;
+    const revolute = this.rapier.JointData.revolute({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
+    this.leverJoint = this.world.createImpulseJoint(revolute, this.leverAnchorBody, this.leverBody, true);
+    this.applyLeverWeights(this.leverConfig.leftWeight, this.leverConfig.rightWeight);
 
     const gateDesc = this.rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(
       this.dominoConfig.startX + 4.7,
@@ -257,6 +274,50 @@ export class PhysicsRuntime {
       .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
     this.gateCollider = this.world.createCollider(gateColliderDesc, this.gateBody);
     this.triggerHandles.gate = this.gateCollider.handle;
+  }
+
+  setLeverWeights(leftWeight, rightWeight) {
+    const left = Math.max(0.2, Math.min(8, Number(leftWeight)));
+    const right = Math.max(0.2, Math.min(8, Number(rightWeight)));
+    this.leverConfig.leftWeight = left;
+    this.leverConfig.rightWeight = right;
+
+    this.applyLeverWeights(left, right);
+    this.leverMetrics = this.createEmptyLeverMetrics();
+    this.emitState();
+    return {
+      ok: true,
+      config: { ...this.leverConfig },
+    };
+  }
+
+  applyLeverWeights(leftWeight, rightWeight) {
+    if (!this.world || !this.leverBody) {
+      return;
+    }
+
+    if (this.leverLeftWeightCollider) {
+      this.world.removeCollider(this.leverLeftWeightCollider, true);
+      this.leverLeftWeightCollider = null;
+    }
+    if (this.leverRightWeightCollider) {
+      this.world.removeCollider(this.leverRightWeightCollider, true);
+      this.leverRightWeightCollider = null;
+    }
+
+    const leftDesc = this.rapier.ColliderDesc.cuboid(0.12, 0.1, 0.12)
+      .setTranslation(-0.58, 0.12, 0)
+      .setDensity(leftWeight)
+      .setFriction(0.85)
+      .setRestitution(0);
+    const rightDesc = this.rapier.ColliderDesc.cuboid(0.12, 0.1, 0.12)
+      .setTranslation(0.58, 0.12, 0)
+      .setDensity(rightWeight)
+      .setFriction(0.85)
+      .setRestitution(0);
+
+    this.leverLeftWeightCollider = this.world.createCollider(leftDesc, this.leverBody);
+    this.leverRightWeightCollider = this.world.createCollider(rightDesc, this.leverBody);
   }
 
   setGravity(enabled, strength = 1) {
@@ -474,7 +535,6 @@ export class PhysicsRuntime {
   resetTriggerMechanismPositions() {
     this.triggerState.leverActivated = false;
     this.triggerState.gateActivated = false;
-    this.triggerState.leverAngleRad = 0;
     this.triggerState.gateOpenHeight = 0;
 
     this.plankBody?.setTranslation({ x: this.dominoConfig.startX + 0.35, y: 0.55, z: 0 }, true);
@@ -482,7 +542,13 @@ export class PhysicsRuntime {
     this.plankBody?.setLinvel({ x: 0, y: 0, z: 0 }, true);
     this.plankBody?.setAngvel({ x: 0, y: 0, z: 0 }, true);
 
-    this.setLeverPose(0);
+    this.leverBody?.setTranslation({ x: this.dominoConfig.startX + 3.5, y: 0.4, z: 0 }, true);
+    this.leverBody?.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
+    this.leverBody?.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.leverBody?.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+    this.leverMetrics = this.createEmptyLeverMetrics();
+
     this.setGatePose(0);
   }
 
@@ -627,6 +693,13 @@ export class PhysicsRuntime {
         eventOrder: triggerEventOrder,
         precisionScore,
       },
+      lever: {
+        leftWeight: this.leverConfig.leftWeight,
+        rightWeight: this.leverConfig.rightWeight,
+        torque: this.leverMetrics.torque,
+        rotationSpeed: this.leverMetrics.rotationSpeed,
+        equilibriumTimeSeconds: this.leverMetrics.equilibriumTimeSeconds,
+      },
       domino: {
         count: this.dominoMetrics.count,
         spacing: this.dominoMetrics.spacing,
@@ -684,6 +757,7 @@ export class PhysicsRuntime {
       this.stepCount += 1;
       steppedFrames += 1;
       this.collectCollisionAndModuleMetrics();
+      this.collectLeverMetrics();
       this.advanceTriggerMechanism();
     }
     const stepEnd = performance.now();
@@ -785,19 +859,22 @@ export class PhysicsRuntime {
 
     if (this.hasTriggerEvent('domino') && !this.triggerState.leverActivated) {
       this.triggerState.leverActivated = true;
+      this.leverMetrics.activationTimeSeconds = this.stepCount * FIXED_TIMESTEP_SECONDS;
+      this.leverBody?.applyImpulse({ x: 0, y: 0.25, z: 0 }, true);
+      this.leverBody?.applyTorqueImpulse({ x: 0, y: 0, z: 1.8 }, true);
     }
 
-    if (this.triggerState.leverActivated && this.triggerState.leverAngleRad < 0.46) {
-      this.triggerState.leverAngleRad = Math.min(0.46, this.triggerState.leverAngleRad + 0.015);
-      this.setLeverPose(this.triggerState.leverAngleRad);
-      if (this.triggerState.leverAngleRad >= 0.28) {
+    const leverAngleRad = this.getLeverAngleRad();
+    if (this.triggerState.leverActivated && Math.abs(leverAngleRad) >= 0.2) {
+      if (!this.hasTriggerEvent('lever')) {
         this.recordTriggerEvent('lever');
         this.triggerState.gateActivated = true;
       }
     }
 
     if (this.triggerState.gateActivated && this.triggerState.gateOpenHeight < 0.9) {
-      this.triggerState.gateOpenHeight = Math.min(0.9, this.triggerState.gateOpenHeight + 0.02);
+      const targetGateOpen = Math.max(0, Math.min(0.9, (Math.abs(leverAngleRad) - 0.16) * 2.4));
+      this.triggerState.gateOpenHeight = Math.max(this.triggerState.gateOpenHeight, targetGateOpen);
       this.setGatePose(this.triggerState.gateOpenHeight);
       if (this.triggerState.gateOpenHeight >= 0.6) {
         this.recordTriggerEvent('gate');
@@ -809,20 +886,37 @@ export class PhysicsRuntime {
     }
   }
 
-  setLeverPose(angleRad) {
+  collectLeverMetrics() {
     if (!this.leverBody) {
       return;
     }
-    const half = angleRad / 2;
-    const quaternion = { x: 0, y: 0, z: Math.sin(half), w: Math.cos(half) };
-    const translation = { x: this.dominoConfig.startX + 3.5, y: 0.4, z: 0 };
-    if (typeof this.leverBody.setNextKinematicTranslation === 'function') {
-      this.leverBody.setNextKinematicTranslation(translation);
-      this.leverBody.setNextKinematicRotation(quaternion);
-    } else {
-      this.leverBody.setTranslation(translation, true);
-      this.leverBody.setRotation(quaternion, true);
+
+    const angle = this.getLeverAngleRad();
+    const angularVelocity = this.leverBody.angvel();
+    const rotationSpeed = Math.abs(angularVelocity.z);
+    const armLength = 0.58;
+    const g = 9.81;
+    const torque = (this.leverConfig.rightWeight - this.leverConfig.leftWeight) * g * armLength * Math.cos(angle);
+
+    this.leverMetrics.torque = torque;
+    this.leverMetrics.rotationSpeed = rotationSpeed;
+
+    if (Math.abs(angle) > 0.05 || rotationSpeed > 0.02) {
+      this.leverMetrics.active = true;
+      this.leverMetrics.stableFrames = 0;
+    } else if (this.leverMetrics.active) {
+      this.leverMetrics.stableFrames += 1;
+      if (this.leverMetrics.stableFrames >= 24 && this.leverMetrics.equilibriumTimeSeconds === 0) {
+        const now = this.stepCount * FIXED_TIMESTEP_SECONDS;
+        const start = this.leverMetrics.activationTimeSeconds;
+        this.leverMetrics.equilibriumTimeSeconds = Math.max(0, now - start);
+      }
     }
+  }
+
+  getLeverAngleRad() {
+    const rotation = this.leverBody?.rotation() ?? { z: 0, w: 1 };
+    return 2 * Math.atan2(rotation.z, rotation.w);
   }
 
   setGatePose(openHeight) {
@@ -882,6 +976,17 @@ export class PhysicsRuntime {
   createEmptyTriggerMetrics() {
     return {
       eventOrder: [],
+    };
+  }
+
+  createEmptyLeverMetrics() {
+    return {
+      torque: 0,
+      rotationSpeed: 0,
+      equilibriumTimeSeconds: 0,
+      activationTimeSeconds: this.stepCount * FIXED_TIMESTEP_SECONDS,
+      active: false,
+      stableFrames: 0,
     };
   }
 
