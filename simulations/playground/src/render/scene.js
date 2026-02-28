@@ -20,6 +20,8 @@ export class PlaygroundRenderer {
     this.plankMesh = null;
     this.leverMesh = null;
     this.gateMesh = null;
+    this.rampMesh = null;
+    this.rollingMesh = null;
   }
 
   init(container) {
@@ -86,6 +88,18 @@ export class PlaygroundRenderer {
     this.gateMesh.position.set(5.9, 0.35, 0);
     this.scene.add(this.gateMesh);
 
+    const rampGeometry = new THREE.BoxGeometry(2.4, 0.16, 1.1);
+    const rampMaterial = new THREE.MeshStandardMaterial({ color: 0x607898 });
+    this.rampMesh = new THREE.Mesh(rampGeometry, rampMaterial);
+    this.rampMesh.position.set(-1.9, 0.18, 2.0);
+    this.scene.add(this.rampMesh);
+
+    const rollingGeometry = new THREE.SphereGeometry(0.22, 22, 16);
+    const rollingMaterial = new THREE.MeshStandardMaterial({ color: 0xd0e1f7 });
+    this.rollingMesh = new THREE.Mesh(rollingGeometry, rollingMaterial);
+    this.rollingMesh.position.set(-0.6, 0.8, 2.0);
+    this.scene.add(this.rollingMesh);
+
     const grid = new THREE.GridHelper(8, 16, 0x3d5f92, 0x253b5c);
     grid.position.y = -0.09;
     this.scene.add(grid);
@@ -136,6 +150,7 @@ export class PlaygroundRenderer {
     this.syncBallMeshes(snapshot.ballTransforms ?? [], snapshot.ballMaterialPreset ?? 'wood');
     this.syncDominoMeshes(snapshot.dominoTransforms ?? [], snapshot.dominoMaterialPreset ?? 'wood');
     this.syncTriggerMechanism(snapshot.triggerMechanismTransforms);
+    this.syncRollingMechanism(snapshot.rollingTransforms);
     if (!this.running) {
       this.renderOnce();
     }
@@ -180,6 +195,8 @@ export class PlaygroundRenderer {
     this.plankMesh = null;
     this.leverMesh = null;
     this.gateMesh = null;
+    this.rampMesh = null;
+    this.rollingMesh = null;
   }
 
   tick() {
@@ -298,6 +315,27 @@ export class PlaygroundRenderer {
     if (this.gateMesh && transforms.gate) {
       this.gateMesh.position.set(transforms.gate.x, transforms.gate.y, transforms.gate.z);
       this.gateMesh.quaternion.set(transforms.gate.qx, transforms.gate.qy, transforms.gate.qz, transforms.gate.qw);
+    }
+  }
+
+  syncRollingMechanism(transforms) {
+    if (!transforms) {
+      return;
+    }
+
+    if (this.rampMesh && transforms.ramp) {
+      this.rampMesh.position.set(transforms.ramp.x, transforms.ramp.y, transforms.ramp.z);
+      this.rampMesh.quaternion.set(transforms.ramp.qx, transforms.ramp.qy, transforms.ramp.qz, transforms.ramp.qw);
+    }
+
+    if (this.rollingMesh && transforms.roller) {
+      this.rollingMesh.position.set(transforms.roller.x, transforms.roller.y, transforms.roller.z);
+      this.rollingMesh.quaternion.set(
+        transforms.roller.qx,
+        transforms.roller.qy,
+        transforms.roller.qz,
+        transforms.roller.qw
+      );
     }
   }
 }

@@ -5,6 +5,7 @@ const MAX_STEPS_PER_FRAME = 8;
 const TRIGGER_SEQUENCE_ORDER = ['ball', 'plank', 'domino', 'lever', 'gate'];
 const DOMINO_SIZE = { hx: 0.04, hy: 0.25, hz: 0.12 };
 const BALL_RADIUS = 0.18;
+const ROLLING_RADIUS = 0.22;
 const DOMINO_MATERIAL_PRESETS = {
   wood: {
     friction: 0.75,
@@ -75,6 +76,10 @@ export class PhysicsRuntime {
     this.leverRightWeightCollider = null;
     this.gateBody = null;
     this.gateCollider = null;
+    this.rampBody = null;
+    this.rampCollider = null;
+    this.rollingBody = null;
+    this.rollingCollider = null;
     this.triggerHandles = {
       triggerBall: null,
       plank: null,
@@ -87,6 +92,13 @@ export class PhysicsRuntime {
       rightWeight: 1.5,
     };
     this.leverMetrics = this.createEmptyLeverMetrics();
+
+    this.rollingConfig = {
+      rampAngleDeg: 18,
+      frictionCoeff: 0.55,
+      mass: 1.2,
+    };
+    this.rollingMetrics = this.createEmptyRollingMetrics();
 
     this.dominoBodies = [];
     this.dominoColliderHandles = new Set();
@@ -189,6 +201,7 @@ export class PhysicsRuntime {
     this.ballMetrics = this.createEmptyBallMetrics();
     this.triggerMetrics = this.createEmptyTriggerMetrics();
     this.leverMetrics = this.createEmptyLeverMetrics();
+    this.rollingMetrics = this.createEmptyRollingMetrics();
     this.triggerState = {
       sequenceRunning: false,
       leverActivated: false,
@@ -215,6 +228,7 @@ export class PhysicsRuntime {
     this.setGravity(this.ballConfig.gravityEnabled, this.ballConfig.gravityStrength);
     this.createDominoChain(this.dominoConfig);
     this.createFallingBalls(this.ballConfig);
+    this.configureRollingObject(this.rollingConfig);
 
     this.emitTiming({
       frameTimeMs: 0,
@@ -501,6 +515,86 @@ export class PhysicsRuntime {
     };
   }
 
+  configureRollingObject(configInput = {}) {
+    if (!this.world || !this.rapier) {
+      return { ok: false, error: 'initialize Rapier first' };
+    }
+
+    const rampAngleDeg = Math.max(4, Math.min(40, Number(configInput.rampAngleDeg ?? this.rollingConfig.rampAngleDeg)));
+    const frictionCoeff = Math.max(0.05, Math.min(1.25, Number(configInput.frictionCoeff ?? this.rollingConfig.frictionCoeff)));
+    const mass = Math.max(0.2, Math.min(8, Number(configInput.mass ?? this.rollingConfig.mass)));
+
+    this.rollingConfig = {
+      rampAngleDeg,
+      frictionCoeff,
+      mass,
+    };
+
+    if (this.rollingBody) {
+      this.world.removeRigidBody(this.rollingBody);
+      this.rollingBody = null;
+      this.rollingCollider = null;
+    }
+    if (this.rampBody) {
+      this.world.removeRigidBody(this.rampBody);
+      this.rampBody = null;
+      this.rampCollider = null;
+    }
+
+    const rampCenter = { x: -1.9, y: 0.18, z: 2.0 };
+    const rampHalf = { x: 1.2, y: 0.08, z: 0.55 };
+    const theta = (rampAngleDeg * Math.PI) / 180;
+    const half = theta / 2;
+    const rampQuaternion = { x: 0, y: 0, z: Math.sin(half), w: Math.cos(half) };
+
+    this.rampBody = this.world.createRigidBody(this.rapier.RigidBodyDesc.fixed().setTranslation(rampCenter.x, rampCenter.y, rampCenter.z));
+    this.rampBody.setRotation(rampQuaternion, true);
+    this.rampCollider = this.world.createCollider(
+      this.rapier.ColliderDesc.cuboid(rampHalf.x, rampHalf.y, rampHalf.z).setFriction(frictionCoeff).setRestitution(0),
+      this.rampBody
+    );
+
+    const localTop = { x: rampHalf.x - 0.18, y: rampHalf.y + ROLLING_RADIUS + 0.05, z: 0 };
+    const worldTop = {
+      x: rampCenter.x + localTop.x * Math.cos(theta) - localTop.y * Math.sin(theta),
+      y: rampCenter.y + localTop.x * Math.sin(theta) + localTop.y * Math.cos(theta),
+      z: rampCenter.z,
+    };
+
+    this.rollingBody = this.world.createRigidBody(
+      this.rapier.RigidBodyDesc.dynamic()
+        .setTranslation(worldTop.x, worldTop.y, worldTop.z)
+        .setLinearDamping(0.02)
+        .setAngularDamping(0.02)
+        .setCanSleep(false)
+    );
+    this.rollingCollider = this.world.createCollider(
+      this.rapier.ColliderDesc.ball(ROLLING_RADIUS)
+        .setDensity(mass)
+        .setFriction(frictionCoeff)
+        .setRestitution(0.02)
+        .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS),
+      this.rollingBody
+    );
+
+    this.rollingMetrics = this.createEmptyRollingMetrics();
+    this.rollingMetrics.frictionCoeff = frictionCoeff;
+    this.rollingMetrics.mass = mass;
+    this.rollingMetrics.rampAngleDeg = rampAngleDeg;
+    this.rollingMetrics.spawnX = worldTop.x;
+    this.rollingMetrics.spawnY = worldTop.y;
+    this.rollingMetrics.spawnZ = worldTop.z;
+    this.rollingMetrics.initialPotentialEnergy = mass * 9.81 * Math.max(worldTop.y + 0.6, 0);
+    this.rollingMetrics.startTimeSeconds = this.stepCount * FIXED_TIMESTEP_SECONDS;
+
+    this.emitState();
+    this.emitTiming({ ...this.lastTiming, timestamp: performance.now() });
+    return {
+      ok: true,
+      config: { ...this.rollingConfig },
+    };
+  }
+
   triggerDominoChain() {
     if (!this.dominoBodies.length) {
       return { ok: false, error: 'domino chain not created' };
@@ -613,6 +707,10 @@ export class PhysicsRuntime {
     const leverRotation = this.leverBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
     const gateTranslation = this.gateBody?.translation() ?? { x: 0, y: 0, z: 0 };
     const gateRotation = this.gateBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
+    const rampTranslation = this.rampBody?.translation() ?? { x: 0, y: 0, z: 0 };
+    const rampRotation = this.rampBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
+    const rollingTranslation = this.rollingBody?.translation() ?? { x: 0, y: 0, z: 0 };
+    const rollingRotation = this.rollingBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
 
     const triggerEventOrder = this.triggerMetrics.eventOrder.map((event) => event.name);
     const expectedPrefix = TRIGGER_SEQUENCE_ORDER.slice(0, triggerEventOrder.length);
@@ -673,6 +771,26 @@ export class PhysicsRuntime {
           qw: gateRotation.w,
         },
       },
+      rollingTransforms: {
+        ramp: {
+          x: rampTranslation.x,
+          y: rampTranslation.y,
+          z: rampTranslation.z,
+          qx: rampRotation.x,
+          qy: rampRotation.y,
+          qz: rampRotation.z,
+          qw: rampRotation.w,
+        },
+        roller: {
+          x: rollingTranslation.x,
+          y: rollingTranslation.y,
+          z: rollingTranslation.z,
+          qx: rollingRotation.x,
+          qy: rollingRotation.y,
+          qz: rollingRotation.z,
+          qw: rollingRotation.w,
+        },
+      },
       ballTransforms,
       ballMaterialPreset: this.ballMetrics.materialPreset,
       dominoTransforms,
@@ -699,6 +817,14 @@ export class PhysicsRuntime {
         torque: this.leverMetrics.torque,
         rotationSpeed: this.leverMetrics.rotationSpeed,
         equilibriumTimeSeconds: this.leverMetrics.equilibriumTimeSeconds,
+      },
+      rolling: {
+        rampAngleDeg: this.rollingMetrics.rampAngleDeg,
+        frictionCoeff: this.rollingMetrics.frictionCoeff,
+        mass: this.rollingMetrics.mass,
+        distance: this.rollingMetrics.distance,
+        velocityAvg: this.rollingMetrics.velocityAvg,
+        energyLoss: this.rollingMetrics.energyLoss,
       },
       domino: {
         count: this.dominoMetrics.count,
@@ -758,6 +884,7 @@ export class PhysicsRuntime {
       steppedFrames += 1;
       this.collectCollisionAndModuleMetrics();
       this.collectLeverMetrics();
+      this.collectRollingMetrics();
       this.advanceTriggerMechanism();
     }
     const stepEnd = performance.now();
@@ -919,6 +1046,32 @@ export class PhysicsRuntime {
     return 2 * Math.atan2(rotation.z, rotation.w);
   }
 
+  collectRollingMetrics() {
+    if (!this.rollingBody) {
+      return;
+    }
+
+    const position = this.rollingBody.translation();
+    const velocity = this.rollingBody.linvel();
+    const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2);
+    const elapsed = Math.max(this.stepCount * FIXED_TIMESTEP_SECONDS - this.rollingMetrics.startTimeSeconds, FIXED_TIMESTEP_SECONDS);
+    const distance = Math.sqrt(
+      (position.x - this.rollingMetrics.spawnX) ** 2 +
+        (position.y - this.rollingMetrics.spawnY) ** 2 +
+        (position.z - this.rollingMetrics.spawnZ) ** 2
+    );
+
+    this.rollingMetrics.distance = distance;
+    this.rollingMetrics.speedIntegral += speed * FIXED_TIMESTEP_SECONDS;
+    this.rollingMetrics.velocityAvg = this.rollingMetrics.speedIntegral / elapsed;
+
+    const mass = this.rollingMetrics.mass;
+    const potential = mass * 9.81 * Math.max(position.y + 0.6, 0);
+    const kinetic = 0.5 * mass * speed * speed;
+    const currentEnergy = potential + kinetic;
+    this.rollingMetrics.energyLoss = Math.max(0, this.rollingMetrics.initialPotentialEnergy - currentEnergy);
+  }
+
   setGatePose(openHeight) {
     if (!this.gateBody) {
       return;
@@ -987,6 +1140,23 @@ export class PhysicsRuntime {
       activationTimeSeconds: this.stepCount * FIXED_TIMESTEP_SECONDS,
       active: false,
       stableFrames: 0,
+    };
+  }
+
+  createEmptyRollingMetrics() {
+    return {
+      rampAngleDeg: this.rollingConfig.rampAngleDeg,
+      frictionCoeff: this.rollingConfig.frictionCoeff,
+      mass: this.rollingConfig.mass,
+      distance: 0,
+      velocityAvg: 0,
+      energyLoss: 0,
+      speedIntegral: 0,
+      initialPotentialEnergy: 0,
+      startTimeSeconds: this.stepCount * FIXED_TIMESTEP_SECONDS,
+      spawnX: 0,
+      spawnY: 0,
+      spawnZ: 0,
     };
   }
 

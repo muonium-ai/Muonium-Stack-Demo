@@ -85,6 +85,10 @@ label {
   margin-bottom: 10px;
 }
 
+.rollingControls {
+  margin-bottom: 10px;
+}
+
 .toggleWrap {
   gap: 6px;
 }

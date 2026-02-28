@@ -87,6 +87,22 @@ app.innerHTML = `
       <button id="leverApplyBtn" type="button" disabled>Apply Lever Weights</button>
     </section>
 
+    <section class="controls rollingControls" aria-label="Rolling controls">
+      <label>
+        Ramp angle (deg)
+        <input id="rollingAngleInput" type="number" min="4" max="40" step="1" value="18" />
+      </label>
+      <label>
+        Friction
+        <input id="rollingFrictionInput" type="number" min="0.05" max="1.25" step="0.05" value="0.55" />
+      </label>
+      <label>
+        Mass
+        <input id="rollingMassInput" type="number" min="0.2" max="8" step="0.1" value="1.2" />
+      </label>
+      <button id="rollingApplyBtn" type="button" disabled>Apply Rolling Setup</button>
+    </section>
+
     <p id="runtimeStatus" class="status">Status: idle</p>
 
     <section class="viewportPanel" aria-label="Playground viewport">
@@ -146,6 +162,16 @@ app.innerHTML = `
         <div><dt>Equilibrium time</dt><dd id="leverEquilibriumMetric">0.000 s</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry" aria-label="Rolling telemetry">
+      <h2>Rolling metrics</h2>
+      <dl>
+        <div><dt>Distance</dt><dd id="rollingDistanceMetric">0.000</dd></div>
+        <div><dt>Avg velocity</dt><dd id="rollingVelocityMetric">0.000</dd></div>
+        <div><dt>Friction coeff</dt><dd id="rollingFrictionMetric">0.000</dd></div>
+        <div><dt>Energy loss</dt><dd id="rollingEnergyLossMetric">0.000</dd></div>
+      </dl>
+    </section>
   </section>
 `;
 
@@ -171,6 +197,10 @@ const triggerRunBtn = document.querySelector('#triggerRunBtn');
 const leverLeftWeightInput = document.querySelector('#leverLeftWeightInput');
 const leverRightWeightInput = document.querySelector('#leverRightWeightInput');
 const leverApplyBtn = document.querySelector('#leverApplyBtn');
+const rollingAngleInput = document.querySelector('#rollingAngleInput');
+const rollingFrictionInput = document.querySelector('#rollingFrictionInput');
+const rollingMassInput = document.querySelector('#rollingMassInput');
+const rollingApplyBtn = document.querySelector('#rollingApplyBtn');
 const runtimeStatus = document.querySelector('#runtimeStatus');
 
 const frameTime = document.querySelector('#frameTime');
@@ -197,6 +227,10 @@ const triggerPrecisionMetric = document.querySelector('#triggerPrecisionMetric')
 const leverTorqueMetric = document.querySelector('#leverTorqueMetric');
 const leverRotationMetric = document.querySelector('#leverRotationMetric');
 const leverEquilibriumMetric = document.querySelector('#leverEquilibriumMetric');
+const rollingDistanceMetric = document.querySelector('#rollingDistanceMetric');
+const rollingVelocityMetric = document.querySelector('#rollingVelocityMetric');
+const rollingFrictionMetric = document.querySelector('#rollingFrictionMetric');
+const rollingEnergyLossMetric = document.querySelector('#rollingEnergyLossMetric');
 const viewport = document.querySelector('#viewport');
 
 renderer.init(viewport);
@@ -216,11 +250,15 @@ runtime.onState((snapshot) => {
   dominoTriggerBtn.disabled = !snapshot.initialized;
   triggerRunBtn.disabled = !snapshot.initialized;
   leverApplyBtn.disabled = !snapshot.initialized;
+  rollingApplyBtn.disabled = !snapshot.initialized;
 
   gravityEnabledToggle.checked = snapshot.ball.gravityEnabled;
   gravityStrengthInput.value = snapshot.ball.gravityStrength.toFixed(1);
   leverLeftWeightInput.value = snapshot.lever.leftWeight.toFixed(1);
   leverRightWeightInput.value = snapshot.lever.rightWeight.toFixed(1);
+  rollingAngleInput.value = snapshot.rolling.rampAngleDeg.toFixed(0);
+  rollingFrictionInput.value = snapshot.rolling.frictionCoeff.toFixed(2);
+  rollingMassInput.value = snapshot.rolling.mass.toFixed(1);
 });
 
 runtime.onTiming((timing, snapshot) => {
@@ -255,6 +293,11 @@ runtime.onTiming((timing, snapshot) => {
   leverTorqueMetric.textContent = snapshot.lever.torque.toFixed(3);
   leverRotationMetric.textContent = snapshot.lever.rotationSpeed.toFixed(3);
   leverEquilibriumMetric.textContent = `${snapshot.lever.equilibriumTimeSeconds.toFixed(3)} s`;
+
+  rollingDistanceMetric.textContent = snapshot.rolling.distance.toFixed(3);
+  rollingVelocityMetric.textContent = snapshot.rolling.velocityAvg.toFixed(3);
+  rollingFrictionMetric.textContent = snapshot.rolling.frictionCoeff.toFixed(3);
+  rollingEnergyLossMetric.textContent = snapshot.rolling.energyLoss.toFixed(3);
 });
 
 initBtn.addEventListener('click', async () => {
@@ -373,6 +416,32 @@ leverApplyBtn.addEventListener('click', () => {
     return;
   }
   setStatus(`lever weights set (L ${result.config.leftWeight.toFixed(1)} / R ${result.config.rightWeight.toFixed(1)})`);
+});
+
+rollingApplyBtn.addEventListener('click', async () => {
+  if (!runtime.getSnapshot().initialized) {
+    setStatus('initializing Rapier for rolling setup...');
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      setStatus(`init failed (${initResult.error})`, true);
+      return;
+    }
+  }
+
+  const result = runtime.configureRollingObject({
+    rampAngleDeg: Number(rollingAngleInput.value),
+    frictionCoeff: Number(rollingFrictionInput.value),
+    mass: Number(rollingMassInput.value),
+  });
+  if (!result.ok) {
+    setStatus(`rolling setup failed (${result.error})`, true);
+    return;
+  }
+  setStatus(
+    `rolling setup applied (angle ${result.config.rampAngleDeg.toFixed(0)}°, friction ${result.config.frictionCoeff.toFixed(
+      2
+    )}, mass ${result.config.mass.toFixed(1)})`
+  );
 });
 
 speedSelect.addEventListener('change', (event) => {
