@@ -52,7 +52,25 @@ h1 {
 }
 
 .modeTabs {
+  display: none;
   margin-bottom: 10px;
+}
+
+.advancedOnly {
+  display: none !important;
+}
+
+.shell[data-mode='advanced'] .advancedOnly.controls {
+  display: flex !important;
+}
+
+.shell[data-mode='advanced'] .advancedOnly.telemetry,
+.shell[data-mode='advanced'] .advancedOnly.advancedSectionHeading {
+  display: block !important;
+}
+
+.shell[data-mode='advanced'] .modeTabs {
+  display: flex;
 }
 
 .modeTab[data-active='true'] {

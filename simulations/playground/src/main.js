@@ -6,7 +6,7 @@ import { LiveGraphPanel } from './ui/liveGraphPanel.js';
 const app = document.querySelector('#app');
 
 app.innerHTML = `
-  <section class="shell">
+  <section class="shell" data-mode="basic">
     <h1>Muonium Physics Playground</h1>
     <p class="subtitle">T-000064 Basic Redis capability showcase panel</p>
 
