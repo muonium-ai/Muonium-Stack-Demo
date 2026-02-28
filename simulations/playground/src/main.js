@@ -17,6 +17,9 @@ app.innerHTML = `
 
     <section class="controls basicOnly" aria-label="Basic mode controls">
       <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Simulation</button>
+      <button id="basicPauseBtn" type="button">Pause</button>
+      <button id="basicResetBtn" type="button">Reset</button>
+      <p class="basicIterationLabel">Iteration <span id="basicIterationValue">0</span></p>
     </section>
 
     <section class="controls basicOnly basicCameraControls" aria-label="Basic camera controls">
@@ -339,6 +342,9 @@ const shell = document.querySelector('.shell');
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
 const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
+const basicPauseBtn = document.querySelector('#basicPauseBtn');
+const basicResetBtn = document.querySelector('#basicResetBtn');
+const basicIterationValue = document.querySelector('#basicIterationValue');
 const basicPanLeftBtn = document.querySelector('#basicPanLeftBtn');
 const basicPanRightBtn = document.querySelector('#basicPanRightBtn');
 const basicPanForwardBtn = document.querySelector('#basicPanForwardBtn');
@@ -478,6 +484,19 @@ let basicChaosAdvancing = false;
 let basicChaosRunIteration = null;
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
+
+const resetBasicRedisPanelData = () => {
+  basicRedisTick.textContent = '0';
+  basicRedisRate.textContent = '0.00 Hz';
+  basicRedisOpsTotal.textContent = '0';
+  basicRedisHsetOps.textContent = '0';
+  basicRedisHincrbyOps.textContent = '0';
+  basicRedisLpushOps.textContent = '0';
+  basicRedisHudFpsMap.textContent = '0.00';
+  basicRedisLeverTorqueMap.textContent = '0.000';
+  basicRedisTimelineMap.textContent = 'idle';
+  basicRedisNarrative.textContent = 'Run Simulation to stream live metrics as Redis-like operations.';
+};
 
 const clearBasicShowcaseTimers = () => {
   for (const timer of basicShowcaseTimers) {
@@ -696,6 +715,7 @@ const runBasicShowcase = async () => {
     const runRandomIteration = () => {
       currentStage = 'random_iteration';
       basicChaosIteration += 1;
+      basicIterationValue.textContent = String(basicChaosIteration);
       basicChaosAdvancing = false;
 
       runtime.pause();
@@ -914,6 +934,9 @@ runtime.onState((snapshot) => {
   tabBasicBtn.disabled = false;
   tabAdvancedBtn.disabled = false;
   basicRunShowcaseBtn.disabled = replayModeActive;
+  basicPauseBtn.disabled = !snapshot.initialized || replayModeActive;
+  basicPauseBtn.textContent = snapshot.running ? 'Pause' : 'Resume';
+  basicResetBtn.disabled = !snapshot.initialized || replayModeActive;
   initBtn.disabled = snapshot.initialized;
   startBtn.disabled = !snapshot.initialized || snapshot.running || replayModeActive;
   pauseBtn.disabled = !snapshot.initialized || !snapshot.running || replayModeActive;
@@ -1333,6 +1356,48 @@ basicRunShowcaseBtn.addEventListener('click', async () => {
   await runBasicShowcase();
 });
 
+basicPauseBtn.addEventListener('click', () => {
+  const snapshot = runtime.getSnapshot();
+  if (!snapshot.initialized) {
+    return;
+  }
+  if (snapshot.running) {
+    basicChaosModeActive = false;
+    basicChaosAdvancing = false;
+    runtime.pause();
+    renderer.pause();
+    setStatus('basic simulation paused');
+    return;
+  }
+
+  runtime.start();
+  renderer.start();
+  setStatus('basic simulation resumed');
+});
+
+basicResetBtn.addEventListener('click', async () => {
+  clearBasicShowcaseTimers();
+  runtime.pause();
+  renderer.pause();
+
+  if (!runtime.getSnapshot().initialized) {
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      printBasicStageDebug('reset_init_failed', { error: initResult.error ?? 'unknown' });
+      return;
+    }
+  }
+
+  runtime.resetWorld();
+  renderer.reset();
+  latestMetricsPacket = null;
+  basicActivityBaseline = { tick: 0, totalOps: 0 };
+  basicChaosIteration = 0;
+  basicIterationValue.textContent = '0';
+  resetBasicRedisPanelData();
+  setStatus('basic simulation reset (Redis counters cleared)');
+});
+
 basicPanLeftBtn.addEventListener('click', () => {
   renderer.panCamera(-0.45, 0);
 });
@@ -1453,6 +1518,7 @@ replayExitBtn.addEventListener('click', () => {
 
 applyUiMode(resolveInitialUiMode(), false);
 setBasicRedisMinimized(false);
+resetBasicRedisPanelData();
 setStatus('idle — choose Basic for one-click demo or Advanced for full controls');
 
 window.addEventListener('beforeunload', () => {
