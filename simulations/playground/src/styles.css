@@ -51,6 +51,32 @@ h1 {
   margin-bottom: 12px;
 }
 
+.advancedNav {
+  margin-bottom: 10px;
+}
+
+.advancedNavLink {
+  display: inline-flex;
+  align-items: center;
+  background: #182946;
+  color: #d7e7ff;
+  border: 1px solid #365583;
+  border-radius: 999px;
+  padding: 6px 10px;
+  text-decoration: none;
+  font-size: 0.86rem;
+}
+
+.advancedNavLink:hover {
+  border-color: #6ea4ff;
+}
+
+.advancedSectionHeading {
+  margin: 8px 0 10px;
+  font-size: 0.96rem;
+  color: #c9daf9;
+}
+
 button,
 select {
   background: #1a2a4a;

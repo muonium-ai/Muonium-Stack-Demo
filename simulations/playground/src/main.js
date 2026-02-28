@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000061 Tabbed Basic and Advanced modes</p>
+    <p class="subtitle">T-000062 Advanced mode grouped layout</p>
 
     <section class="controls modeTabs" aria-label="Mode tabs">
       <button id="tabBasicBtn" type="button" class="modeTab">Basic</button>
@@ -20,7 +20,16 @@ app.innerHTML = `
       <button id="basicQuickResetBtn" type="button" disabled>Reset Demo</button>
     </section>
 
-    <section class="controls advancedOnly" aria-label="Physics controls">
+    <section class="controls advancedOnly advancedNav" aria-label="Advanced navigation">
+      <a href="#advancedControlsAnchor" class="advancedNavLink">Controls</a>
+      <a href="#advancedSimulationAnchor" class="advancedNavLink">Simulation</a>
+      <a href="#advancedObservabilityAnchor" class="advancedNavLink">Observability</a>
+      <a href="#advancedReplayAnchor" class="advancedNavLink">Replay</a>
+    </section>
+
+    <h2 id="advancedControlsAnchor" class="advancedOnly advancedSectionHeading">Controls</h2>
+
+    <section id="advancedSimulationAnchor" class="controls advancedOnly" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
       <button id="startBtn" type="button" disabled>Start</button>
       <button id="pauseBtn" type="button" disabled>Pause</button>
@@ -150,6 +159,8 @@ app.innerHTML = `
       <button id="replayOpenBtn" type="button" disabled>Open Replay</button>
     </section>
 
+    <h2 id="advancedObservabilityAnchor" class="advancedOnly advancedSectionHeading">Observability</h2>
+
     <p id="runtimeStatus" class="status">Status: idle</p>
 
     <section class="viewportPanel" aria-label="Playground viewport">
@@ -264,7 +275,7 @@ app.innerHTML = `
       <canvas id="graphCanvas" class="graphCanvas" width="640" height="180"></canvas>
     </section>
 
-    <section class="telemetry replayTelemetry advancedOnly" aria-label="Replay telemetry panel">
+    <section id="advancedReplayAnchor" class="telemetry replayTelemetry advancedOnly" aria-label="Replay telemetry panel">
       <h2>Replay</h2>
       <dl>
         <div><dt>Snapshots</dt><dd id="replayCountMetric">0</dd></div>
