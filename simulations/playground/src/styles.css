@@ -51,6 +51,11 @@ h1 {
   margin-bottom: 12px;
 }
 
+.basicPrimary {
+  border-color: #6ea4ff;
+  background: #254175;
+}
+
 .advancedNav {
   margin-bottom: 10px;
 }

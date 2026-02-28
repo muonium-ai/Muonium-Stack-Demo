@@ -16,8 +16,7 @@ app.innerHTML = `
     </section>
 
     <section class="controls basicOnly" aria-label="Basic mode controls">
-      <button id="basicQuickStartBtn" type="button" disabled>Start Demo</button>
-      <button id="basicQuickResetBtn" type="button" disabled>Reset Demo</button>
+      <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Showcase</button>
     </section>
 
     <section class="controls advancedOnly advancedNav" aria-label="Advanced navigation">
@@ -301,8 +300,7 @@ const UI_MODE_STORAGE_KEY = 'playground.uiMode';
 
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
-const basicQuickStartBtn = document.querySelector('#basicQuickStartBtn');
-const basicQuickResetBtn = document.querySelector('#basicQuickResetBtn');
+const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
 const initBtn = document.querySelector('#initBtn');
 const startBtn = document.querySelector('#startBtn');
 const pauseBtn = document.querySelector('#pauseBtn');
@@ -405,6 +403,156 @@ let replayCurrentIndex = 0;
 let replayAnimationId = null;
 let replayLastTimestampMs = 0;
 let uiMode = 'advanced';
+let basicShowcaseTimers = [];
+
+const clearBasicShowcaseTimers = () => {
+  for (const timer of basicShowcaseTimers) {
+    clearTimeout(timer);
+  }
+  basicShowcaseTimers = [];
+};
+
+const queueBasicShowcaseStep = (delayMs, handler) => {
+  const timer = setTimeout(() => {
+    basicShowcaseTimers = basicShowcaseTimers.filter((value) => value !== timer);
+    handler();
+  }, delayMs);
+  basicShowcaseTimers.push(timer);
+};
+
+const applyBasicShowcasePreset = () => {
+  runtime.setSpeedMultiplier(1.5);
+  speedSelect.value = '1.5';
+
+  const intervalResult = runtime.setMetricsAggregateIntervalMs(80);
+  if (intervalResult.ok) {
+    metricsIntervalInput.value = String(intervalResult.intervalMs);
+  }
+
+  graphPanel.setWindow('short');
+  graphWindowSelect.value = 'short';
+
+  runtime.setGravity(true, 1.1);
+  gravityEnabledToggle.checked = true;
+  gravityStrengthInput.value = '1.1';
+
+  const dominoResult = runtime.createDominoChain({
+    count: 96,
+    spacing: 0.3,
+    materialPreset: 'wood',
+  });
+  if (!dominoResult.ok) {
+    return dominoResult;
+  }
+
+  const ballResult = runtime.createFallingBalls({
+    count: 6,
+    materialPreset: 'metal',
+    gravityEnabled: true,
+    gravityStrength: 1.1,
+  });
+  if (!ballResult.ok) {
+    return ballResult;
+  }
+
+  const leverResult = runtime.setLeverWeights(1.0, 2.8);
+  if (!leverResult.ok) {
+    return leverResult;
+  }
+  leverLeftWeightInput.value = '1.0';
+  leverRightWeightInput.value = '2.8';
+
+  const rollingResult = runtime.configureRollingObject({
+    rampAngleDeg: 24,
+    frictionCoeff: 0.32,
+    mass: 1.8,
+  });
+  if (!rollingResult.ok) {
+    return rollingResult;
+  }
+  rollingAngleInput.value = '24';
+  rollingFrictionInput.value = '0.32';
+  rollingMassInput.value = '1.8';
+
+  return { ok: true };
+};
+
+const runBasicShowcase = async () => {
+  clearBasicShowcaseTimers();
+
+  if (replayModeActive) {
+    exitReplayMode();
+  }
+
+  if (!runtime.getSnapshot().initialized) {
+    setStatus('initializing Rapier for showcase...');
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      setStatus(`init failed (${initResult.error})`, true);
+      return;
+    }
+  }
+
+  runtime.pause();
+  renderer.pause();
+  runtime.resetWorld();
+  renderer.reset();
+
+  hudVisible = true;
+  hudOverlay.hidden = false;
+  hudToggleBtn.textContent = 'Hide HUD';
+
+  effectsEnabled = true;
+  renderer.setEffectsEnabled(true);
+  effectsToggleBtn.textContent = 'Disable Effects';
+
+  const presetResult = applyBasicShowcasePreset();
+  if (!presetResult.ok) {
+    setStatus(`showcase setup failed (${presetResult.error})`, true);
+    return;
+  }
+
+  runtime.start();
+  renderer.start();
+  setStatus('showcase stage 1: domino + balls');
+
+  queueBasicShowcaseStep(700, () => {
+    const result = runtime.triggerDominoChain();
+    if (result.ok) {
+      setStatus('showcase stage 2: chain reaction launched');
+    }
+  });
+
+  queueBasicShowcaseStep(1600, () => {
+    const result = runtime.runTriggerSequence();
+    if (result.ok) {
+      setStatus('showcase stage 3: trigger sequence active');
+    }
+  });
+
+  queueBasicShowcaseStep(3000, () => {
+    const result = runtime.configureRollingObject({
+      rampAngleDeg: 28,
+      frictionCoeff: 0.26,
+      mass: 2.1,
+    });
+    if (result.ok) {
+      rollingAngleInput.value = '28';
+      rollingFrictionInput.value = '0.26';
+      rollingMassInput.value = '2.1';
+      setStatus('showcase stage 4: rolling acceleration');
+    }
+  });
+
+  queueBasicShowcaseStep(4600, () => {
+    const result = runtime.startPuzzleAttempt();
+    if (result.ok) {
+      runtime.start();
+      renderer.start();
+      setStatus('showcase finale: puzzle challenge engaged');
+    }
+  });
+};
 
 renderer.init(viewport);
 
@@ -515,8 +663,7 @@ const replayTick = (timestampMs) => {
 runtime.onState((snapshot) => {
   tabBasicBtn.disabled = false;
   tabAdvancedBtn.disabled = false;
-  basicQuickStartBtn.disabled = replayModeActive;
-  basicQuickResetBtn.disabled = replayModeActive;
+  basicRunShowcaseBtn.disabled = replayModeActive;
   initBtn.disabled = snapshot.initialized;
   startBtn.disabled = !snapshot.initialized || snapshot.running || replayModeActive;
   pauseBtn.disabled = !snapshot.initialized || !snapshot.running || replayModeActive;
@@ -681,12 +828,14 @@ startBtn.addEventListener('click', () => {
 });
 
 pauseBtn.addEventListener('click', () => {
+  clearBasicShowcaseTimers();
   runtime.pause();
   renderer.pause();
   setStatus('paused');
 });
 
 resetBtn.addEventListener('click', () => {
+  clearBasicShowcaseTimers();
   runtime.resetWorld();
   renderer.reset();
   setStatus('world reset');
@@ -875,36 +1024,13 @@ tabBasicBtn.addEventListener('click', () => {
 });
 
 tabAdvancedBtn.addEventListener('click', () => {
+  clearBasicShowcaseTimers();
   applyUiMode('advanced');
   setStatus('advanced mode active');
 });
 
-basicQuickStartBtn.addEventListener('click', async () => {
-  if (!runtime.getSnapshot().initialized) {
-    setStatus('initializing Rapier for basic demo...');
-    const initResult = await runtime.init();
-    if (!initResult.ok) {
-      setStatus(`init failed (${initResult.error})`, true);
-      return;
-    }
-  }
-
-  runtime.start();
-  renderer.start();
-  setStatus('basic demo started');
-});
-
-basicQuickResetBtn.addEventListener('click', async () => {
-  if (!runtime.getSnapshot().initialized) {
-    const initResult = await runtime.init();
-    if (!initResult.ok) {
-      setStatus(`init failed (${initResult.error})`, true);
-      return;
-    }
-  }
-  runtime.resetWorld();
-  renderer.reset();
-  setStatus('basic demo reset');
+basicRunShowcaseBtn.addEventListener('click', async () => {
+  await runBasicShowcase();
 });
 
 replayConfigBtn.addEventListener('click', () => {
@@ -993,6 +1119,7 @@ applyUiMode(resolveInitialUiMode(), false);
 setStatus('idle (select Basic or Advanced)');
 
 window.addEventListener('beforeunload', () => {
+  clearBasicShowcaseTimers();
   stopReplayLoop();
   graphPanel.dispose();
   runtime.dispose();
