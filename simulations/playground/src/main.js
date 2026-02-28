@@ -766,15 +766,14 @@ const setStatus = (message, isError = false) => {
 const resolveInitialUiMode = () => {
   const params = new URLSearchParams(window.location.search);
   const queryMode = params.get('mode');
-  if (queryMode === 'basic' || queryMode === 'advanced') {
+  if (queryMode === 'advanced') {
+    return 'advanced';
+  }
+  if (queryMode === 'basic') {
     return queryMode;
   }
 
-  const stored = localStorage.getItem(UI_MODE_STORAGE_KEY);
-  if (stored === 'basic' || stored === 'advanced') {
-    return stored;
-  }
-  return 'advanced';
+  return 'basic';
 };
 
 const setBasicRedisMinimized = (nextState) => {
