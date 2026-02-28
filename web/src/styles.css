@@ -349,6 +349,27 @@ h1 {
   font-size: 20px;
 }
 
+.playLayout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+
+.playBoardPane {
+  flex: 0 0 auto;
+  width: var(--board-box-size);
+}
+
+.playMovesPane {
+  flex: 0 0 auto;
+  width: var(--board-box-size);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
 #playModeInfo {
   margin: 0 0 6px;
   font-size: 13px;
@@ -388,7 +409,8 @@ h1 {
 }
 
 .playBoard {
-  margin-top: 10px;
+  position: relative;
+  display: inline-block;
 }
 
 .playBoard table {
@@ -397,12 +419,26 @@ h1 {
 }
 
 .playBoard td {
-  width: 56px;
-  height: 56px;
+  width: 68px;
+  height: 68px;
   text-align: center;
   vertical-align: middle;
-  font-size: 36px;
+  font-size: 42px;
   cursor: pointer;
+}
+
+.playBoard td.light {
+  background: var(--color-board-light);
+}
+
+.playBoard td.dark {
+  background: var(--color-board-dark);
+}
+
+.playBoard .moveArrowOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .playBoard td.isSelected {
@@ -421,23 +457,19 @@ h1 {
 }
 
 .playMovesTitle {
-  margin: 10px 0 6px;
+  margin: 0 0 8px;
   font-size: 15px;
 }
 
 #playPgnViewer {
   box-sizing: border-box;
-  width: 100%;
-  min-height: 110px;
-  max-height: 180px;
+  width: var(--board-box-size);
+  height: var(--board-box-size);
+  max-height: var(--board-box-size);
   overflow-y: auto;
   overflow-x: hidden;
-  line-height: 1.8;
-  font-size: 15px;
-  background: var(--color-surface-subtle);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 8px;
+  line-height: 1.9;
+  font-size: 16px;
 }
 
 .playPanelControls {
@@ -462,6 +494,30 @@ h1 {
 }
 
 .playPanelControls button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+#playTransportControls {
+  display: flex;
+  gap: 8px;
+}
+
+#playTransportControls button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  cursor: pointer;
+  font-size: 20px;
+}
+
+#playTransportControls button:hover {
+  background: var(--color-focus-bg);
+}
+
+#playTransportControls button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -620,7 +676,7 @@ h1 {
 }
 
 #benchmarkPauseBtn {
-  color: var(--color-text-on-primary);
+  color: var(--color-text-primary);
   border-color: var(--color-btn-pause-border);
   background: var(--color-btn-pause);
 }
@@ -630,7 +686,7 @@ h1 {
 }
 
 #benchmarkStopBtn {
-  color: var(--color-text-on-primary);
+  color: var(--color-text-primary);
   border-color: var(--color-btn-stop-border);
   background: var(--color-btn-stop);
 }
@@ -972,6 +1028,10 @@ h1 {
 
 @media (max-width: 1100px) {
   #replayLayout {
+    flex-direction: column;
+  }
+
+  .playLayout {
     flex-direction: column;
   }
 }

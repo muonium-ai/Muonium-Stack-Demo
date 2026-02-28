@@ -152,15 +152,36 @@
               </select>
             </label>
           </div>
-          <section id="playBoard" class="playBoard" aria-label="Play board"></section>
-          <p id="playMoveInfo">Move 0 • start</p>
-          <h3 class="playMovesTitle">Play Moves</h3>
-          <div id="playPgnViewer"></div>
-          <div class="playPanelControls">
-            <button id="playAutoplayStartBtn" type="button">Start Autoplay</button>
-            <button id="playAutoplayStopBtn" type="button" disabled>Stop</button>
-            <button id="playResetBtn" type="button">Reset</button>
-          </div>
+          <section class="playLayout">
+            <section class="playBoardPane">
+              <section class="navGroupTop" aria-label="Play replay controls">
+                <div id="playTransportControls">
+                  <button id="playNavStart" title="Start">⏮</button>
+                  <button id="playNavPrev" title="Previous">⏪</button>
+                  <button id="playNavPlay" title="Play/Pause">▶</button>
+                  <button id="playNavNext" title="Next">⏩</button>
+                  <button id="playNavEnd" title="End">⏭</button>
+                </div>
+              </section>
+              <div class="playerRow playerBlack">
+                <div class="playerName" id="playBlackName">Black: Stockfish</div>
+              </div>
+              <section id="playBoard" class="playBoard" aria-label="Play board"></section>
+              <div class="playerRow playerWhite">
+                <div class="playerName" id="playWhiteName">White: Stockfish</div>
+              </div>
+              <p id="playMoveInfo">Move 0 • start</p>
+              <div class="playPanelControls">
+                <button id="playAutoplayStartBtn" type="button">Start Autoplay</button>
+                <button id="playAutoplayStopBtn" type="button" disabled>Stop</button>
+                <button id="playResetBtn" type="button">Reset</button>
+              </div>
+            </section>
+            <section class="playMovesPane">
+              <h3 class="playMovesTitle">Play Moves</h3>
+              <div id="playPgnViewer"></div>
+            </section>
+          </section>
           <div class="playBenchmarkRow">
             <label>
               Benchmark games
