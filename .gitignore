@@ -22,6 +22,7 @@ target
 
 node_modules/
 dist/
+simulations/playground/dist/
 web/src/wasm_pkg/
 .DS_Store
 public/data/*.sqlite

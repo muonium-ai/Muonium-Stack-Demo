@@ -15,6 +15,9 @@
     "dev:full": "npm run db:build && npm run stockfish:sync && npm run wasm:build && vite",
     "build": "npm run db:build && npm run stockfish:sync && npm run wasm:build && vite build",
     "preview": "vite preview",
+    "playground:dev": "vite --config simulations/playground/vite.config.js",
+    "playground:build": "vite build --config simulations/playground/vite.config.js",
+    "playground:preview": "vite preview --config simulations/playground/vite.config.js",
     "wasm:build": "cd wasm-core && PATH=\"$HOME/.cargo/bin:$PATH\" wasm-pack build --target web --out-dir ../web/src/wasm_pkg"
   },
   "dependencies": {

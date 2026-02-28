@@ -19,10 +19,11 @@ Build a fully isolated physics playground demo inside this repository, without c
 ## Proposed Isolated Layout
 
 ```text
-playground/
+simulations/playground/
   index.html
   package.json (or scripts namespace in root package.json, but isolated commands)
   vite.config.js
+  Makefile
   src/
     main.ts
     render/
@@ -47,7 +48,7 @@ If using root `package.json`, all commands must be namespaced, e.g.:
 ## Phase 0 — Foundation and Isolation
 
 - [ ] Create isolated app scaffold and folder boundaries.
-- [ ] Add dedicated `playground/index.html`.
+- [ ] Add dedicated `simulations/playground/index.html`.
 - [ ] Add dedicated build config and output path.
 - [ ] Wire dedicated scripts (`playground:*`) and verify no impact to existing app scripts.
 
@@ -114,7 +115,7 @@ Exit criteria:
 
 ## Ticket Map
 
-- [ ] T-000045: Create isolated playground scaffold + separate HTML/build entrypoints
+- [x] T-000045: Create isolated playground scaffold + separate HTML/build entrypoints (under `simulations/playground`)
 - [ ] T-000046: Implement Rapier WASM bootstrap and simulation loop
 - [ ] T-000047: Implement Three.js rendering bootstrap and lifecycle
 - [ ] T-000048: Domino chain simulation module
