@@ -149,5 +149,5 @@ Exit criteria:
 ## Post-Demo Optimization Wave
 
 - [x] T-000066: Bundle splitting strategy for playground app
-- [ ] T-000067: Reduce chunk-size warning and formalize bundle budget
+- [x] T-000067: Reduce chunk-size warning and formalize bundle budget
 - [ ] T-000068: Add scripted CI smoke checks for dual-mode playground

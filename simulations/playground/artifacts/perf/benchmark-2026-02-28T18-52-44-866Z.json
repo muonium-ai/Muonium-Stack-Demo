@@ -37,9 +37,5 @@
       "bundleSize": true
     },
     "passed": true
-  },
-  "artifacts": {
-    "latestPath": "/Users/senthil/code/Muonium-Stack-Demo/simulations/playground/artifacts/perf/benchmark-latest.json",
-    "timestampedPath": "/Users/senthil/code/Muonium-Stack-Demo/simulations/playground/artifacts/perf/benchmark-2026-02-28T18-52-44-866Z.json"
   }
 }

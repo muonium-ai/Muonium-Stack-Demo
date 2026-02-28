@@ -26,6 +26,7 @@ export default defineConfig({
   build: {
     outDir: resolve(playgroundRoot, 'dist'),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2400,
     rollupOptions: {
       output: {
         manualChunks(id) {

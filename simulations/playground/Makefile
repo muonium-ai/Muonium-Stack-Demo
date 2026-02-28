@@ -1,4 +1,4 @@
-.PHONY: dev build preview bench
+.PHONY: dev build preview bench bundle-report
 
 ROOT := $(abspath ../..)
 VITE_CONFIG := $(ROOT)/simulations/playground/vite.config.js
@@ -14,3 +14,6 @@ preview:
 
 bench:
 	cd $(ROOT) && node simulations/playground/scripts/benchmark-playground.mjs
+
+bundle-report:
+	cd $(ROOT) && node simulations/playground/scripts/report-bundle-size.mjs

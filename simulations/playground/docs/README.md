@@ -22,6 +22,7 @@ Build + benchmark:
 ```bash
 make -C simulations/playground build
 make -C simulations/playground bench
+make -C simulations/playground bundle-report
 ```
 
 ## Demo mode entry points

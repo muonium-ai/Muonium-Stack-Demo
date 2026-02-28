@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-02-28T18:52:42.813Z",
+  "totals": {
+    "bytes": 2822229,
+    "gzipBytes": 981582,
+    "jsBytes": 2817636,
+    "cssBytes": 4014
+  },
+  "largestAssets": [
+    {
+      "path": "dist/assets/vendor-rapier-CKC5f6tm.js",
+      "ext": ".js",
+      "bytes": 2235456,
+      "gzipBytes": 835147
+    },
+    {
+      "path": "dist/assets/vendor-three-B9po4RmL.js",
+      "ext": ".js",
+      "bytes": 496840,
+      "gzipBytes": 124198
+    },
+    {
+      "path": "dist/assets/index-JWnyY4jM.js",
+      "ext": ".js",
+      "bytes": 85340,
+      "gzipBytes": 20509
+    },
+    {
+      "path": "dist/assets/index-BrMAXrAG.css",
+      "ext": ".css",
+      "bytes": 4014,
+      "gzipBytes": 1401
+    },
+    {
+      "path": "dist/index.html",
+      "ext": ".html",
+      "bytes": 579,
+      "gzipBytes": 327
+    }
+  ]
+}
