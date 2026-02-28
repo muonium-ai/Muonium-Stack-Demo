@@ -20,6 +20,7 @@
     "playground:preview": "vite preview --config simulations/playground/vite.config.js",
     "playground:bench": "node simulations/playground/scripts/benchmark-playground.mjs",
     "playground:bundle-report": "node simulations/playground/scripts/report-bundle-size.mjs",
+    "playground:smoke": "node simulations/playground/scripts/smoke-playground.mjs",
     "wasm:build": "cd wasm-core && PATH=\"$HOME/.cargo/bin:$PATH\" wasm-pack build --target web --out-dir ../web/src/wasm_pkg"
   },
   "dependencies": {

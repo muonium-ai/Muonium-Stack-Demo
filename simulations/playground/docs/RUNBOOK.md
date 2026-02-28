@@ -75,6 +75,22 @@ Artifacts:
 - `simulations/playground/artifacts/perf/bundle-size-latest.json`
 - timestamped snapshots in same directory
 
+### CI smoke checks
+
+```bash
+make -C simulations/playground smoke
+```
+
+Equivalent npm command:
+
+```bash
+npm run playground:smoke
+```
+
+Artifacts:
+- `simulations/playground/artifacts/perf/smoke-latest.json`
+- timestamped snapshots in same directory
+
 Bundle budget policy:
 - Total built output target: `< 3.0 MB` (tracked by benchmark harness)
 - Current chunk warning limit is intentionally set to `2400 kB` to account for the precompiled Rapier vendor chunk while preserving warning signal for unexpected growth beyond that bound
@@ -84,11 +100,12 @@ Bundle budget policy:
 1. Build succeeds (`make -C simulations/playground build`)
 2. Benchmark reports `PASS` (`make -C simulations/playground bench`)
 3. Bundle report command succeeds (`make -C simulations/playground bundle-report`)
-4. Basic mode smoke check:
+4. CI smoke checks pass (`make -C simulations/playground smoke`)
+5. Basic mode smoke check:
   - Select **Basic** tab
   - Click **Run Showcase**
   - Confirm Redis Capability panel shows increasing stream tick/ops/timeline values
-5. Advanced mode smoke check:
+6. Advanced mode smoke check:
   - Select **Advanced** tab
   - Verify replay controls work with capture enabled
   - Verify HUD + graph update continuously while simulation runs

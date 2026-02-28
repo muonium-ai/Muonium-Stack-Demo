@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-02-28T18:53:46.000Z",
+  "status": "pass",
+  "checks": [
+    {
+      "id": "basic-entry-tab",
+      "description": "Basic mode entry tab exists",
+      "status": "pass"
+    },
+    {
+      "id": "basic-showcase-hook",
+      "description": "Basic one-click showcase hook exists",
+      "status": "pass"
+    },
+    {
+      "id": "advanced-entry-tab",
+      "description": "Advanced mode entry tab exists",
+      "status": "pass"
+    },
+    {
+      "id": "advanced-controls-hook",
+      "description": "Advanced controls and replay hooks exist",
+      "status": "pass"
+    }
+  ]
+}
