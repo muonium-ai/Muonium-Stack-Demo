@@ -108,6 +108,23 @@
           <h2>Play vs Engine</h2>
           <p id="playModeInfo">Mode: Stockfish vs Stockfish</p>
           <p id="playEngineStatus">Stockfish WASM: loading...</p>
+          <section id="playDemoStatsPanel" class="playDemoStatsPanel">
+            <div class="playDemoStatsHeader">
+              <strong>Demo Mode Stats</strong>
+              <button id="playDemoStatsToggleBtn" type="button">Hide</button>
+            </div>
+            <div id="playDemoStatsBody" class="playDemoStatsBody">
+              <span id="playDemoGamesCount">Games: 0</span>
+              <span id="playDemoMovesPerSec">Moves/s: 0.0</span>
+              <span id="playDemoMinMoves">Min moves/game: 0</span>
+              <span id="playDemoMaxMoves">Max moves/game: 0</span>
+              <span id="playDemoAvgMoves">Avg moves/game: 0.0</span>
+              <span id="playDemoWhiteWinPct">White win %: 0.0%</span>
+              <span id="playDemoBlackWinPct">Black win %: 0.0%</span>
+              <span id="playDemoDrawsCount">Draws: 0</span>
+              <button id="playDemoExportPgnBtn" type="button" disabled>Export Demo PGN</button>
+            </div>
+          </section>
           <div class="playConfigGrid">
             <label>
               Play mode
@@ -174,10 +191,13 @@
               </div>
               <p id="playMoveInfo">Move 0 • start</p>
               <p id="playTurnNotice">Turn: --</p>
+              <p id="playResultNotice" data-result="ongoing">Result: In progress</p>
               <div class="playPanelControls">
                 <button id="playAutoplayStartBtn" type="button">Start Autoplay</button>
+                <button id="playDemoModeBtn" type="button">Start Demo Mode</button>
                 <button id="playAutoplayStopBtn" type="button" disabled>Stop</button>
                 <button id="playResetBtn" type="button">Reset</button>
+                <button id="playSaveHumanPgnBtn" type="button">Save Human PGN</button>
               </div>
             </section>
             <section class="playMovesPane">

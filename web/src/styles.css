@@ -377,6 +377,66 @@ h1 {
   font-weight: 600;
 }
 
+.playDemoStatsPanel {
+  margin-top: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.playDemoStatsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.playDemoStatsHeader button {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+
+.playDemoStatsHeader button:hover:not(:disabled) {
+  background: var(--color-focus-bg);
+}
+
+.playDemoStatsBody {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.playDemoStatsBody button {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 6px 10px;
+}
+
+.playDemoStatsBody button:hover:not(:disabled) {
+  background: var(--color-focus-bg);
+}
+
+.playDemoStatsBody button:disabled,
+.playDemoStatsHeader button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .playConfigGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
