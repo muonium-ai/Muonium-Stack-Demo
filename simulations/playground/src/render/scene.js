@@ -17,6 +17,9 @@ export class PlaygroundRenderer {
     this.dominoMeshes = [];
     this.ballGeometry = null;
     this.ballMeshes = [];
+    this.plankMesh = null;
+    this.leverMesh = null;
+    this.gateMesh = null;
   }
 
   init(container) {
@@ -64,6 +67,24 @@ export class PlaygroundRenderer {
 
     this.dominoGeometry = new THREE.BoxGeometry(0.08, 0.5, 0.24);
     this.ballGeometry = new THREE.SphereGeometry(0.18, 18, 14);
+
+    const plankGeometry = new THREE.BoxGeometry(1.0, 0.16, 0.5);
+    const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x7f95bd });
+    this.plankMesh = new THREE.Mesh(plankGeometry, plankMaterial);
+    this.plankMesh.position.set(1.55, 0.55, 0);
+    this.scene.add(this.plankMesh);
+
+    const leverGeometry = new THREE.BoxGeometry(1.4, 0.12, 0.4);
+    const leverMaterial = new THREE.MeshStandardMaterial({ color: 0x5f84a8 });
+    this.leverMesh = new THREE.Mesh(leverGeometry, leverMaterial);
+    this.leverMesh.position.set(4.7, 0.4, 0);
+    this.scene.add(this.leverMesh);
+
+    const gateGeometry = new THREE.BoxGeometry(0.16, 0.7, 0.8);
+    const gateMaterial = new THREE.MeshStandardMaterial({ color: 0x8aa3ca });
+    this.gateMesh = new THREE.Mesh(gateGeometry, gateMaterial);
+    this.gateMesh.position.set(5.9, 0.35, 0);
+    this.scene.add(this.gateMesh);
 
     const grid = new THREE.GridHelper(8, 16, 0x3d5f92, 0x253b5c);
     grid.position.y = -0.09;
@@ -114,6 +135,7 @@ export class PlaygroundRenderer {
     this.fallingMesh.quaternion.set(snapshot.cubeQx, snapshot.cubeQy, snapshot.cubeQz, snapshot.cubeQw);
     this.syncBallMeshes(snapshot.ballTransforms ?? [], snapshot.ballMaterialPreset ?? 'wood');
     this.syncDominoMeshes(snapshot.dominoTransforms ?? [], snapshot.dominoMaterialPreset ?? 'wood');
+    this.syncTriggerMechanism(snapshot.triggerMechanismTransforms);
     if (!this.running) {
       this.renderOnce();
     }
@@ -155,6 +177,9 @@ export class PlaygroundRenderer {
     this.ballGeometry?.dispose();
     this.dominoGeometry = null;
     this.ballGeometry = null;
+    this.plankMesh = null;
+    this.leverMesh = null;
+    this.gateMesh = null;
   }
 
   tick() {
@@ -252,6 +277,27 @@ export class PlaygroundRenderer {
       case 'wood':
       default:
         return 0xcd9b63;
+    }
+  }
+
+  syncTriggerMechanism(transforms) {
+    if (!transforms) {
+      return;
+    }
+
+    if (this.plankMesh && transforms.plank) {
+      this.plankMesh.position.set(transforms.plank.x, transforms.plank.y, transforms.plank.z);
+      this.plankMesh.quaternion.set(transforms.plank.qx, transforms.plank.qy, transforms.plank.qz, transforms.plank.qw);
+    }
+
+    if (this.leverMesh && transforms.lever) {
+      this.leverMesh.position.set(transforms.lever.x, transforms.lever.y, transforms.lever.z);
+      this.leverMesh.quaternion.set(transforms.lever.qx, transforms.lever.qy, transforms.lever.qz, transforms.lever.qw);
+    }
+
+    if (this.gateMesh && transforms.gate) {
+      this.gateMesh.position.set(transforms.gate.x, transforms.gate.y, transforms.gate.z);
+      this.gateMesh.quaternion.set(transforms.gate.qx, transforms.gate.qy, transforms.gate.qz, transforms.gate.qw);
     }
   }
 }

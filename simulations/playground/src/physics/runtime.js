@@ -2,6 +2,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 
 const FIXED_TIMESTEP_SECONDS = 1 / 60;
 const MAX_STEPS_PER_FRAME = 8;
+const TRIGGER_SEQUENCE_ORDER = ['ball', 'plank', 'domino', 'lever', 'gate'];
 const DOMINO_SIZE = { hx: 0.04, hy: 0.25, hz: 0.12 };
 const BALL_RADIUS = 0.18;
 const DOMINO_MATERIAL_PRESETS = {
@@ -64,6 +65,18 @@ export class PhysicsRuntime {
     this.groundBody = null;
     this.triggerBallBody = null;
     this.triggerBallCollider = null;
+    this.plankBody = null;
+    this.plankCollider = null;
+    this.leverBody = null;
+    this.leverCollider = null;
+    this.gateBody = null;
+    this.gateCollider = null;
+    this.triggerHandles = {
+      triggerBall: null,
+      plank: null,
+      lever: null,
+      gate: null,
+    };
 
     this.dominoBodies = [];
     this.dominoColliderHandles = new Set();
@@ -84,6 +97,15 @@ export class PhysicsRuntime {
       gravityStrength: 1,
     };
     this.ballMetrics = this.createEmptyBallMetrics();
+    this.triggerMetrics = this.createEmptyTriggerMetrics();
+
+    this.triggerState = {
+      sequenceRunning: false,
+      leverActivated: false,
+      gateActivated: false,
+      leverAngleRad: 0,
+      gateOpenHeight: 0,
+    };
 
     this.timingSubscribers = new Set();
     this.stateSubscribers = new Set();
@@ -156,6 +178,14 @@ export class PhysicsRuntime {
     this.ballBodies = [];
     this.ballBodyByColliderHandle.clear();
     this.ballMetrics = this.createEmptyBallMetrics();
+    this.triggerMetrics = this.createEmptyTriggerMetrics();
+    this.triggerState = {
+      sequenceRunning: false,
+      leverActivated: false,
+      gateActivated: false,
+      leverAngleRad: 0,
+      gateOpenHeight: 0,
+    };
 
     const groundBodyDesc = this.rapier.RigidBodyDesc.fixed().setTranslation(0, -0.6, 0);
     this.groundBody = this.world.createRigidBody(groundBodyDesc);
@@ -169,6 +199,9 @@ export class PhysicsRuntime {
       .setFriction(0.7)
       .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
     this.triggerBallCollider = this.world.createCollider(triggerColliderDesc, this.triggerBallBody);
+    this.triggerHandles.triggerBall = this.triggerBallCollider.handle;
+
+    this.createTriggerMechanismObjects();
 
     this.setGravity(this.ballConfig.gravityEnabled, this.ballConfig.gravityStrength);
     this.createDominoChain(this.dominoConfig);
@@ -184,6 +217,46 @@ export class PhysicsRuntime {
       timestamp: performance.now(),
     });
     this.emitState();
+  }
+
+  createTriggerMechanismObjects() {
+    const plankDesc = this.rapier.RigidBodyDesc.dynamic()
+      .setTranslation(this.dominoConfig.startX + 0.35, 0.55, 0)
+      .setLinearDamping(0.6)
+      .setAngularDamping(0.6);
+    this.plankBody = this.world.createRigidBody(plankDesc);
+    const plankColliderDesc = this.rapier.ColliderDesc.cuboid(0.5, 0.08, 0.25)
+      .setRestitution(0.05)
+      .setFriction(0.8)
+      .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
+    this.plankCollider = this.world.createCollider(plankColliderDesc, this.plankBody);
+    this.triggerHandles.plank = this.plankCollider.handle;
+
+    const leverDesc = this.rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(
+      this.dominoConfig.startX + 3.5,
+      0.4,
+      0
+    );
+    this.leverBody = this.world.createRigidBody(leverDesc);
+    const leverColliderDesc = this.rapier.ColliderDesc.cuboid(0.7, 0.06, 0.2)
+      .setRestitution(0)
+      .setFriction(0.9)
+      .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
+    this.leverCollider = this.world.createCollider(leverColliderDesc, this.leverBody);
+    this.triggerHandles.lever = this.leverCollider.handle;
+
+    const gateDesc = this.rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(
+      this.dominoConfig.startX + 4.7,
+      0.35,
+      0
+    );
+    this.gateBody = this.world.createRigidBody(gateDesc);
+    const gateColliderDesc = this.rapier.ColliderDesc.cuboid(0.08, 0.35, 0.4)
+      .setRestitution(0)
+      .setFriction(0.9)
+      .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
+    this.gateCollider = this.world.createCollider(gateColliderDesc, this.gateBody);
+    this.triggerHandles.gate = this.gateCollider.handle;
   }
 
   setGravity(enabled, strength = 1) {
@@ -380,6 +453,39 @@ export class PhysicsRuntime {
     return { ok: true };
   }
 
+  runTriggerSequence() {
+    if (!this.world || !this.triggerBallBody || !this.plankBody) {
+      return { ok: false, error: 'initialize Rapier first' };
+    }
+
+    this.resetTriggerMechanismPositions();
+    this.triggerMetrics = this.createEmptyTriggerMetrics();
+    this.triggerState.sequenceRunning = true;
+    this.recordTriggerEvent('ball');
+
+    this.triggerBallBody.setTranslation({ x: this.dominoConfig.startX + 0.35, y: 2.1, z: 0 }, true);
+    this.triggerBallBody.setLinvel({ x: 0, y: -0.2, z: 0 }, true);
+    this.triggerBallBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+    this.emitState();
+    return { ok: true };
+  }
+
+  resetTriggerMechanismPositions() {
+    this.triggerState.leverActivated = false;
+    this.triggerState.gateActivated = false;
+    this.triggerState.leverAngleRad = 0;
+    this.triggerState.gateOpenHeight = 0;
+
+    this.plankBody?.setTranslation({ x: this.dominoConfig.startX + 0.35, y: 0.55, z: 0 }, true);
+    this.plankBody?.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
+    this.plankBody?.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.plankBody?.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+    this.setLeverPose(0);
+    this.setGatePose(0);
+  }
+
   getSnapshot() {
     const translation = this.triggerBallBody?.translation() ?? { x: 0, y: 0, z: 0 };
     const linvel = this.triggerBallBody?.linvel() ?? { x: 0, y: 0, z: 0 };
@@ -435,6 +541,30 @@ export class PhysicsRuntime {
     }
     const fallTimeAvgSeconds = fallTimes.length ? fallTimes.reduce((sum, value) => sum + value, 0) / fallTimes.length : 0;
 
+    const plankTranslation = this.plankBody?.translation() ?? { x: 0, y: 0, z: 0 };
+    const plankRotation = this.plankBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
+    const leverTranslation = this.leverBody?.translation() ?? { x: 0, y: 0, z: 0 };
+    const leverRotation = this.leverBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
+    const gateTranslation = this.gateBody?.translation() ?? { x: 0, y: 0, z: 0 };
+    const gateRotation = this.gateBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
+
+    const triggerEventOrder = this.triggerMetrics.eventOrder.map((event) => event.name);
+    const expectedPrefix = TRIGGER_SEQUENCE_ORDER.slice(0, triggerEventOrder.length);
+    const inOrderMatches = triggerEventOrder.filter((name, idx) => name === expectedPrefix[idx]).length;
+    const completion = triggerEventOrder.length / TRIGGER_SEQUENCE_ORDER.length;
+    const orderAccuracy = triggerEventOrder.length ? inOrderMatches / triggerEventOrder.length : 0;
+    const precisionScore = Math.max(0, Math.min(100, (completion * 0.5 + orderAccuracy * 0.5) * 100));
+
+    const latencies = [];
+    for (let index = 1; index < this.triggerMetrics.eventOrder.length; index += 1) {
+      latencies.push(this.triggerMetrics.eventOrder[index].timeSeconds - this.triggerMetrics.eventOrder[index - 1].timeSeconds);
+    }
+    const sequenceTimeSeconds =
+      this.triggerMetrics.eventOrder.length >= 2
+        ? this.triggerMetrics.eventOrder[this.triggerMetrics.eventOrder.length - 1].timeSeconds -
+          this.triggerMetrics.eventOrder[0].timeSeconds
+        : 0;
+
     return {
       initialized: this.initialized,
       running: this.running,
@@ -448,6 +578,35 @@ export class PhysicsRuntime {
       cubeQy: rotation.y,
       cubeQz: rotation.z,
       cubeQw: rotation.w,
+      triggerMechanismTransforms: {
+        plank: {
+          x: plankTranslation.x,
+          y: plankTranslation.y,
+          z: plankTranslation.z,
+          qx: plankRotation.x,
+          qy: plankRotation.y,
+          qz: plankRotation.z,
+          qw: plankRotation.w,
+        },
+        lever: {
+          x: leverTranslation.x,
+          y: leverTranslation.y,
+          z: leverTranslation.z,
+          qx: leverRotation.x,
+          qy: leverRotation.y,
+          qz: leverRotation.z,
+          qw: leverRotation.w,
+        },
+        gate: {
+          x: gateTranslation.x,
+          y: gateTranslation.y,
+          z: gateTranslation.z,
+          qx: gateRotation.x,
+          qy: gateRotation.y,
+          qz: gateRotation.z,
+          qw: gateRotation.w,
+        },
+      },
       ballTransforms,
       ballMaterialPreset: this.ballMetrics.materialPreset,
       dominoTransforms,
@@ -461,6 +620,12 @@ export class PhysicsRuntime {
         bounceCount,
         maxHeight,
         impactForceMax: maxImpactForce,
+      },
+      trigger: {
+        sequenceTimeSeconds,
+        latencies,
+        eventOrder: triggerEventOrder,
+        precisionScore,
       },
       domino: {
         count: this.dominoMetrics.count,
@@ -519,6 +684,7 @@ export class PhysicsRuntime {
       this.stepCount += 1;
       steppedFrames += 1;
       this.collectCollisionAndModuleMetrics();
+      this.advanceTriggerMechanism();
     }
     const stepEnd = performance.now();
 
@@ -568,6 +734,16 @@ export class PhysicsRuntime {
             this.ballMetrics.impactEvents += 1;
           }
         }
+
+        const plankHitTriggerBall =
+          (handle1 === this.triggerHandles.triggerBall && handle2 === this.triggerHandles.plank) ||
+          (handle2 === this.triggerHandles.triggerBall && handle1 === this.triggerHandles.plank);
+        if (plankHitTriggerBall) {
+          this.recordTriggerEvent('plank');
+          if (this.dominoBodies[0]) {
+            this.dominoBodies[0].applyImpulse({ x: 2.3, y: 0, z: 0 }, true);
+          }
+        }
       });
     }
 
@@ -585,6 +761,9 @@ export class PhysicsRuntime {
       if (!alreadyFallen && tilt > 0.28) {
         const relativeTime = Math.max(0, nowSeconds - this.dominoMetrics.triggerTimeSeconds);
         this.dominoMetrics.fallTimestampsSeconds[index] = relativeTime;
+        if (index === 0) {
+          this.recordTriggerEvent('domino');
+        }
       }
     }
 
@@ -597,6 +776,82 @@ export class PhysicsRuntime {
       state.maxHeight = Math.max(state.maxHeight, t.y);
       this.ballMetrics.maxHeight = Math.max(this.ballMetrics.maxHeight, t.y);
     }
+  }
+
+  advanceTriggerMechanism() {
+    if (!this.triggerState.sequenceRunning) {
+      return;
+    }
+
+    if (this.hasTriggerEvent('domino') && !this.triggerState.leverActivated) {
+      this.triggerState.leverActivated = true;
+    }
+
+    if (this.triggerState.leverActivated && this.triggerState.leverAngleRad < 0.46) {
+      this.triggerState.leverAngleRad = Math.min(0.46, this.triggerState.leverAngleRad + 0.015);
+      this.setLeverPose(this.triggerState.leverAngleRad);
+      if (this.triggerState.leverAngleRad >= 0.28) {
+        this.recordTriggerEvent('lever');
+        this.triggerState.gateActivated = true;
+      }
+    }
+
+    if (this.triggerState.gateActivated && this.triggerState.gateOpenHeight < 0.9) {
+      this.triggerState.gateOpenHeight = Math.min(0.9, this.triggerState.gateOpenHeight + 0.02);
+      this.setGatePose(this.triggerState.gateOpenHeight);
+      if (this.triggerState.gateOpenHeight >= 0.6) {
+        this.recordTriggerEvent('gate');
+      }
+    }
+
+    if (this.hasTriggerEvent('gate')) {
+      this.triggerState.sequenceRunning = false;
+    }
+  }
+
+  setLeverPose(angleRad) {
+    if (!this.leverBody) {
+      return;
+    }
+    const half = angleRad / 2;
+    const quaternion = { x: 0, y: 0, z: Math.sin(half), w: Math.cos(half) };
+    const translation = { x: this.dominoConfig.startX + 3.5, y: 0.4, z: 0 };
+    if (typeof this.leverBody.setNextKinematicTranslation === 'function') {
+      this.leverBody.setNextKinematicTranslation(translation);
+      this.leverBody.setNextKinematicRotation(quaternion);
+    } else {
+      this.leverBody.setTranslation(translation, true);
+      this.leverBody.setRotation(quaternion, true);
+    }
+  }
+
+  setGatePose(openHeight) {
+    if (!this.gateBody) {
+      return;
+    }
+    const translation = { x: this.dominoConfig.startX + 4.7, y: 0.35 + openHeight, z: 0 };
+    const rotation = { x: 0, y: 0, z: 0, w: 1 };
+    if (typeof this.gateBody.setNextKinematicTranslation === 'function') {
+      this.gateBody.setNextKinematicTranslation(translation);
+      this.gateBody.setNextKinematicRotation(rotation);
+    } else {
+      this.gateBody.setTranslation(translation, true);
+      this.gateBody.setRotation(rotation, true);
+    }
+  }
+
+  recordTriggerEvent(name) {
+    if (this.hasTriggerEvent(name)) {
+      return;
+    }
+    this.triggerMetrics.eventOrder.push({
+      name,
+      timeSeconds: this.stepCount * FIXED_TIMESTEP_SECONDS,
+    });
+  }
+
+  hasTriggerEvent(name) {
+    return this.triggerMetrics.eventOrder.some((event) => event.name === name);
   }
 
   createEmptyDominoMetrics() {
@@ -621,6 +876,12 @@ export class PhysicsRuntime {
       impactEvents: 0,
       maxHeight: 0,
       stateByBody: new Map(),
+    };
+  }
+
+  createEmptyTriggerMetrics() {
+    return {
+      eventOrder: [],
     };
   }
 

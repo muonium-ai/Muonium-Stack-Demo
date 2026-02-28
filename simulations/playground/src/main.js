@@ -7,7 +7,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000048 Domino chain module</p>
+    <p class="subtitle">T-000050 Trigger mechanism sequence</p>
 
     <section class="controls" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
@@ -71,6 +71,10 @@ app.innerHTML = `
       <button id="dominoTriggerBtn" type="button" disabled>Trigger Chain</button>
     </section>
 
+    <section class="controls triggerControls" aria-label="Trigger mechanism controls">
+      <button id="triggerRunBtn" type="button" disabled>Run Trigger Sequence</button>
+    </section>
+
     <p id="runtimeStatus" class="status">Status: idle</p>
 
     <section class="viewportPanel" aria-label="Playground viewport">
@@ -111,6 +115,16 @@ app.innerHTML = `
         <div><dt>Impact force (max)</dt><dd id="ballImpactMetric">0.000</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry" aria-label="Trigger telemetry">
+      <h2>Trigger metrics</h2>
+      <dl>
+        <div><dt>Sequence time</dt><dd id="triggerSequenceMetric">0.000 s</dd></div>
+        <div><dt>Event order</dt><dd id="triggerOrderMetric">--</dd></div>
+        <div><dt>Latencies</dt><dd id="triggerLatencyMetric">--</dd></div>
+        <div><dt>Precision score</dt><dd id="triggerPrecisionMetric">0.0</dd></div>
+      </dl>
+    </section>
   </section>
 `;
 
@@ -132,6 +146,7 @@ const dominoSpacingInput = document.querySelector('#dominoSpacingInput');
 const dominoMaterialSelect = document.querySelector('#dominoMaterialSelect');
 const dominoCreateBtn = document.querySelector('#dominoCreateBtn');
 const dominoTriggerBtn = document.querySelector('#dominoTriggerBtn');
+const triggerRunBtn = document.querySelector('#triggerRunBtn');
 const runtimeStatus = document.querySelector('#runtimeStatus');
 
 const frameTime = document.querySelector('#frameTime');
@@ -151,6 +166,10 @@ const ballFallAvgMetric = document.querySelector('#ballFallAvgMetric');
 const ballBounceMetric = document.querySelector('#ballBounceMetric');
 const ballMaxHeightMetric = document.querySelector('#ballMaxHeightMetric');
 const ballImpactMetric = document.querySelector('#ballImpactMetric');
+const triggerSequenceMetric = document.querySelector('#triggerSequenceMetric');
+const triggerOrderMetric = document.querySelector('#triggerOrderMetric');
+const triggerLatencyMetric = document.querySelector('#triggerLatencyMetric');
+const triggerPrecisionMetric = document.querySelector('#triggerPrecisionMetric');
 const viewport = document.querySelector('#viewport');
 
 renderer.init(viewport);
@@ -168,6 +187,7 @@ runtime.onState((snapshot) => {
   ballCreateBtn.disabled = !snapshot.initialized;
   dominoCreateBtn.disabled = !snapshot.initialized;
   dominoTriggerBtn.disabled = !snapshot.initialized;
+  triggerRunBtn.disabled = !snapshot.initialized;
 
   gravityEnabledToggle.checked = snapshot.ball.gravityEnabled;
   gravityStrengthInput.value = snapshot.ball.gravityStrength.toFixed(1);
@@ -194,6 +214,13 @@ runtime.onTiming((timing, snapshot) => {
   ballBounceMetric.textContent = String(snapshot.ball.bounceCount);
   ballMaxHeightMetric.textContent = snapshot.ball.maxHeight.toFixed(3);
   ballImpactMetric.textContent = snapshot.ball.impactForceMax.toFixed(3);
+
+  triggerSequenceMetric.textContent = `${snapshot.trigger.sequenceTimeSeconds.toFixed(3)} s`;
+  triggerOrderMetric.textContent = snapshot.trigger.eventOrder.length ? snapshot.trigger.eventOrder.join(' → ') : '--';
+  triggerLatencyMetric.textContent = snapshot.trigger.latencies.length
+    ? snapshot.trigger.latencies.map((value) => `${value.toFixed(3)}s`).join(', ')
+    : '--';
+  triggerPrecisionMetric.textContent = snapshot.trigger.precisionScore.toFixed(1);
 });
 
 initBtn.addEventListener('click', async () => {
@@ -285,6 +312,15 @@ dominoTriggerBtn.addEventListener('click', () => {
     return;
   }
   setStatus('domino chain triggered');
+});
+
+triggerRunBtn.addEventListener('click', () => {
+  const result = runtime.runTriggerSequence();
+  if (!result.ok) {
+    setStatus(`trigger sequence failed (${result.error})`, true);
+    return;
+  }
+  setStatus('trigger sequence started');
 });
 
 speedSelect.addEventListener('change', (event) => {

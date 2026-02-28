@@ -120,7 +120,7 @@ Exit criteria:
 - [x] T-000047: Implement Three.js rendering bootstrap and lifecycle
 - [x] T-000048: Domino chain simulation module
 - [x] T-000049: Falling balls simulation module
-- [ ] T-000050: Trigger mechanism scenario module
+- [x] T-000050: Trigger mechanism scenario module
 - [ ] T-000051: Lever system module
 - [ ] T-000052: Rolling objects module
 - [ ] T-000053: Puzzle mode with scoring
