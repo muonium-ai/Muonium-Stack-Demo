@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000056 Live telemetry graph panel</p>
+    <p class="subtitle">T-000057 Event-driven particle effects and visual feedback</p>
 
     <section class="controls" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
@@ -41,6 +41,7 @@ app.innerHTML = `
         </select>
       </label>
       <button id="hudToggleBtn" type="button" disabled>Hide HUD</button>
+      <button id="effectsToggleBtn" type="button" disabled>Disable Effects</button>
     </section>
 
     <section class="controls ballControls" aria-label="Falling balls controls">
@@ -253,6 +254,7 @@ const metricsIntervalInput = document.querySelector('#metricsIntervalInput');
 const metricsIntervalBtn = document.querySelector('#metricsIntervalBtn');
 const graphWindowSelect = document.querySelector('#graphWindowSelect');
 const hudToggleBtn = document.querySelector('#hudToggleBtn');
+const effectsToggleBtn = document.querySelector('#effectsToggleBtn');
 const ballCountInput = document.querySelector('#ballCountInput');
 const ballMaterialSelect = document.querySelector('#ballMaterialSelect');
 const gravityEnabledToggle = document.querySelector('#gravityEnabledToggle');
@@ -325,6 +327,7 @@ const graphCanvas = document.querySelector('#graphCanvas');
 const viewport = document.querySelector('#viewport');
 const graphPanel = new LiveGraphPanel(graphCanvas);
 let hudVisible = true;
+let effectsEnabled = true;
 let previousCollisionCount = 0;
 
 renderer.init(viewport);
@@ -341,6 +344,7 @@ runtime.onState((snapshot) => {
   resetBtn.disabled = !snapshot.initialized;
   metricsIntervalBtn.disabled = !snapshot.initialized;
   hudToggleBtn.disabled = !snapshot.initialized;
+  effectsToggleBtn.disabled = !snapshot.initialized;
   ballCreateBtn.disabled = !snapshot.initialized;
   dominoCreateBtn.disabled = !snapshot.initialized;
   dominoTriggerBtn.disabled = !snapshot.initialized;
@@ -653,6 +657,13 @@ hudToggleBtn.addEventListener('click', () => {
   hudOverlay.hidden = !hudVisible;
   hudToggleBtn.textContent = hudVisible ? 'Hide HUD' : 'Show HUD';
   setStatus(hudVisible ? 'HUD shown' : 'HUD hidden');
+});
+
+effectsToggleBtn.addEventListener('click', () => {
+  effectsEnabled = !effectsEnabled;
+  renderer.setEffectsEnabled(effectsEnabled);
+  effectsToggleBtn.textContent = effectsEnabled ? 'Disable Effects' : 'Enable Effects';
+  setStatus(effectsEnabled ? 'visual effects enabled' : 'visual effects disabled');
 });
 
 setStatus('idle (click Initialize Rapier)');

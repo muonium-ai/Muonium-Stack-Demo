@@ -22,6 +22,17 @@ export class PlaygroundRenderer {
     this.gateMesh = null;
     this.rampMesh = null;
     this.rollingMesh = null;
+
+    this.effectsEnabled = true;
+    this.lowPowerMode = false;
+    this.sparkParticles = [];
+    this.shockwaves = [];
+    this.celebrationGlow = null;
+    this.celebrationGlowMaterial = null;
+    this.celebrationGlowTimer = 0;
+    this.prevDominoSpeed = 0;
+    this.prevImpactForce = 0;
+    this.prevPuzzleStatus = 'idle';
   }
 
   init(container) {
@@ -43,6 +54,7 @@ export class PlaygroundRenderer {
     container.appendChild(this.renderer.domElement);
 
     this.clock = new THREE.Clock();
+    this.lowPowerMode = (navigator.hardwareConcurrency || 4) <= 4;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
@@ -104,6 +116,19 @@ export class PlaygroundRenderer {
     grid.position.y = -0.09;
     this.scene.add(grid);
 
+    const glowGeometry = new THREE.SphereGeometry(2.9, 24, 16);
+    this.celebrationGlowMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffd46f,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.celebrationGlow = new THREE.Mesh(glowGeometry, this.celebrationGlowMaterial);
+    this.celebrationGlow.position.set(2.5, 1.1, 0);
+    this.celebrationGlow.visible = false;
+    this.scene.add(this.celebrationGlow);
+
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
@@ -132,12 +157,21 @@ export class PlaygroundRenderer {
     this.renderOnce();
   }
 
+  setEffectsEnabled(enabled) {
+    this.effectsEnabled = Boolean(enabled);
+    if (!this.effectsEnabled) {
+      this.clearEffects();
+      this.renderOnce();
+    }
+  }
+
   reset() {
     if (!this.fallingMesh) {
       return;
     }
     this.fallingMesh.position.set(0, 2.5, 0);
     this.fallingMesh.quaternion.set(0, 0, 0, 1);
+    this.clearEffects();
     this.renderOnce();
   }
 
@@ -151,6 +185,7 @@ export class PlaygroundRenderer {
     this.syncDominoMeshes(snapshot.dominoTransforms ?? [], snapshot.dominoMaterialPreset ?? 'wood');
     this.syncTriggerMechanism(snapshot.triggerMechanismTransforms);
     this.syncRollingMechanism(snapshot.rollingTransforms);
+    this.processEffectTriggers(snapshot);
     if (!this.running) {
       this.renderOnce();
     }
@@ -192,6 +227,7 @@ export class PlaygroundRenderer {
     this.ballGeometry?.dispose();
     this.dominoGeometry = null;
     this.ballGeometry = null;
+    this.clearEffects();
     this.plankMesh = null;
     this.leverMesh = null;
     this.gateMesh = null;
@@ -203,6 +239,8 @@ export class PlaygroundRenderer {
     if (!this.running || !this.renderer) {
       return;
     }
+    const deltaSeconds = Math.min(this.clock.getDelta(), 0.05);
+    this.updateEffects(deltaSeconds);
     this.renderOnce();
     this.rafId = requestAnimationFrame(() => this.tick());
   }
@@ -337,5 +375,158 @@ export class PlaygroundRenderer {
         transforms.roller.qw
       );
     }
+  }
+
+  processEffectTriggers(snapshot) {
+    if (!snapshot || !this.effectsEnabled) {
+      return;
+    }
+
+    const dominoSpeed = Number(snapshot.domino?.chainSpeedPerSecond ?? 0);
+    if (dominoSpeed >= 26 && dominoSpeed - this.prevDominoSpeed >= 2.5) {
+      const anchor = snapshot.dominoTransforms?.[0] ?? { x: 1.2, y: 0.45, z: 0 };
+      this.spawnSparkTrail(anchor.x, anchor.y + 0.08, anchor.z);
+    }
+    this.prevDominoSpeed = dominoSpeed;
+
+    const impactForce = Number(snapshot.ball?.impactForceMax ?? 0);
+    if (impactForce >= 6 && impactForce - this.prevImpactForce >= 0.8) {
+      const impactPoint = snapshot.ballTransforms?.[0] ?? snapshot.rollingTransforms?.roller ?? snapshot;
+      this.spawnShockwave(impactPoint.x ?? 0, Math.max((impactPoint.y ?? 0) - 0.18, -0.08), impactPoint.z ?? 0);
+    }
+    this.prevImpactForce = impactForce;
+
+    const puzzleStatus = snapshot.puzzle?.status ?? 'idle';
+    if (
+      puzzleStatus === 'success' &&
+      this.prevPuzzleStatus !== 'success' &&
+      Number(snapshot.puzzle?.lastCompletionSeconds ?? 999) <= 3
+    ) {
+      this.triggerCelebrationGlow();
+    }
+    this.prevPuzzleStatus = puzzleStatus;
+  }
+
+  spawnSparkTrail(x, y, z) {
+    if (!this.scene || !this.effectsEnabled) {
+      return;
+    }
+    const count = this.lowPowerMode ? 8 : 18;
+    for (let index = 0; index < count; index += 1) {
+      const size = 0.018 + Math.random() * 0.025;
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(size, 10, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffcf7d, transparent: true, opacity: 0.95 })
+      );
+      mesh.position.set(x + (Math.random() - 0.5) * 0.15, y + Math.random() * 0.06, z + (Math.random() - 0.5) * 0.1);
+      this.scene.add(mesh);
+      this.sparkParticles.push({
+        mesh,
+        life: 0.34 + Math.random() * 0.35,
+        maxLife: 0.68,
+        velocity: new THREE.Vector3(0.6 + Math.random() * 1.2, 0.2 + Math.random() * 0.7, (Math.random() - 0.5) * 0.5),
+      });
+    }
+  }
+
+  spawnShockwave(x, y, z) {
+    if (!this.scene || !this.effectsEnabled) {
+      return;
+    }
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.12, 0.2, 30),
+      new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+    );
+    ring.position.set(x, y, z);
+    ring.rotation.x = -Math.PI / 2;
+    this.scene.add(ring);
+    this.shockwaves.push({ ring, life: 0.55, maxLife: 0.55, growth: this.lowPowerMode ? 1.8 : 2.6 });
+  }
+
+  triggerCelebrationGlow() {
+    if (!this.effectsEnabled) {
+      return;
+    }
+    this.celebrationGlowTimer = this.lowPowerMode ? 1.1 : 1.8;
+    if (this.celebrationGlow) {
+      this.celebrationGlow.visible = true;
+    }
+  }
+
+  updateEffects(deltaSeconds) {
+    if (!this.effectsEnabled || !this.scene) {
+      return;
+    }
+
+    for (let index = this.sparkParticles.length - 1; index >= 0; index -= 1) {
+      const particle = this.sparkParticles[index];
+      particle.life -= deltaSeconds;
+      if (particle.life <= 0) {
+        this.scene.remove(particle.mesh);
+        particle.mesh.geometry?.dispose?.();
+        particle.mesh.material?.dispose?.();
+        this.sparkParticles.splice(index, 1);
+        continue;
+      }
+      particle.velocity.y -= 1.6 * deltaSeconds;
+      particle.mesh.position.addScaledVector(particle.velocity, deltaSeconds);
+      const opacity = Math.max(0, Math.min(1, particle.life / particle.maxLife));
+      particle.mesh.material.opacity = opacity;
+    }
+
+    for (let index = this.shockwaves.length - 1; index >= 0; index -= 1) {
+      const shockwave = this.shockwaves[index];
+      shockwave.life -= deltaSeconds;
+      if (shockwave.life <= 0) {
+        this.scene.remove(shockwave.ring);
+        shockwave.ring.geometry?.dispose?.();
+        shockwave.ring.material?.dispose?.();
+        this.shockwaves.splice(index, 1);
+        continue;
+      }
+      const progress = 1 - shockwave.life / shockwave.maxLife;
+      const scale = 1 + progress * shockwave.growth;
+      shockwave.ring.scale.set(scale, scale, 1);
+      shockwave.ring.material.opacity = Math.max(0, 1 - progress * 1.2);
+    }
+
+    if (this.celebrationGlow && this.celebrationGlowMaterial) {
+      if (this.celebrationGlowTimer > 0) {
+        this.celebrationGlowTimer -= deltaSeconds;
+        const pulse = 0.35 + 0.25 * Math.sin(performance.now() * 0.012);
+        this.celebrationGlow.visible = true;
+        this.celebrationGlowMaterial.opacity = Math.max(0, pulse * (this.celebrationGlowTimer / 1.8));
+      } else {
+        this.celebrationGlow.visible = false;
+        this.celebrationGlowMaterial.opacity = 0;
+      }
+    }
+  }
+
+  clearEffects() {
+    if (this.scene) {
+      for (const particle of this.sparkParticles) {
+        this.scene.remove(particle.mesh);
+        particle.mesh.geometry?.dispose?.();
+        particle.mesh.material?.dispose?.();
+      }
+      for (const shockwave of this.shockwaves) {
+        this.scene.remove(shockwave.ring);
+        shockwave.ring.geometry?.dispose?.();
+        shockwave.ring.material?.dispose?.();
+      }
+    }
+    this.sparkParticles = [];
+    this.shockwaves = [];
+    this.celebrationGlowTimer = 0;
+    if (this.celebrationGlow) {
+      this.celebrationGlow.visible = false;
+    }
+    if (this.celebrationGlowMaterial) {
+      this.celebrationGlowMaterial.opacity = 0;
+    }
+    this.prevDominoSpeed = 0;
+    this.prevImpactForce = 0;
+    this.prevPuzzleStatus = 'idle';
   }
 }
