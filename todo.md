@@ -130,7 +130,7 @@ Exit criteria:
 - [x] T-000057: Particle/impact visual effects module
 - [x] T-000058: Performance harness + target validation
 - [x] T-000059: Optional time-travel replay snapshots
-- [ ] T-000060: Demo hardening, docs, and integration handoff pack
+- [x] T-000060: Demo hardening, docs, and integration handoff pack
 
 ## Execution Policy
 

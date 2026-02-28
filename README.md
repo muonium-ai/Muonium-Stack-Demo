@@ -33,6 +33,20 @@ Rust + WASM chess replay demo using Muonium stack concepts.
 - `chess/eco.pgn` - ECO opening/variation reference lines used for live classification
 - `vendor/` - Muonium and Grafeo submodule targets
 
+## Isolated playground demo handoff
+
+Physics playground handoff docs and runbooks are in:
+
+- `simulations/playground/docs/README.md`
+
+Quick commands:
+
+```bash
+make -C simulations/playground dev
+make -C simulations/playground build
+make -C simulations/playground bench
+```
+
 ## Setup (macOS)
 
 ```bash
