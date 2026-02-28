@@ -1,4 +1,4 @@
-.PHONY: dev build preview
+.PHONY: dev build preview bench
 
 ROOT := $(abspath ../..)
 VITE_CONFIG := $(ROOT)/simulations/playground/vite.config.js
@@ -11,3 +11,6 @@ build:
 
 preview:
 	cd $(ROOT) && npx vite preview --config $(VITE_CONFIG)
+
+bench:
+	cd $(ROOT) && node simulations/playground/scripts/benchmark-playground.mjs

@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-02-28T18:21:47.175Z",
+  "targets": {
+    "fpsMin": 60,
+    "physicsStepTimeMaxMs": 1,
+    "metricsOpsPerSecMin": 10000,
+    "loadTimeMaxMs": 2000,
+    "bundleSizeMaxBytes": 3145728
+  },
+  "buildTimeMs": 1592.2268749999998,
+  "bundle": {
+    "fileCount": 3,
+    "totalBytes": 2806168,
+    "totalGzipBytes": 978580,
+    "jsBytes": 2803272,
+    "cssBytes": 2484,
+    "estimatedLoadTimeMs": 922.1644083658854
+  },
+  "telemetry": {
+    "sampledFrameCount": 1800,
+    "harnessProcessingFps": 323624.59546926164,
+    "telemetryFps": 60.79,
+    "physicsStepTimeMs": 0.81
+  },
+  "metrics": {
+    "iterationCount": 200000,
+    "totalOps": 600000,
+    "elapsedSeconds": 0.4598070409999998,
+    "metricsOpsPerSec": 1304895.198418678
+  },
+  "validation": {
+    "checks": {
+      "fps": true,
+      "physicsStep": true,
+      "metricsOps": true,
+      "loadTime": true,
+      "bundleSize": true
+    },
+    "passed": true
+  }
+}
