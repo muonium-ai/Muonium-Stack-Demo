@@ -166,9 +166,13 @@ export class PhysicsRuntime {
   async init() {
     try {
       if (!this.rapier) {
-        this.rapier = await RAPIER.init();
+        await RAPIER.init();
+        this.rapier = RAPIER;
       }
       this.resetWorld();
+      if (!this.world) {
+        throw new Error('failed to initialize Rapier world');
+      }
       this.initialized = true;
       this.emitState();
       return { ok: true };
