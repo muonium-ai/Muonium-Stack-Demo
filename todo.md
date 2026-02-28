@@ -117,7 +117,7 @@ Exit criteria:
 
 - [x] T-000045: Create isolated playground scaffold + separate HTML/build entrypoints (under `simulations/playground`)
 - [x] T-000046: Implement Rapier WASM bootstrap and simulation loop
-- [ ] T-000047: Implement Three.js rendering bootstrap and lifecycle
+- [x] T-000047: Implement Three.js rendering bootstrap and lifecycle
 - [ ] T-000048: Domino chain simulation module
 - [ ] T-000049: Falling balls simulation module
 - [ ] T-000050: Trigger mechanism scenario module

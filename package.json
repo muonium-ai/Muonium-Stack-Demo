@@ -24,7 +24,8 @@
     "@dimforge/rapier3d-compat": "^0.19.3",
     "@grafeo-db/wasm": "^0.5.8",
     "chess.js": "^1.4.0",
-    "sql.js": "^1.13.0"
+    "sql.js": "^1.13.0",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "stockfish.wasm": "^0.10.0",

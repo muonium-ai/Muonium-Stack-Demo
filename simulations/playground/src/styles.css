@@ -68,6 +68,19 @@ label {
   color: #ff9a9a;
 }
 
+.viewportPanel {
+  margin: 0 0 14px;
+}
+
+.viewport {
+  width: 100%;
+  height: 320px;
+  border-radius: 10px;
+  border: 1px solid #2f4675;
+  overflow: hidden;
+  background: #0a1220;
+}
+
 .telemetry h2 {
   font-size: 1rem;
   margin: 0 0 10px;

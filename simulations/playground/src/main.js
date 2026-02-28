@@ -1,5 +1,6 @@
 import './styles.css';
 import { PhysicsRuntime } from './physics/runtime.js';
+import { PlaygroundRenderer } from './render/scene.js';
 
 const app = document.querySelector('#app');
 
@@ -27,6 +28,10 @@ app.innerHTML = `
 
     <p id="runtimeStatus" class="status">Status: idle</p>
 
+    <section class="viewportPanel" aria-label="Playground viewport">
+      <div id="viewport" class="viewport"></div>
+    </section>
+
     <section class="telemetry" aria-label="Runtime telemetry">
       <h2>Timing stream</h2>
       <dl>
@@ -43,6 +48,7 @@ app.innerHTML = `
 `;
 
 const runtime = new PhysicsRuntime();
+const renderer = new PlaygroundRenderer();
 
 const initBtn = document.querySelector('#initBtn');
 const startBtn = document.querySelector('#startBtn');
@@ -58,6 +64,9 @@ const totalSteps = document.querySelector('#totalSteps');
 const accumulator = document.querySelector('#accumulator');
 const cubeY = document.querySelector('#cubeY');
 const velocityY = document.querySelector('#velocityY');
+const viewport = document.querySelector('#viewport');
+
+renderer.init(viewport);
 
 const setStatus = (message, isError = false) => {
   runtimeStatus.textContent = `Status: ${message}`;
@@ -72,6 +81,7 @@ runtime.onState((snapshot) => {
 });
 
 runtime.onTiming((timing, snapshot) => {
+  renderer.applySnapshot(snapshot);
   frameTime.textContent = `${timing.frameTimeMs.toFixed(2)} ms`;
   stepTime.textContent = `${timing.physicsStepTimeMs.toFixed(3)} ms`;
   subSteps.textContent = String(timing.steppedFrames);
@@ -93,16 +103,19 @@ initBtn.addEventListener('click', async () => {
 
 startBtn.addEventListener('click', () => {
   runtime.start();
+  renderer.start();
   setStatus(`running at ${runtime.speedMultiplier.toFixed(1)}x`);
 });
 
 pauseBtn.addEventListener('click', () => {
   runtime.pause();
+  renderer.pause();
   setStatus('paused');
 });
 
 resetBtn.addEventListener('click', () => {
   runtime.resetWorld();
+  renderer.reset();
   setStatus('world reset');
 });
 
@@ -114,4 +127,9 @@ speedSelect.addEventListener('change', (event) => {
 });
 
 setStatus('idle (click Initialize Rapier)');
+
+window.addEventListener('beforeunload', () => {
+  runtime.dispose();
+  renderer.dispose();
+});
 

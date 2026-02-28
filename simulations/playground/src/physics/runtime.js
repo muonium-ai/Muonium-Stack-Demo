@@ -123,13 +123,20 @@ export class PhysicsRuntime {
   getSnapshot() {
     const translation = this.fallingBody?.translation() ?? { x: 0, y: 0, z: 0 };
     const linvel = this.fallingBody?.linvel() ?? { x: 0, y: 0, z: 0 };
+    const rotation = this.fallingBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
     return {
       initialized: this.initialized,
       running: this.running,
       speedMultiplier: this.speedMultiplier,
       totalSteps: this.stepCount,
+      cubeX: translation.x,
       cubeY: translation.y,
+      cubeZ: translation.z,
       velocityY: linvel.y,
+      cubeQx: rotation.x,
+      cubeQy: rotation.y,
+      cubeQz: rotation.z,
+      cubeQw: rotation.w,
       accumulatorSeconds: this.accumulatorSeconds,
       lastTiming: this.lastTiming,
     };
