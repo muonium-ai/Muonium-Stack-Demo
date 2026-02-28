@@ -62,6 +62,62 @@ Or use full startup:
 npm run dev:full
 ```
 
+## CLI Benchmark
+
+Run the benchmark from terminal (defaults to Magnus Carlsen dataset):
+
+```bash
+npm run bench:cli
+```
+
+Options:
+
+```bash
+npm run bench:cli -- --dataset carlsen --mode parse --limit 0
+```
+
+- `--dataset`: `carlsen` (default), `anand`, or absolute path to `.sqlite`
+- `--mode`: `summary`, `parse` (default), or `replay`
+- `--limit`: number of games to benchmark (`0` means all games)
+
+## Rust CLI Benchmark
+
+Native Rust benchmark (default: Magnus Carlsen PGN):
+
+```bash
+npm run bench:rust
+```
+
+Options:
+
+```bash
+npm run bench:rust -- --dataset carlsen --mode replay --limit 1000
+```
+
+- `--dataset`: `carlsen` (default), `anand`, or path to `.pgn`
+- `--mode`: `parse` (default) or `replay`
+- `--limit`: number of games to benchmark (`0` means all games)
+
+## Stockfish Benchmark
+
+Run PGN parsing + Stockfish search benchmark (default: first Carlsen game, depth 1):
+
+```bash
+npm run bench:stockfish
+```
+
+Options:
+
+```bash
+npm run bench:stockfish -- --dataset carlsen --games 3 --game-index 0 --depth 4
+```
+
+- `--dataset`: `carlsen` (default), `anand`, or path to `.pgn`
+- `--games`: number of games to benchmark (default `1`)
+- `--game-index`: start index within dataset (default `0`)
+- `--depth`: Stockfish search depth per game (default `1`)
+- `--engine`: engine binary path/name (default `stockfish`)
+
 ## Make Tasks
 
 ```bash

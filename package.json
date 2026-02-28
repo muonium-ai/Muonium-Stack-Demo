@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "bench:cli": "node scripts/benchmark-cli.mjs",
+    "bench:rust": "cd wasm-core && cargo run --release --bin benchmark --",
+    "bench:stockfish": "node scripts/benchmark-stockfish.mjs",
     "db:build": "node scripts/build-games-db.mjs",
     "dev": "npm run wasm:build && vite",
     "dev:full": "npm run db:build && npm run wasm:build && vite",

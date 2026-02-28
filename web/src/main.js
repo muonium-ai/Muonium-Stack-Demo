@@ -157,6 +157,14 @@ function formatEtaSec(seconds) {
   return `${mins}m ${secs}s`;
 }
 
+function formatGroupedDecimal(value) {
+  const safeValue = Number.isFinite(value) && value >= 0 ? value : 0;
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(safeValue);
+}
+
 function normalizeSanForCompare(move) {
   return String(move ?? '')
     .trim()
@@ -1197,7 +1205,7 @@ async function bootstrap() {
     }
     if (row.mps) {
       const mps = elapsedSec > 0 ? totalMoves / elapsedSec : 0;
-      row.mps.textContent = `Moves/s: ${mps.toFixed(1)}`;
+      row.mps.textContent = `Moves/s: ${formatGroupedDecimal(mps)}`;
     }
     if (row.eta) {
       row.eta.textContent = `ETA: ${formatEtaSec(etaSec ?? -1)}`;
