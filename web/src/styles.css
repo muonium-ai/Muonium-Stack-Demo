@@ -349,6 +349,61 @@ h1 {
   font-size: 20px;
 }
 
+#playModeInfo {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.playConfigGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.playConfigGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.playConfigGrid select {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: 7px 9px;
+  font-size: 14px;
+}
+
+.playBoard {
+  margin-top: 10px;
+}
+
+.playBoard table {
+  border-collapse: collapse;
+  border: 1px solid var(--color-board-border);
+}
+
+.playBoard td {
+  width: 56px;
+  height: 56px;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 36px;
+}
+
+#playMoveInfo {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
 .playPanelControls {
   display: flex;
   align-items: center;
@@ -364,6 +419,15 @@ h1 {
   cursor: pointer;
   font-weight: 600;
   padding: 8px 12px;
+}
+
+.playPanelControls button:hover:not(:disabled) {
+  background: var(--color-focus-bg);
+}
+
+.playPanelControls button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .toolbar {

@@ -106,9 +106,32 @@
       <section id="appPanelPlay" class="appTabPanel hidden">
         <section class="playPanelCard">
           <h2>Play vs Engine</h2>
+          <p id="playModeInfo">Mode: Stockfish vs Stockfish</p>
           <p id="playEngineStatus">Stockfish WASM: loading...</p>
+          <div class="playConfigGrid">
+            <label>
+              White opening
+              <select id="playWhiteOpeningSelect"></select>
+            </label>
+            <label>
+              Black defense
+              <select id="playBlackDefenseSelect"></select>
+            </label>
+            <label>
+              Engine depth
+              <select id="playEngineDepthSelect">
+                <option value="8">8</option>
+                <option value="10" selected>10</option>
+                <option value="12">12</option>
+              </select>
+            </label>
+          </div>
+          <section id="playBoard" class="playBoard" aria-label="Play board"></section>
+          <p id="playMoveInfo">Move 0 • start</p>
           <div class="playPanelControls">
-            <button id="playEngineTestBtn" type="button">Test Engine Move</button>
+            <button id="playAutoplayStartBtn" type="button">Start Autoplay</button>
+            <button id="playAutoplayStopBtn" type="button" disabled>Stop</button>
+            <button id="playResetBtn" type="button">Reset</button>
           </div>
         </section>
       </section>
