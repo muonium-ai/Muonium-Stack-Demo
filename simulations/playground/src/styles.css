@@ -94,6 +94,7 @@ label {
 }
 
 .viewportPanel {
+  position: relative;
   margin: 0 0 14px;
 }
 
@@ -104,6 +105,56 @@ label {
   border: 1px solid #2f4675;
   overflow: hidden;
   background: #0a1220;
+}
+
+.hudOverlay {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 210px;
+  background: rgba(11, 21, 40, 0.82);
+  border: 1px solid #35507f;
+  border-radius: 10px;
+  padding: 10px;
+  backdrop-filter: blur(4px);
+}
+
+.hudOverlay h3 {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  color: #c6d8fc;
+}
+
+.hudOverlay dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.hudOverlay div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.hudOverlay dt {
+  color: #aec4ef;
+}
+
+.hudOverlay dd {
+  margin: 0;
+  font-weight: 600;
+  color: #ebf2ff;
+  transition: color 120ms ease;
+}
+
+.hudOverlay dd[data-state='warn'] {
+  color: #ffd589;
+}
+
+.hudOverlay dd[data-state='danger'] {
+  color: #ff8d8d;
 }
 
 .telemetry h2 {

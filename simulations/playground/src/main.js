@@ -7,7 +7,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000053 Puzzle mode (single-ball domino challenge)</p>
+    <p class="subtitle">T-000055 HUD overlay for real-time simulation stats</p>
 
     <section class="controls" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
@@ -32,6 +32,7 @@ app.innerHTML = `
         <input id="metricsIntervalInput" type="number" min="16" max="2000" step="1" value="100" />
       </label>
       <button id="metricsIntervalBtn" type="button" disabled>Apply Metrics Interval</button>
+      <button id="hudToggleBtn" type="button" disabled>Hide HUD</button>
     </section>
 
     <section class="controls ballControls" aria-label="Falling balls controls">
@@ -120,6 +121,15 @@ app.innerHTML = `
 
     <section class="viewportPanel" aria-label="Playground viewport">
       <div id="viewport" class="viewport"></div>
+      <aside id="hudOverlay" class="hudOverlay" aria-label="HUD overlay">
+        <h3>HUD</h3>
+        <dl>
+          <div><dt>FPS</dt><dd id="hudFpsMetric" data-state="ok">0.00</dd></div>
+          <div><dt>Physics step</dt><dd id="hudStepMetric" data-state="ok">0.000 ms</dd></div>
+          <div><dt>Collisions</dt><dd id="hudCollisionsMetric" data-state="ok">0</dd></div>
+          <div><dt>Energy state</dt><dd id="hudEnergyStateMetric" data-state="ok">stable</dd></div>
+        </dl>
+      </aside>
     </section>
 
     <section class="telemetry" aria-label="Runtime telemetry">
@@ -223,6 +233,7 @@ const resetBtn = document.querySelector('#resetBtn');
 const speedSelect = document.querySelector('#speedSelect');
 const metricsIntervalInput = document.querySelector('#metricsIntervalInput');
 const metricsIntervalBtn = document.querySelector('#metricsIntervalBtn');
+const hudToggleBtn = document.querySelector('#hudToggleBtn');
 const ballCountInput = document.querySelector('#ballCountInput');
 const ballMaterialSelect = document.querySelector('#ballMaterialSelect');
 const gravityEnabledToggle = document.querySelector('#gravityEnabledToggle');
@@ -286,8 +297,15 @@ const metricsFpsMetric = document.querySelector('#metricsFpsMetric');
 const metricsOpsMetric = document.querySelector('#metricsOpsMetric');
 const metricsEventsMetric = document.querySelector('#metricsEventsMetric');
 const metricsGraphSamplesMetric = document.querySelector('#metricsGraphSamplesMetric');
+const hudOverlay = document.querySelector('#hudOverlay');
+const hudFpsMetric = document.querySelector('#hudFpsMetric');
+const hudStepMetric = document.querySelector('#hudStepMetric');
+const hudCollisionsMetric = document.querySelector('#hudCollisionsMetric');
+const hudEnergyStateMetric = document.querySelector('#hudEnergyStateMetric');
 const viewport = document.querySelector('#viewport');
 const graphSamples = [];
+let hudVisible = true;
+let previousCollisionCount = 0;
 
 renderer.init(viewport);
 
@@ -302,6 +320,7 @@ runtime.onState((snapshot) => {
   pauseBtn.disabled = !snapshot.initialized || !snapshot.running;
   resetBtn.disabled = !snapshot.initialized;
   metricsIntervalBtn.disabled = !snapshot.initialized;
+  hudToggleBtn.disabled = !snapshot.initialized;
   ballCreateBtn.disabled = !snapshot.initialized;
   dominoCreateBtn.disabled = !snapshot.initialized;
   dominoTriggerBtn.disabled = !snapshot.initialized;
@@ -388,6 +407,36 @@ runtime.onMetricsStream((packet) => {
   metricsOpsMetric.textContent = String(packet.opCounts.total);
   metricsEventsMetric.textContent = String(packet.opCounts.lpush);
   metricsGraphSamplesMetric.textContent = String(graphSamples.length);
+
+  const fps = Number(packet.gauges.fps ?? 0);
+  const stepMs = Number(packet.gauges.physicsStepTimeMs ?? 0);
+  const collisionCount = Number(packet.hashes.domino.collision_events ?? 0);
+  const energyLoss = Number(packet.hashes.roll.energy_loss ?? 0);
+  const collisionDelta = Math.max(0, collisionCount - previousCollisionCount);
+  previousCollisionCount = collisionCount;
+
+  hudFpsMetric.textContent = fps.toFixed(2);
+  hudStepMetric.textContent = `${stepMs.toFixed(3)} ms`;
+  hudCollisionsMetric.textContent = String(collisionCount);
+
+  const fpsState = fps < 40 ? 'danger' : fps < 50 ? 'warn' : 'ok';
+  const stepState = stepMs > 2 ? 'danger' : stepMs > 1 ? 'warn' : 'ok';
+  const collisionState = collisionDelta >= 15 ? 'danger' : collisionDelta >= 8 ? 'warn' : 'ok';
+  let energyState = 'stable';
+  let energyVisualState = 'ok';
+  if (energyLoss > 4) {
+    energyState = 'high';
+    energyVisualState = 'danger';
+  } else if (energyLoss > 1) {
+    energyState = 'active';
+    energyVisualState = 'warn';
+  }
+
+  hudFpsMetric.dataset.state = fpsState;
+  hudStepMetric.dataset.state = stepState;
+  hudCollisionsMetric.dataset.state = collisionState;
+  hudEnergyStateMetric.dataset.state = energyVisualState;
+  hudEnergyStateMetric.textContent = energyState;
 });
 
 initBtn.addEventListener('click', async () => {
@@ -574,6 +623,13 @@ metricsIntervalBtn.addEventListener('click', () => {
     return;
   }
   setStatus(`metrics interval set to ${result.intervalMs} ms`);
+});
+
+hudToggleBtn.addEventListener('click', () => {
+  hudVisible = !hudVisible;
+  hudOverlay.hidden = !hudVisible;
+  hudToggleBtn.textContent = hudVisible ? 'Hide HUD' : 'Show HUD';
+  setStatus(hudVisible ? 'HUD shown' : 'HUD hidden');
 });
 
 setStatus('idle (click Initialize Rapier)');
