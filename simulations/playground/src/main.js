@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000062 Advanced mode grouped layout</p>
+    <p class="subtitle">T-000064 Basic Redis capability showcase panel</p>
 
     <section class="controls modeTabs" aria-label="Mode tabs">
       <button id="tabBasicBtn" type="button" class="modeTab">Basic</button>
@@ -17,6 +17,31 @@ app.innerHTML = `
 
     <section class="controls basicOnly" aria-label="Basic mode controls">
       <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Showcase</button>
+    </section>
+
+    <section class="basicOnly basicRedisPanel" aria-label="Basic Redis showcase panel">
+      <header class="basicRedisHeader">
+        <h2>Redis Capability</h2>
+        <button id="basicRedisToggleBtn" type="button" class="basicRedisToggle">Minimize</button>
+      </header>
+      <section id="basicRedisBody" class="basicRedisBody">
+        <p id="basicRedisNarrative" class="basicRedisNarrative" aria-live="polite">
+          Run Showcase to stream live metrics as Redis-like operations.
+        </p>
+        <dl class="basicRedisGrid">
+          <div><dt>Stream tick</dt><dd id="basicRedisTick">0</dd></div>
+          <div><dt>Stream rate</dt><dd id="basicRedisRate">0.00 Hz</dd></div>
+          <div><dt>Total ops</dt><dd id="basicRedisOpsTotal">0</dd></div>
+          <div><dt>HSET ops</dt><dd id="basicRedisHsetOps">0</dd></div>
+          <div><dt>HINCRBY ops</dt><dd id="basicRedisHincrbyOps">0</dd></div>
+          <div><dt>LPUSH ops</dt><dd id="basicRedisLpushOps">0</dd></div>
+        </dl>
+        <dl class="basicRedisMap">
+          <div><dt>HSET metrics:hud.fps</dt><dd id="basicRedisHudFpsMap">0.00</dd></div>
+          <div><dt>HSET metrics:lever.torque</dt><dd id="basicRedisLeverTorqueMap">0.000</dd></div>
+          <div><dt>LPUSH timeline:frames</dt><dd id="basicRedisTimelineMap">idle</dd></div>
+        </dl>
+      </section>
     </section>
 
     <section class="controls advancedOnly advancedNav" aria-label="Advanced navigation">
@@ -301,6 +326,18 @@ const UI_MODE_STORAGE_KEY = 'playground.uiMode';
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
 const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
+const basicRedisToggleBtn = document.querySelector('#basicRedisToggleBtn');
+const basicRedisBody = document.querySelector('#basicRedisBody');
+const basicRedisNarrative = document.querySelector('#basicRedisNarrative');
+const basicRedisTick = document.querySelector('#basicRedisTick');
+const basicRedisRate = document.querySelector('#basicRedisRate');
+const basicRedisOpsTotal = document.querySelector('#basicRedisOpsTotal');
+const basicRedisHsetOps = document.querySelector('#basicRedisHsetOps');
+const basicRedisHincrbyOps = document.querySelector('#basicRedisHincrbyOps');
+const basicRedisLpushOps = document.querySelector('#basicRedisLpushOps');
+const basicRedisHudFpsMap = document.querySelector('#basicRedisHudFpsMap');
+const basicRedisLeverTorqueMap = document.querySelector('#basicRedisLeverTorqueMap');
+const basicRedisTimelineMap = document.querySelector('#basicRedisTimelineMap');
 const initBtn = document.querySelector('#initBtn');
 const startBtn = document.querySelector('#startBtn');
 const pauseBtn = document.querySelector('#pauseBtn');
@@ -404,6 +441,7 @@ let replayAnimationId = null;
 let replayLastTimestampMs = 0;
 let uiMode = 'advanced';
 let basicShowcaseTimers = [];
+let basicRedisMinimized = false;
 
 const clearBasicShowcaseTimers = () => {
   for (const timer of basicShowcaseTimers) {
@@ -573,6 +611,12 @@ const resolveInitialUiMode = () => {
     return stored;
   }
   return 'advanced';
+};
+
+const setBasicRedisMinimized = (nextState) => {
+  basicRedisMinimized = Boolean(nextState);
+  basicRedisBody.hidden = basicRedisMinimized;
+  basicRedisToggleBtn.textContent = basicRedisMinimized ? 'Expand' : 'Minimize';
 };
 
 const applyUiMode = (nextMode, persist = true) => {
@@ -779,6 +823,29 @@ runtime.onMetricsStream((packet) => {
   metricsOpsMetric.textContent = String(packet.opCounts.total);
   metricsEventsMetric.textContent = String(packet.opCounts.lpush);
   metricsGraphSamplesMetric.textContent = String(graphPanel.getSampleCount());
+
+  basicRedisTick.textContent = String(packet.tick);
+  basicRedisRate.textContent = `${(1000 / Math.max(packet.intervalMs, 1)).toFixed(2)} Hz`;
+  basicRedisOpsTotal.textContent = String(packet.opCounts.total);
+  basicRedisHsetOps.textContent = String(packet.opCounts.hset);
+  basicRedisHincrbyOps.textContent = String(packet.opCounts.hincrby);
+  basicRedisLpushOps.textContent = String(packet.opCounts.lpush);
+  basicRedisHudFpsMap.textContent = Number(packet.hashes.hud.fps ?? 0).toFixed(2);
+  basicRedisLeverTorqueMap.textContent = Number(packet.hashes.lever.torque ?? 0).toFixed(3);
+
+  const timelineFrame = packet.timelineHead;
+  if (timelineFrame) {
+    basicRedisTimelineMap.textContent = `fps ${Number(timelineFrame.fps ?? 0).toFixed(2)} · collisions ${Number(
+      timelineFrame.dominoCollisionEvents ?? 0
+    )}`;
+  } else {
+    basicRedisTimelineMap.textContent = 'idle';
+  }
+
+  basicRedisNarrative.textContent =
+    packet.opCounts.total > 0
+      ? `Tick ${packet.tick}: HSET updates gauges, LPUSH appends frame timeline, HINCRBY remains available for counters.`
+      : 'Run Showcase to stream live metrics as Redis-like operations.';
 
   const fps = Number(packet.gauges.fps ?? 0);
   const stepMs = Number(packet.gauges.physicsStepTimeMs ?? 0);
@@ -1018,6 +1085,10 @@ effectsToggleBtn.addEventListener('click', () => {
   setStatus(effectsEnabled ? 'visual effects enabled' : 'visual effects disabled');
 });
 
+basicRedisToggleBtn.addEventListener('click', () => {
+  setBasicRedisMinimized(!basicRedisMinimized);
+});
+
 tabBasicBtn.addEventListener('click', () => {
   applyUiMode('basic');
   setStatus('basic mode active');
@@ -1116,6 +1187,7 @@ replayExitBtn.addEventListener('click', () => {
 });
 
 applyUiMode(resolveInitialUiMode(), false);
+setBasicRedisMinimized(false);
 setStatus('idle (select Basic or Advanced)');
 
 window.addEventListener('beforeunload', () => {

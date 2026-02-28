@@ -56,6 +56,74 @@ h1 {
   background: #254175;
 }
 
+.basicRedisPanel {
+  border: 1px solid #2f4675;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 12px;
+  background: #12203a;
+}
+
+.basicRedisHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.basicRedisHeader h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.basicRedisToggle {
+  padding: 6px 10px;
+}
+
+.basicRedisBody {
+  display: grid;
+  gap: 8px;
+}
+
+.basicRedisNarrative {
+  margin: 0;
+  color: #bed0f6;
+  font-size: 0.86rem;
+}
+
+.basicRedisGrid,
+.basicRedisMap {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.basicRedisGrid div,
+.basicRedisMap div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #2a426f;
+  border-radius: 8px;
+  background: #152747;
+  padding: 7px;
+}
+
+.basicRedisGrid dt,
+.basicRedisMap dt {
+  color: #a9c0ea;
+  font-size: 0.82rem;
+}
+
+.basicRedisGrid dd,
+.basicRedisMap dd {
+  margin: 0;
+  color: #edf4ff;
+  font-size: 0.82rem;
+}
+
 .advancedNav {
   margin-bottom: 10px;
 }
