@@ -38,6 +38,19 @@ h1 {
   margin-bottom: 14px;
 }
 
+.modeTabs {
+  margin-bottom: 10px;
+}
+
+.modeTab[data-active='true'] {
+  border-color: #6ea4ff;
+  background: #254175;
+}
+
+.basicOnly {
+  margin-bottom: 12px;
+}
+
 button,
 select {
   background: #1a2a4a;

@@ -8,9 +8,19 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000059 Optional time-travel replay snapshots</p>
+    <p class="subtitle">T-000061 Tabbed Basic and Advanced modes</p>
 
-    <section class="controls" aria-label="Physics controls">
+    <section class="controls modeTabs" aria-label="Mode tabs">
+      <button id="tabBasicBtn" type="button" class="modeTab">Basic</button>
+      <button id="tabAdvancedBtn" type="button" class="modeTab">Advanced</button>
+    </section>
+
+    <section class="controls basicOnly" aria-label="Basic mode controls">
+      <button id="basicQuickStartBtn" type="button" disabled>Start Demo</button>
+      <button id="basicQuickResetBtn" type="button" disabled>Reset Demo</button>
+    </section>
+
+    <section class="controls advancedOnly" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
       <button id="startBtn" type="button" disabled>Start</button>
       <button id="pauseBtn" type="button" disabled>Pause</button>
@@ -27,7 +37,7 @@ app.innerHTML = `
       </label>
     </section>
 
-    <section class="controls metricsControls" aria-label="Metrics controls">
+    <section class="controls metricsControls advancedOnly" aria-label="Metrics controls">
       <label>
         Aggregate interval (ms)
         <input id="metricsIntervalInput" type="number" min="16" max="2000" step="1" value="100" />
@@ -44,7 +54,7 @@ app.innerHTML = `
       <button id="effectsToggleBtn" type="button" disabled>Disable Effects</button>
     </section>
 
-    <section class="controls ballControls" aria-label="Falling balls controls">
+    <section class="controls ballControls advancedOnly" aria-label="Falling balls controls">
       <label>
         Balls
         <input id="ballCountInput" type="number" min="1" max="12" step="1" value="4" />
@@ -68,7 +78,7 @@ app.innerHTML = `
       <button id="ballCreateBtn" type="button" disabled>Spawn Balls</button>
     </section>
 
-    <section class="controls dominoControls" aria-label="Domino controls">
+    <section class="controls dominoControls advancedOnly" aria-label="Domino controls">
       <label>
         Dominoes
         <input id="dominoCountInput" type="number" min="50" max="200" step="1" value="60" />
@@ -89,11 +99,11 @@ app.innerHTML = `
       <button id="dominoTriggerBtn" type="button" disabled>Trigger Chain</button>
     </section>
 
-    <section class="controls triggerControls" aria-label="Trigger mechanism controls">
+    <section class="controls triggerControls advancedOnly" aria-label="Trigger mechanism controls">
       <button id="triggerRunBtn" type="button" disabled>Run Trigger Sequence</button>
     </section>
 
-    <section class="controls leverControls" aria-label="Lever controls">
+    <section class="controls leverControls advancedOnly" aria-label="Lever controls">
       <label>
         Left weight
         <input id="leverLeftWeightInput" type="number" min="0.2" max="8" step="0.1" value="1.5" />
@@ -105,7 +115,7 @@ app.innerHTML = `
       <button id="leverApplyBtn" type="button" disabled>Apply Lever Weights</button>
     </section>
 
-    <section class="controls rollingControls" aria-label="Rolling controls">
+    <section class="controls rollingControls advancedOnly" aria-label="Rolling controls">
       <label>
         Ramp angle (deg)
         <input id="rollingAngleInput" type="number" min="4" max="40" step="1" value="18" />
@@ -121,12 +131,12 @@ app.innerHTML = `
       <button id="rollingApplyBtn" type="button" disabled>Apply Rolling Setup</button>
     </section>
 
-    <section class="controls puzzleControls" aria-label="Puzzle controls">
+    <section class="controls puzzleControls advancedOnly" aria-label="Puzzle controls">
       <button id="puzzleStartBtn" type="button" disabled>Start Puzzle Attempt</button>
       <button id="puzzleResetBtn" type="button" disabled>Reset Puzzle Progress</button>
     </section>
 
-    <section class="controls replayControls" aria-label="Replay controls">
+    <section class="controls replayControls advancedOnly" aria-label="Replay controls">
       <label class="toggleWrap" for="replayCaptureToggle">
         Capture replay
         <input id="replayCaptureToggle" type="checkbox" />
@@ -155,7 +165,7 @@ app.innerHTML = `
       </aside>
     </section>
 
-    <section class="telemetry" aria-label="Runtime telemetry">
+    <section class="telemetry advancedOnly" aria-label="Runtime telemetry">
       <h2>Timing stream</h2>
       <dl>
         <div><dt>Frame time</dt><dd id="frameTime">0.00 ms</dd></div>
@@ -168,7 +178,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry" aria-label="Domino telemetry">
+    <section class="telemetry advancedOnly" aria-label="Domino telemetry">
       <h2>Domino metrics</h2>
       <dl>
         <div><dt>Count</dt><dd id="dominoCountMetric">0</dd></div>
@@ -179,7 +189,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry" aria-label="Ball telemetry">
+    <section class="telemetry advancedOnly" aria-label="Ball telemetry">
       <h2>Ball metrics</h2>
       <dl>
         <div><dt>Ball count</dt><dd id="ballCountMetric">0</dd></div>
@@ -190,7 +200,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry" aria-label="Trigger telemetry">
+    <section class="telemetry advancedOnly" aria-label="Trigger telemetry">
       <h2>Trigger metrics</h2>
       <dl>
         <div><dt>Sequence time</dt><dd id="triggerSequenceMetric">0.000 s</dd></div>
@@ -200,7 +210,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry" aria-label="Lever telemetry">
+    <section class="telemetry advancedOnly" aria-label="Lever telemetry">
       <h2>Lever metrics</h2>
       <dl>
         <div><dt>Torque</dt><dd id="leverTorqueMetric">0.000</dd></div>
@@ -209,7 +219,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry" aria-label="Rolling telemetry">
+    <section class="telemetry advancedOnly" aria-label="Rolling telemetry">
       <h2>Rolling metrics</h2>
       <dl>
         <div><dt>Distance</dt><dd id="rollingDistanceMetric">0.000</dd></div>
@@ -219,7 +229,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry" aria-label="Puzzle telemetry">
+    <section class="telemetry advancedOnly" aria-label="Puzzle telemetry">
       <h2>Puzzle metrics</h2>
       <dl>
         <div><dt>Objective</dt><dd id="puzzleObjectiveMetric">--</dd></div>
@@ -232,7 +242,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry" aria-label="Metrics stream telemetry">
+    <section class="telemetry advancedOnly" aria-label="Metrics stream telemetry">
       <h2>Metrics stream</h2>
       <dl>
         <div><dt>Tick</dt><dd id="metricsTickMetric">0</dd></div>
@@ -244,7 +254,7 @@ app.innerHTML = `
       </dl>
     </section>
 
-    <section class="telemetry graphTelemetry" aria-label="Live graph telemetry panel">
+    <section class="telemetry graphTelemetry advancedOnly" aria-label="Live graph telemetry panel">
       <h2>Live graph</h2>
       <p class="graphLegend">
         <span class="swatch velocity"></span>Velocity
@@ -254,7 +264,7 @@ app.innerHTML = `
       <canvas id="graphCanvas" class="graphCanvas" width="640" height="180"></canvas>
     </section>
 
-    <section class="telemetry replayTelemetry" aria-label="Replay telemetry panel">
+    <section class="telemetry replayTelemetry advancedOnly" aria-label="Replay telemetry panel">
       <h2>Replay</h2>
       <dl>
         <div><dt>Snapshots</dt><dd id="replayCountMetric">0</dd></div>
@@ -276,7 +286,12 @@ app.innerHTML = `
 
 const runtime = new PhysicsRuntime();
 const renderer = new PlaygroundRenderer();
+const UI_MODE_STORAGE_KEY = 'playground.uiMode';
 
+const tabBasicBtn = document.querySelector('#tabBasicBtn');
+const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
+const basicQuickStartBtn = document.querySelector('#basicQuickStartBtn');
+const basicQuickResetBtn = document.querySelector('#basicQuickResetBtn');
 const initBtn = document.querySelector('#initBtn');
 const startBtn = document.querySelector('#startBtn');
 const pauseBtn = document.querySelector('#pauseBtn');
@@ -378,12 +393,49 @@ let replayPlaying = false;
 let replayCurrentIndex = 0;
 let replayAnimationId = null;
 let replayLastTimestampMs = 0;
+let uiMode = 'advanced';
 
 renderer.init(viewport);
 
 const setStatus = (message, isError = false) => {
   runtimeStatus.textContent = `Status: ${message}`;
   runtimeStatus.dataset.state = isError ? 'error' : 'ok';
+};
+
+const resolveInitialUiMode = () => {
+  const params = new URLSearchParams(window.location.search);
+  const queryMode = params.get('mode');
+  if (queryMode === 'basic' || queryMode === 'advanced') {
+    return queryMode;
+  }
+
+  const stored = localStorage.getItem(UI_MODE_STORAGE_KEY);
+  if (stored === 'basic' || stored === 'advanced') {
+    return stored;
+  }
+  return 'advanced';
+};
+
+const applyUiMode = (nextMode, persist = true) => {
+  uiMode = nextMode === 'basic' ? 'basic' : 'advanced';
+  const showBasic = uiMode === 'basic';
+
+  for (const element of document.querySelectorAll('.basicOnly')) {
+    element.hidden = !showBasic;
+  }
+  for (const element of document.querySelectorAll('.advancedOnly')) {
+    element.hidden = showBasic;
+  }
+
+  tabBasicBtn.dataset.active = showBasic ? 'true' : 'false';
+  tabAdvancedBtn.dataset.active = showBasic ? 'false' : 'true';
+
+  if (persist) {
+    localStorage.setItem(UI_MODE_STORAGE_KEY, uiMode);
+    const url = new URL(window.location.href);
+    url.searchParams.set('mode', uiMode);
+    window.history.replaceState({}, '', url);
+  }
 };
 
 const stopReplayLoop = () => {
@@ -450,6 +502,10 @@ const replayTick = (timestampMs) => {
 };
 
 runtime.onState((snapshot) => {
+  tabBasicBtn.disabled = false;
+  tabAdvancedBtn.disabled = false;
+  basicQuickStartBtn.disabled = replayModeActive;
+  basicQuickResetBtn.disabled = replayModeActive;
   initBtn.disabled = snapshot.initialized;
   startBtn.disabled = !snapshot.initialized || snapshot.running || replayModeActive;
   pauseBtn.disabled = !snapshot.initialized || !snapshot.running || replayModeActive;
@@ -802,6 +858,44 @@ effectsToggleBtn.addEventListener('click', () => {
   setStatus(effectsEnabled ? 'visual effects enabled' : 'visual effects disabled');
 });
 
+tabBasicBtn.addEventListener('click', () => {
+  applyUiMode('basic');
+  setStatus('basic mode active');
+});
+
+tabAdvancedBtn.addEventListener('click', () => {
+  applyUiMode('advanced');
+  setStatus('advanced mode active');
+});
+
+basicQuickStartBtn.addEventListener('click', async () => {
+  if (!runtime.getSnapshot().initialized) {
+    setStatus('initializing Rapier for basic demo...');
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      setStatus(`init failed (${initResult.error})`, true);
+      return;
+    }
+  }
+
+  runtime.start();
+  renderer.start();
+  setStatus('basic demo started');
+});
+
+basicQuickResetBtn.addEventListener('click', async () => {
+  if (!runtime.getSnapshot().initialized) {
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      setStatus(`init failed (${initResult.error})`, true);
+      return;
+    }
+  }
+  runtime.resetWorld();
+  renderer.reset();
+  setStatus('basic demo reset');
+});
+
 replayConfigBtn.addEventListener('click', () => {
   const result = runtime.setReplayCaptureConfig({
     enabled: replayCaptureToggle.checked,
@@ -884,7 +978,8 @@ replayExitBtn.addEventListener('click', () => {
   setStatus('replay mode exited');
 });
 
-setStatus('idle (click Initialize Rapier)');
+applyUiMode(resolveInitialUiMode(), false);
+setStatus('idle (select Basic or Advanced)');
 
 window.addEventListener('beforeunload', () => {
   stopReplayLoop();
