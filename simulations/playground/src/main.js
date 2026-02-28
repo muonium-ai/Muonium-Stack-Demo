@@ -592,12 +592,11 @@ const runBasicShowcase = async () => {
   clearBasicShowcaseTimers();
   basicNoActionDebugActive = false;
   basicRedisNarrative.textContent = 'Starting simulation...';
+  try {
+    if (replayModeActive) {
+      exitReplayMode();
+    }
 
-  if (replayModeActive) {
-    exitReplayMode();
-  }
-
-  if (!runtime.getSnapshot().initialized) {
     setStatus('initializing Rapier for showcase...');
     const initResult = await runtime.init();
     if (!initResult.ok) {
@@ -605,95 +604,99 @@ const runBasicShowcase = async () => {
       printBasicStageDebug('init_failed', { initError: initResult.error });
       return;
     }
-  }
 
-  runtime.pause();
-  renderer.pause();
-  runtime.resetWorld();
-  renderer.reset();
+    runtime.pause();
+    renderer.pause();
+    runtime.resetWorld();
+    renderer.reset();
 
-  hudVisible = true;
-  hudOverlay.hidden = false;
-  hudToggleBtn.textContent = 'Hide HUD';
+    hudVisible = true;
+    hudOverlay.hidden = false;
+    hudToggleBtn.textContent = 'Hide HUD';
 
-  effectsEnabled = true;
-  renderer.setEffectsEnabled(true);
-  effectsToggleBtn.textContent = 'Disable Effects';
+    effectsEnabled = true;
+    renderer.setEffectsEnabled(true);
+    effectsToggleBtn.textContent = 'Disable Effects';
 
-  const presetResult = applyBasicShowcasePreset();
-  if (!presetResult.ok) {
-    setStatus(`showcase setup failed (${presetResult.error})`, true);
-    printBasicStageDebug('preset_failed', { presetError: presetResult.error });
-    return;
-  }
-
-  runtime.start();
-  renderer.start();
-
-  basicActivityBaseline = {
-    tick: latestMetricsPacket?.tick ?? 0,
-    totalOps: latestMetricsPacket?.opCounts?.total ?? 0,
-  };
-
-  setStatus('basic showcase: stage 1 domino + balls');
-
-  queueBasicShowcaseStep(3600, () => {
-    const packet = latestMetricsPacket;
-    const snapshot = runtime.getSnapshot();
-    const tickAdvanced = packet ? packet.tick > basicActivityBaseline.tick : false;
-    const opsAdvanced = packet ? packet.opCounts.total > basicActivityBaseline.totalOps : false;
-    const movementDetected =
-      snapshot.totalSteps > 20 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.02;
-
-    if (!tickAdvanced || !opsAdvanced || !movementDetected) {
-      printBasicNoActionDebug('missing expected Redis activity or scene movement after Run Simulation');
-    }
-  });
-
-  queueBasicShowcaseStep(700, () => {
-    const result = runtime.triggerDominoChain();
-    if (result.ok) {
-      setStatus('basic showcase: stage 2 chain reaction');
+    const presetResult = applyBasicShowcasePreset();
+    if (!presetResult.ok) {
+      setStatus(`showcase setup failed (${presetResult.error})`, true);
+      printBasicStageDebug('preset_failed', { presetError: presetResult.error });
       return;
     }
-    printBasicStageDebug('trigger_domino_failed', { error: result.error ?? 'unknown' });
-  });
 
-  queueBasicShowcaseStep(1600, () => {
-    const result = runtime.runTriggerSequence();
-    if (result.ok) {
-      setStatus('basic showcase: stage 3 trigger sequence');
-      return;
-    }
-    printBasicStageDebug('trigger_sequence_failed', { error: result.error ?? 'unknown' });
-  });
+    runtime.start();
+    renderer.start();
 
-  queueBasicShowcaseStep(3000, () => {
-    const result = runtime.configureRollingObject({
-      rampAngleDeg: 28,
-      frictionCoeff: 0.26,
-      mass: 2.1,
+    basicActivityBaseline = {
+      tick: latestMetricsPacket?.tick ?? 0,
+      totalOps: latestMetricsPacket?.opCounts?.total ?? 0,
+    };
+
+    setStatus('basic showcase: stage 1 domino + balls');
+
+    queueBasicShowcaseStep(3600, () => {
+      const packet = latestMetricsPacket;
+      const snapshot = runtime.getSnapshot();
+      const tickAdvanced = packet ? packet.tick > basicActivityBaseline.tick : false;
+      const opsAdvanced = packet ? packet.opCounts.total > basicActivityBaseline.totalOps : false;
+      const movementDetected =
+        snapshot.totalSteps > 20 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.02;
+
+      if (!tickAdvanced || !opsAdvanced || !movementDetected) {
+        printBasicNoActionDebug('missing expected Redis activity or scene movement after Run Simulation');
+      }
     });
-    if (result.ok) {
-      rollingAngleInput.value = '28';
-      rollingFrictionInput.value = '0.26';
-      rollingMassInput.value = '2.1';
-      setStatus('basic showcase: stage 4 rolling acceleration');
-      return;
-    }
-    printBasicStageDebug('rolling_config_failed', { error: result.error ?? 'unknown' });
-  });
 
-  queueBasicShowcaseStep(4600, () => {
-    const result = runtime.startPuzzleAttempt();
-    if (result.ok) {
-      runtime.start();
-      renderer.start();
-      setStatus('basic showcase: finale puzzle challenge');
-      return;
-    }
-    printBasicStageDebug('puzzle_start_failed', { error: result.error ?? 'unknown' });
-  });
+    queueBasicShowcaseStep(700, () => {
+      const result = runtime.triggerDominoChain();
+      if (result.ok) {
+        setStatus('basic showcase: stage 2 chain reaction');
+        return;
+      }
+      printBasicStageDebug('trigger_domino_failed', { error: result.error ?? 'unknown' });
+    });
+
+    queueBasicShowcaseStep(1600, () => {
+      const result = runtime.runTriggerSequence();
+      if (result.ok) {
+        setStatus('basic showcase: stage 3 trigger sequence');
+        return;
+      }
+      printBasicStageDebug('trigger_sequence_failed', { error: result.error ?? 'unknown' });
+    });
+
+    queueBasicShowcaseStep(3000, () => {
+      const result = runtime.configureRollingObject({
+        rampAngleDeg: 28,
+        frictionCoeff: 0.26,
+        mass: 2.1,
+      });
+      if (result.ok) {
+        rollingAngleInput.value = '28';
+        rollingFrictionInput.value = '0.26';
+        rollingMassInput.value = '2.1';
+        setStatus('basic showcase: stage 4 rolling acceleration');
+        return;
+      }
+      printBasicStageDebug('rolling_config_failed', { error: result.error ?? 'unknown' });
+    });
+
+    queueBasicShowcaseStep(4600, () => {
+      const result = runtime.startPuzzleAttempt();
+      if (result.ok) {
+        runtime.start();
+        renderer.start();
+        setStatus('basic showcase: finale puzzle challenge');
+        return;
+      }
+      printBasicStageDebug('puzzle_start_failed', { error: result.error ?? 'unknown' });
+    });
+  } catch (error) {
+    printBasicStageDebug('unhandled_exception', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 };
 
 renderer.init(viewport);
