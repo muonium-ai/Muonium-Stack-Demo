@@ -7,7 +7,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000046 Rapier bootstrap and fixed-step runtime</p>
+    <p class="subtitle">T-000048 Domino chain module</p>
 
     <section class="controls" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
@@ -24,6 +24,27 @@ app.innerHTML = `
           <option value="3">3.0x</option>
         </select>
       </label>
+    </section>
+
+    <section class="controls dominoControls" aria-label="Domino controls">
+      <label>
+        Dominoes
+        <input id="dominoCountInput" type="number" min="50" max="200" step="1" value="60" />
+      </label>
+      <label>
+        Spacing
+        <input id="dominoSpacingInput" type="number" min="0.22" max="0.80" step="0.01" value="0.34" />
+      </label>
+      <label>
+        Material
+        <select id="dominoMaterialSelect">
+          <option value="wood" selected>Wood</option>
+          <option value="rubber">Rubber</option>
+          <option value="metal">Metal</option>
+        </select>
+      </label>
+      <button id="dominoCreateBtn" type="button" disabled>Create Chain</button>
+      <button id="dominoTriggerBtn" type="button" disabled>Trigger Chain</button>
     </section>
 
     <p id="runtimeStatus" class="status">Status: idle</p>
@@ -44,6 +65,17 @@ app.innerHTML = `
         <div><dt>Velocity Y</dt><dd id="velocityY">0.000</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry" aria-label="Domino telemetry">
+      <h2>Domino metrics</h2>
+      <dl>
+        <div><dt>Count</dt><dd id="dominoCountMetric">0</dd></div>
+        <div><dt>Fall time avg</dt><dd id="dominoFallAvgMetric">0.000 s</dd></div>
+        <div><dt>Collision events</dt><dd id="dominoCollisionMetric">0</dd></div>
+        <div><dt>Max velocity</dt><dd id="dominoVelocityMetric">0.000</dd></div>
+        <div><dt>Chain speed</dt><dd id="dominoChainSpeedMetric">0.00 dom/s</dd></div>
+      </dl>
+    </section>
   </section>
 `;
 
@@ -55,6 +87,11 @@ const startBtn = document.querySelector('#startBtn');
 const pauseBtn = document.querySelector('#pauseBtn');
 const resetBtn = document.querySelector('#resetBtn');
 const speedSelect = document.querySelector('#speedSelect');
+const dominoCountInput = document.querySelector('#dominoCountInput');
+const dominoSpacingInput = document.querySelector('#dominoSpacingInput');
+const dominoMaterialSelect = document.querySelector('#dominoMaterialSelect');
+const dominoCreateBtn = document.querySelector('#dominoCreateBtn');
+const dominoTriggerBtn = document.querySelector('#dominoTriggerBtn');
 const runtimeStatus = document.querySelector('#runtimeStatus');
 
 const frameTime = document.querySelector('#frameTime');
@@ -64,6 +101,11 @@ const totalSteps = document.querySelector('#totalSteps');
 const accumulator = document.querySelector('#accumulator');
 const cubeY = document.querySelector('#cubeY');
 const velocityY = document.querySelector('#velocityY');
+const dominoCountMetric = document.querySelector('#dominoCountMetric');
+const dominoFallAvgMetric = document.querySelector('#dominoFallAvgMetric');
+const dominoCollisionMetric = document.querySelector('#dominoCollisionMetric');
+const dominoVelocityMetric = document.querySelector('#dominoVelocityMetric');
+const dominoChainSpeedMetric = document.querySelector('#dominoChainSpeedMetric');
 const viewport = document.querySelector('#viewport');
 
 renderer.init(viewport);
@@ -78,6 +120,8 @@ runtime.onState((snapshot) => {
   startBtn.disabled = !snapshot.initialized || snapshot.running;
   pauseBtn.disabled = !snapshot.initialized || !snapshot.running;
   resetBtn.disabled = !snapshot.initialized;
+  dominoCreateBtn.disabled = !snapshot.initialized;
+  dominoTriggerBtn.disabled = !snapshot.initialized;
 });
 
 runtime.onTiming((timing, snapshot) => {
@@ -89,6 +133,12 @@ runtime.onTiming((timing, snapshot) => {
   accumulator.textContent = `${snapshot.accumulatorSeconds.toFixed(4)} s`;
   cubeY.textContent = snapshot.cubeY.toFixed(3);
   velocityY.textContent = snapshot.velocityY.toFixed(3);
+
+  dominoCountMetric.textContent = String(snapshot.domino.count);
+  dominoFallAvgMetric.textContent = `${snapshot.domino.fallTimeAvgSeconds.toFixed(3)} s`;
+  dominoCollisionMetric.textContent = String(snapshot.domino.collisionEvents);
+  dominoVelocityMetric.textContent = snapshot.domino.maxVelocity.toFixed(3);
+  dominoChainSpeedMetric.textContent = `${snapshot.domino.chainSpeedPerSecond.toFixed(2)} dom/s`;
 });
 
 initBtn.addEventListener('click', async () => {
@@ -117,6 +167,39 @@ resetBtn.addEventListener('click', () => {
   runtime.resetWorld();
   renderer.reset();
   setStatus('world reset');
+});
+
+dominoCreateBtn.addEventListener('click', async () => {
+  if (!runtime.getSnapshot().initialized) {
+    setStatus('initializing Rapier for domino chain...');
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      setStatus(`init failed (${initResult.error})`, true);
+      return;
+    }
+  }
+
+  const result = runtime.createDominoChain({
+    count: Number(dominoCountInput.value),
+    spacing: Number(dominoSpacingInput.value),
+    materialPreset: dominoMaterialSelect.value,
+  });
+  if (!result.ok) {
+    setStatus(`domino create failed (${result.error})`, true);
+    return;
+  }
+  setStatus(
+    `domino chain created (${result.config.count} @ ${result.config.spacing.toFixed(2)} ${result.config.materialPreset})`
+  );
+});
+
+dominoTriggerBtn.addEventListener('click', () => {
+  const result = runtime.triggerDominoChain();
+  if (!result.ok) {
+    setStatus(`domino trigger failed (${result.error})`, true);
+    return;
+  }
+  setStatus('domino chain triggered');
 });
 
 speedSelect.addEventListener('change', (event) => {

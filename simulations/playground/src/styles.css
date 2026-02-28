@@ -47,6 +47,15 @@ select {
   padding: 8px 10px;
 }
 
+input[type='number'] {
+  width: 90px;
+  background: #1a2a4a;
+  color: #e4edff;
+  border: 1px solid #395488;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
 button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -66,6 +75,10 @@ label {
 
 .status[data-state='error'] {
   color: #ff9a9a;
+}
+
+.dominoControls {
+  margin-bottom: 10px;
 }
 
 .viewportPanel {
