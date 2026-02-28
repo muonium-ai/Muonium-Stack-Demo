@@ -1,4 +1,5 @@
 import RAPIER from '@dimforge/rapier3d-compat';
+import { TelemetryStore } from '../metrics/telemetryStore.js';
 
 const FIXED_TIMESTEP_SECONDS = 1 / 60;
 const MAX_STEPS_PER_FRAME = 8;
@@ -140,6 +141,10 @@ export class PhysicsRuntime {
 
     this.timingSubscribers = new Set();
     this.stateSubscribers = new Set();
+    this.metricsStore = new TelemetryStore({
+      aggregateIntervalMs: 100,
+      timelineLimit: 512,
+    });
 
     this.lastTiming = {
       frameTimeMs: 0,
@@ -201,6 +206,7 @@ export class PhysicsRuntime {
     this.pause();
     this.world = new this.rapier.World({ x: 0, y: -9.81, z: 0 });
     this.eventQueue = new this.rapier.EventQueue(true);
+    this.metricsStore.reset();
     this.accumulatorSeconds = 0;
     this.stepCount = 0;
     this.dominoBodies = [];
@@ -904,6 +910,7 @@ export class PhysicsRuntime {
         bestCompletionSeconds: this.puzzleMetrics.bestCompletionSeconds,
         lastScore: this.puzzleMetrics.lastScore,
       },
+      metricsPipeline: this.metricsStore.exportState(),
       domino: {
         count: this.dominoMetrics.count,
         spacing: this.dominoMetrics.spacing,
@@ -935,10 +942,22 @@ export class PhysicsRuntime {
     };
   }
 
+  onMetricsStream(callback) {
+    return this.metricsStore.onStream(callback);
+  }
+
+  setMetricsAggregateIntervalMs(value) {
+    const intervalMs = this.metricsStore.setAggregateIntervalMs(value);
+    this.emitState();
+    return { ok: true, intervalMs };
+  }
+
   dispose() {
     this.pause();
     this.timingSubscribers.clear();
     this.stateSubscribers.clear();
+    this.metricsStore.clearSubscribers();
+    this.metricsStore.reset();
   }
 
   frame(timestampMs) {
@@ -1170,9 +1189,15 @@ export class PhysicsRuntime {
     if (this.hasTriggerEvent(name)) {
       return;
     }
+    const timeSeconds = this.stepCount * FIXED_TIMESTEP_SECONDS;
     this.triggerMetrics.eventOrder.push({
       name,
-      timeSeconds: this.stepCount * FIXED_TIMESTEP_SECONDS,
+      timeSeconds,
+    });
+    this.metricsStore.lpush('timeline:events', {
+      type: 'trigger',
+      name,
+      timeSeconds: Number(timeSeconds.toFixed(4)),
     });
   }
 
@@ -1302,6 +1327,14 @@ export class PhysicsRuntime {
       }
     }
 
+    this.metricsStore.lpush('timeline:events', {
+      type: 'puzzle',
+      status,
+      completionSeconds: Number(completionSeconds.toFixed(4)),
+      score: Number(this.puzzleMetrics.lastScore.toFixed(2)),
+      reason: success ? '' : failureReason,
+    });
+
     this.emitState();
   }
 
@@ -1321,6 +1354,11 @@ export class PhysicsRuntime {
   emitTiming(timing) {
     this.lastTiming = timing;
     const snapshot = this.getSnapshot();
+    this.metricsStore.sampleFrame({
+      timestampMs: timing.timestamp,
+      timing,
+      snapshot,
+    });
     for (const callback of this.timingSubscribers) {
       callback(timing, snapshot);
     }

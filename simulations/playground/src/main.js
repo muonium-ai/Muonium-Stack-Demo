@@ -26,6 +26,14 @@ app.innerHTML = `
       </label>
     </section>
 
+    <section class="controls metricsControls" aria-label="Metrics controls">
+      <label>
+        Aggregate interval (ms)
+        <input id="metricsIntervalInput" type="number" min="16" max="2000" step="1" value="100" />
+      </label>
+      <button id="metricsIntervalBtn" type="button" disabled>Apply Metrics Interval</button>
+    </section>
+
     <section class="controls ballControls" aria-label="Falling balls controls">
       <label>
         Balls
@@ -190,6 +198,18 @@ app.innerHTML = `
         <div><dt>Efficiency score</dt><dd id="puzzleScoreMetric">0.0</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry" aria-label="Metrics stream telemetry">
+      <h2>Metrics stream</h2>
+      <dl>
+        <div><dt>Tick</dt><dd id="metricsTickMetric">0</dd></div>
+        <div><dt>Interval</dt><dd id="metricsIntervalMetric">100 ms</dd></div>
+        <div><dt>FPS (stream)</dt><dd id="metricsFpsMetric">0.00</dd></div>
+        <div><dt>Ops total</dt><dd id="metricsOpsMetric">0</dd></div>
+        <div><dt>Timeline events</dt><dd id="metricsEventsMetric">0</dd></div>
+        <div><dt>Graph samples</dt><dd id="metricsGraphSamplesMetric">0</dd></div>
+      </dl>
+    </section>
   </section>
 `;
 
@@ -201,6 +221,8 @@ const startBtn = document.querySelector('#startBtn');
 const pauseBtn = document.querySelector('#pauseBtn');
 const resetBtn = document.querySelector('#resetBtn');
 const speedSelect = document.querySelector('#speedSelect');
+const metricsIntervalInput = document.querySelector('#metricsIntervalInput');
+const metricsIntervalBtn = document.querySelector('#metricsIntervalBtn');
 const ballCountInput = document.querySelector('#ballCountInput');
 const ballMaterialSelect = document.querySelector('#ballMaterialSelect');
 const gravityEnabledToggle = document.querySelector('#gravityEnabledToggle');
@@ -258,7 +280,14 @@ const puzzleStatusMetric = document.querySelector('#puzzleStatusMetric');
 const puzzleCompletionMetric = document.querySelector('#puzzleCompletionMetric');
 const puzzleBestMetric = document.querySelector('#puzzleBestMetric');
 const puzzleScoreMetric = document.querySelector('#puzzleScoreMetric');
+const metricsTickMetric = document.querySelector('#metricsTickMetric');
+const metricsIntervalMetric = document.querySelector('#metricsIntervalMetric');
+const metricsFpsMetric = document.querySelector('#metricsFpsMetric');
+const metricsOpsMetric = document.querySelector('#metricsOpsMetric');
+const metricsEventsMetric = document.querySelector('#metricsEventsMetric');
+const metricsGraphSamplesMetric = document.querySelector('#metricsGraphSamplesMetric');
 const viewport = document.querySelector('#viewport');
+const graphSamples = [];
 
 renderer.init(viewport);
 
@@ -272,6 +301,7 @@ runtime.onState((snapshot) => {
   startBtn.disabled = !snapshot.initialized || snapshot.running;
   pauseBtn.disabled = !snapshot.initialized || !snapshot.running;
   resetBtn.disabled = !snapshot.initialized;
+  metricsIntervalBtn.disabled = !snapshot.initialized;
   ballCreateBtn.disabled = !snapshot.initialized;
   dominoCreateBtn.disabled = !snapshot.initialized;
   dominoTriggerBtn.disabled = !snapshot.initialized;
@@ -288,6 +318,7 @@ runtime.onState((snapshot) => {
   rollingAngleInput.value = snapshot.rolling.rampAngleDeg.toFixed(0);
   rollingFrictionInput.value = snapshot.rolling.frictionCoeff.toFixed(2);
   rollingMassInput.value = snapshot.rolling.mass.toFixed(1);
+  metricsIntervalInput.value = String(snapshot.metricsPipeline.aggregateIntervalMs);
 });
 
 runtime.onTiming((timing, snapshot) => {
@@ -339,6 +370,24 @@ runtime.onTiming((timing, snapshot) => {
   puzzleBestMetric.textContent =
     snapshot.puzzle.bestCompletionSeconds > 0 ? `${snapshot.puzzle.bestCompletionSeconds.toFixed(3)} s` : '--';
   puzzleScoreMetric.textContent = snapshot.puzzle.lastScore.toFixed(1);
+});
+
+runtime.onMetricsStream((packet) => {
+  graphSamples.push({
+    tick: packet.tick,
+    fps: packet.gauges.fps,
+    torque: Number(packet.hashes.lever.torque ?? 0),
+  });
+  if (graphSamples.length > 180) {
+    graphSamples.shift();
+  }
+
+  metricsTickMetric.textContent = String(packet.tick);
+  metricsIntervalMetric.textContent = `${Math.round(packet.intervalMs)} ms`;
+  metricsFpsMetric.textContent = packet.gauges.fps.toFixed(2);
+  metricsOpsMetric.textContent = String(packet.opCounts.total);
+  metricsEventsMetric.textContent = String(packet.opCounts.lpush);
+  metricsGraphSamplesMetric.textContent = String(graphSamples.length);
 });
 
 initBtn.addEventListener('click', async () => {
@@ -516,6 +565,15 @@ speedSelect.addEventListener('change', (event) => {
   runtime.setSpeedMultiplier(nextSpeed);
   const label = runtime.running ? `running at ${nextSpeed.toFixed(1)}x` : `speed set to ${nextSpeed.toFixed(1)}x`;
   setStatus(label);
+});
+
+metricsIntervalBtn.addEventListener('click', () => {
+  const result = runtime.setMetricsAggregateIntervalMs(Number(metricsIntervalInput.value));
+  if (!result.ok) {
+    setStatus('failed to set metrics interval', true);
+    return;
+  }
+  setStatus(`metrics interval set to ${result.intervalMs} ms`);
 });
 
 setStatus('idle (click Initialize Rapier)');
