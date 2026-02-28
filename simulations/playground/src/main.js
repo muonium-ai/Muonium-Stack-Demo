@@ -592,19 +592,59 @@ const runBasicShowcase = async () => {
   clearBasicShowcaseTimers();
   basicNoActionDebugActive = false;
   basicRedisNarrative.textContent = 'Starting simulation...';
+  let basicInitWatchdog = null;
+  let currentStage = 'start';
+
+  const setBasicNarrative = (message) => {
+    if (!basicNoActionDebugActive) {
+      basicRedisNarrative.textContent = message;
+    }
+  };
+
+  const clearBasicInitWatchdog = () => {
+    if (basicInitWatchdog !== null) {
+      clearTimeout(basicInitWatchdog);
+      basicInitWatchdog = null;
+    }
+  };
+
+  const debugStageFailure = (reason, extra = {}) => {
+    clearBasicInitWatchdog();
+    printBasicStageDebug(reason, {
+      stage: currentStage,
+      ...extra,
+    });
+  };
+
+  basicInitWatchdog = setTimeout(() => {
+    debugStageFailure('init_timeout', { timeoutMs: 6000 });
+  }, 6000);
+
   try {
     if (replayModeActive) {
       exitReplayMode();
     }
 
+    currentStage = 'init';
+    setBasicNarrative('Initializing physics engine...');
     setStatus('initializing Rapier for showcase...');
-    const initResult = await runtime.init();
+    const initResult = await Promise.race([
+      runtime.init(),
+      new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ ok: false, error: 'init timeout after 6000ms' });
+        }, 6000);
+      }),
+    ]);
+    clearBasicInitWatchdog();
     if (!initResult.ok) {
       setStatus(`init failed (${initResult.error})`, true);
-      printBasicStageDebug('init_failed', { initError: initResult.error });
+      debugStageFailure('init_failed', { initError: initResult.error });
       return;
     }
 
+    currentStage = 'reset';
+    setBasicNarrative('Preparing simulation world...');
     runtime.pause();
     renderer.pause();
     runtime.resetWorld();
@@ -618,13 +658,17 @@ const runBasicShowcase = async () => {
     renderer.setEffectsEnabled(true);
     effectsToggleBtn.textContent = 'Disable Effects';
 
+    currentStage = 'preset';
+    setBasicNarrative('Applying showcase preset...');
     const presetResult = applyBasicShowcasePreset();
     if (!presetResult.ok) {
       setStatus(`showcase setup failed (${presetResult.error})`, true);
-      printBasicStageDebug('preset_failed', { presetError: presetResult.error });
+      debugStageFailure('preset_failed', { presetError: presetResult.error });
       return;
     }
 
+    currentStage = 'run';
+    setBasicNarrative('Simulation running... waiting for Redis stream activity...');
     runtime.start();
     renderer.start();
 
@@ -636,6 +680,7 @@ const runBasicShowcase = async () => {
     setStatus('basic showcase: stage 1 domino + balls');
 
     queueBasicShowcaseStep(3600, () => {
+      currentStage = 'verify_activity';
       const packet = latestMetricsPacket;
       const snapshot = runtime.getSnapshot();
       const tickAdvanced = packet ? packet.tick > basicActivityBaseline.tick : false;
@@ -645,28 +690,33 @@ const runBasicShowcase = async () => {
 
       if (!tickAdvanced || !opsAdvanced || !movementDetected) {
         printBasicNoActionDebug('missing expected Redis activity or scene movement after Run Simulation');
+        return;
       }
+      setBasicNarrative('Redis stream active. Simulation healthy.');
     });
 
     queueBasicShowcaseStep(700, () => {
+      currentStage = 'domino_trigger';
       const result = runtime.triggerDominoChain();
       if (result.ok) {
         setStatus('basic showcase: stage 2 chain reaction');
         return;
       }
-      printBasicStageDebug('trigger_domino_failed', { error: result.error ?? 'unknown' });
+      debugStageFailure('trigger_domino_failed', { error: result.error ?? 'unknown' });
     });
 
     queueBasicShowcaseStep(1600, () => {
+      currentStage = 'trigger_sequence';
       const result = runtime.runTriggerSequence();
       if (result.ok) {
         setStatus('basic showcase: stage 3 trigger sequence');
         return;
       }
-      printBasicStageDebug('trigger_sequence_failed', { error: result.error ?? 'unknown' });
+      debugStageFailure('trigger_sequence_failed', { error: result.error ?? 'unknown' });
     });
 
     queueBasicShowcaseStep(3000, () => {
+      currentStage = 'rolling_config';
       const result = runtime.configureRollingObject({
         rampAngleDeg: 28,
         frictionCoeff: 0.26,
@@ -679,10 +729,11 @@ const runBasicShowcase = async () => {
         setStatus('basic showcase: stage 4 rolling acceleration');
         return;
       }
-      printBasicStageDebug('rolling_config_failed', { error: result.error ?? 'unknown' });
+      debugStageFailure('rolling_config_failed', { error: result.error ?? 'unknown' });
     });
 
     queueBasicShowcaseStep(4600, () => {
+      currentStage = 'puzzle_start';
       const result = runtime.startPuzzleAttempt();
       if (result.ok) {
         runtime.start();
@@ -690,12 +741,14 @@ const runBasicShowcase = async () => {
         setStatus('basic showcase: finale puzzle challenge');
         return;
       }
-      printBasicStageDebug('puzzle_start_failed', { error: result.error ?? 'unknown' });
+      debugStageFailure('puzzle_start_failed', { error: result.error ?? 'unknown' });
     });
   } catch (error) {
-    printBasicStageDebug('unhandled_exception', {
+    debugStageFailure('unhandled_exception', {
       error: error instanceof Error ? error.message : String(error),
     });
+  } finally {
+    clearBasicInitWatchdog();
   }
 };
 
