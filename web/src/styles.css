@@ -310,6 +310,62 @@ h1 {
   cursor: not-allowed;
 }
 
+.appTabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 12px;
+}
+
+.appTab {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+.appTab.isActive {
+  background: var(--color-focus-bg);
+  border-color: var(--color-focus-border);
+}
+
+.appTabPanel {
+  display: block;
+}
+
+.playPanelCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.playPanelCard h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+.playPanelControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.playPanelControls button {
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
 .toolbar {
   display: flex;
   gap: 8px;

@@ -11,6 +11,7 @@ import {
   resolveInitialThemeId,
   setActiveTheme,
 } from './theme.js';
+import { createStockfishService } from './stockfish.js';
 import { MuonVecAdapter } from './vector.js';
 
 const INITIAL_COUNTS = {
@@ -427,6 +428,13 @@ async function bootstrap() {
 
   const loadStartedAt = performance.now();
   const statusEl = document.querySelector('#status');
+  const appTabBenchmark = document.querySelector('#appTabBenchmark');
+  const appTabPlay = document.querySelector('#appTabPlay');
+  const appPanelBenchmark = document.querySelector('#appPanelBenchmark');
+  const appPanelPlay = document.querySelector('#appPanelPlay');
+  const benchmarkOnlyControls = Array.from(document.querySelectorAll('.benchmarkOnlyControl'));
+  const playEngineStatus = document.querySelector('#playEngineStatus');
+  const playEngineTestBtn = document.querySelector('#playEngineTestBtn');
   const boardEl = document.querySelector('#board');
   const themeSelect = document.querySelector('#themeSelect');
   const playerDatasetSelect = document.querySelector('#playerDatasetSelect');
@@ -518,6 +526,20 @@ async function bootstrap() {
   let benchmarkHasRun = false;
   let activeDataset = resolveInitialDataset();
   let ecoClassifier = createEcoClassifier([]);
+  let activeAppTab = 'benchmark';
+
+  const stockfishService = createStockfishService();
+
+  const setAppTab = (tab) => {
+    activeAppTab = tab === 'play' ? 'play' : 'benchmark';
+    appTabBenchmark?.classList.toggle('isActive', activeAppTab === 'benchmark');
+    appTabPlay?.classList.toggle('isActive', activeAppTab === 'play');
+    appPanelBenchmark?.classList.toggle('hidden', activeAppTab !== 'benchmark');
+    appPanelPlay?.classList.toggle('hidden', activeAppTab !== 'play');
+    for (const control of benchmarkOnlyControls) {
+      control.classList.toggle('hidden', activeAppTab !== 'benchmark');
+    }
+  };
 
   const updateOpeningInfo = () => {
     if (!openingInfo) {
@@ -569,8 +591,26 @@ async function bootstrap() {
     window.location.reload();
   });
 
+  setAppTab('benchmark');
+  appTabBenchmark?.addEventListener('click', () => setAppTab('benchmark'));
+  appTabPlay?.addEventListener('click', () => setAppTab('play'));
+
   statusEl.textContent = 'Initializing WASM...';
   await initWasm();
+
+  if (playEngineStatus) {
+    playEngineStatus.textContent = 'Stockfish WASM: initializing...';
+  }
+  const stockfishReady = await stockfishService.init();
+  if (playEngineStatus) {
+    const reason = stockfishService.getLastError();
+    const isolationHint = window.crossOriginIsolated
+      ? 'verify /stockfish assets are present'
+      : 'requires COOP/COEP headers (restart dev server)';
+    playEngineStatus.textContent = stockfishReady
+      ? 'Stockfish WASM: ready'
+      : `Stockfish WASM: unavailable (${reason || isolationHint})`;
+  }
 
   statusEl.textContent = `Downloading ${activeDataset.label} SQLite... (${formatElapsedMs(performance.now() - loadStartedAt)})`;
   let db = await createGameDb({
@@ -710,6 +750,34 @@ async function bootstrap() {
 
   openingClassifierToggle?.addEventListener('change', () => {
     updateOpeningInfo();
+  });
+
+  playEngineTestBtn?.addEventListener('click', async () => {
+    if (!stockfishService.isReady()) {
+      if (playEngineStatus) {
+        const reason = stockfishService.getLastError();
+        const isolationHint = window.crossOriginIsolated
+          ? 'verify /stockfish assets are present'
+          : 'requires COOP/COEP headers';
+        playEngineStatus.textContent = `Stockfish WASM: unavailable (${reason || isolationHint})`;
+      }
+      return;
+    }
+
+    if (playEngineStatus) {
+      playEngineStatus.textContent = 'Stockfish WASM: searching (depth 10)...';
+    }
+
+    try {
+      const result = await stockfishService.getBestMove({ uciMoves: [], depth: 10 });
+      if (playEngineStatus) {
+        playEngineStatus.textContent = `Stockfish WASM: ready • best move ${result.bestMove}`;
+      }
+    } catch (error) {
+      if (playEngineStatus) {
+        playEngineStatus.textContent = `Stockfish WASM: error (${error?.message ?? 'unknown'})`;
+      }
+    }
   });
 
   const vectorAdapter = new MuonVecAdapter();

@@ -56,6 +56,16 @@ Open the local URL printed by Vite.
 npm run db:build
 ```
 
+Stockfish WASM assets are synced locally to `public/stockfish/` during `npm run dev`, `npm run dev:full`, and `npm run build`.
+To refresh them manually:
+
+```bash
+npm run stockfish:sync
+```
+
+Vite dev/preview are configured with COOP/COEP headers required by `stockfish.wasm` WebAssembly threads.
+If you change Vite config, restart the dev server before testing Play tab engine status.
+
 Or use full startup:
 
 ```bash

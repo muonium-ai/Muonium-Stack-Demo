@@ -21,80 +21,98 @@
           </label>
         </div>
         <div class="headerActions">
-          <label class="topInlineToggle" for="moveArrowToggle">
+          <label class="topInlineToggle benchmarkOnlyControl" for="moveArrowToggle">
             <input id="moveArrowToggle" type="checkbox" checked />
             Move arrow
           </label>
-          <label class="topInlineToggle" for="openingClassifierToggle">
+          <label class="topInlineToggle benchmarkOnlyControl" for="openingClassifierToggle">
             <input id="openingClassifierToggle" type="checkbox" checked />
             Opening names
           </label>
-          <button id="searchModalOpen" class="topActionBtn topActionSearch">Search Games</button>
-          <button id="uploadPgnOpen" class="topActionBtn topActionUpload">Upload PGN</button>
-          <button id="randomBtn" class="topActionBtn topActionBenchmark">Random Autoplay</button>
-          <button id="benchmarkFastBtn" class="topActionBtn topActionBenchmark">Run Benchmark</button>
-          <button id="benchmarkBtn" class="topActionBtn topActionVisual">Run Visual Benchmark</button>
+          <button id="searchModalOpen" class="topActionBtn topActionSearch benchmarkOnlyControl">Search Games</button>
+          <button id="uploadPgnOpen" class="topActionBtn topActionUpload benchmarkOnlyControl">Upload PGN</button>
+          <button id="randomBtn" class="topActionBtn topActionBenchmark benchmarkOnlyControl">Random Autoplay</button>
+          <button id="benchmarkFastBtn" class="topActionBtn topActionBenchmark benchmarkOnlyControl">Run Benchmark</button>
+          <button id="benchmarkBtn" class="topActionBtn topActionVisual benchmarkOnlyControl">Run Visual Benchmark</button>
         </div>
       </section>
-      <section id="replayLayout">
-        <section id="boardPane">
-          <section class="navGroupTop" aria-label="Replay controls">
-            <div id="transportControls">
-              <button id="navStart" title="Start">⏮</button>
-              <button id="navPrev" title="Previous">⏪</button>
-              <button id="navPlay" title="Play/Pause">▶</button>
-              <button id="navNext" title="Next">⏩</button>
-              <button id="navEnd" title="End">⏭</button>
-            </div>
-          </section>
-          <div class="playerRow playerBlack">
-            <div class="playerName" id="blackName">Black</div>
-            <div class="captures" id="blackCaptures"></div>
-          </div>
-          <section id="board"></section>
-          <div class="playerRow playerWhite">
-            <div class="playerName" id="whiteName">White</div>
-            <div class="captures" id="whiteCaptures"></div>
-          </div>
-          <div id="resultBanner"></div>
-        </section>
-        <section id="pgnPane">
-          <section id="benchmarkPanel" class="hidden">
-            <div class="benchmarkHeader">
-              <strong>Benchmark</strong>
-              <div class="benchmarkHeaderActions">
-                <span id="benchmarkModeLabel">Mode: Idle</span>
-                <button id="benchmarkHideBtn" type="button">Hide</button>
+      <section class="appTabs" aria-label="App mode">
+        <button id="appTabBenchmark" class="appTab isActive" type="button">Benchmark</button>
+        <button id="appTabPlay" class="appTab" type="button">Play</button>
+      </section>
+
+      <section id="appPanelBenchmark" class="appTabPanel">
+        <section id="replayLayout">
+          <section id="boardPane">
+            <section class="navGroupTop" aria-label="Replay controls">
+              <div id="transportControls">
+                <button id="navStart" title="Start">⏮</button>
+                <button id="navPrev" title="Previous">⏪</button>
+                <button id="navPlay" title="Play/Pause">▶</button>
+                <button id="navNext" title="Next">⏩</button>
+                <button id="navEnd" title="End">⏭</button>
               </div>
+            </section>
+            <div class="playerRow playerBlack">
+              <div class="playerName" id="blackName">Black</div>
+              <div class="captures" id="blackCaptures"></div>
             </div>
-            <div class="benchmarkRow" id="benchmarkRowRegular">
-              <span class="benchmarkKind">Regular</span>
-              <span id="benchmarkRegularGames">Games: 0 / 0</span>
-              <span id="benchmarkRegularMoves">Moves: 0 / 0</span>
-              <span id="benchmarkRegularMps">Moves/s: 0.0</span>
-              <span id="benchmarkRegularEta">ETA: --</span>
-              <span id="benchmarkRegularState">Idle</span>
+            <section id="board"></section>
+            <div class="playerRow playerWhite">
+              <div class="playerName" id="whiteName">White</div>
+              <div class="captures" id="whiteCaptures"></div>
             </div>
-            <div class="benchmarkRow" id="benchmarkRowVisual">
-              <span class="benchmarkKind">Visual</span>
-              <span id="benchmarkVisualGames">Games: 0 / 0</span>
-              <span id="benchmarkVisualMoves">Moves: 0 / 0</span>
-              <span id="benchmarkVisualMps">Moves/s: 0.0</span>
-              <span id="benchmarkVisualEta">ETA: --</span>
-              <span id="benchmarkVisualArrowLatency">Arrow latency: --</span>
-              <span id="benchmarkVisualState">Idle</span>
-            </div>
-            <div class="benchmarkActions">
-              <button id="benchmarkPauseBtn" disabled>Pause</button>
-              <button id="benchmarkStopBtn" disabled>Stop</button>
-            </div>
+            <div id="resultBanner"></div>
           </section>
-          <div id="datasetLoadInfo">Loaded 0 games • load time 0.0s</div>
-          <div id="openingInfo">Opening: --</div>
-          <h2>PGN Moves</h2>
-          <div id="pgnViewer"></div>
+          <section id="pgnPane">
+            <section id="benchmarkPanel" class="hidden">
+              <div class="benchmarkHeader">
+                <strong>Benchmark</strong>
+                <div class="benchmarkHeaderActions">
+                  <span id="benchmarkModeLabel">Mode: Idle</span>
+                  <button id="benchmarkHideBtn" type="button">Hide</button>
+                </div>
+              </div>
+              <div class="benchmarkRow" id="benchmarkRowRegular">
+                <span class="benchmarkKind">Regular</span>
+                <span id="benchmarkRegularGames">Games: 0 / 0</span>
+                <span id="benchmarkRegularMoves">Moves: 0 / 0</span>
+                <span id="benchmarkRegularMps">Moves/s: 0.0</span>
+                <span id="benchmarkRegularEta">ETA: --</span>
+                <span id="benchmarkRegularState">Idle</span>
+              </div>
+              <div class="benchmarkRow" id="benchmarkRowVisual">
+                <span class="benchmarkKind">Visual</span>
+                <span id="benchmarkVisualGames">Games: 0 / 0</span>
+                <span id="benchmarkVisualMoves">Moves: 0 / 0</span>
+                <span id="benchmarkVisualMps">Moves/s: 0.0</span>
+                <span id="benchmarkVisualEta">ETA: --</span>
+                <span id="benchmarkVisualArrowLatency">Arrow latency: --</span>
+                <span id="benchmarkVisualState">Idle</span>
+              </div>
+              <div class="benchmarkActions">
+                <button id="benchmarkPauseBtn" disabled>Pause</button>
+                <button id="benchmarkStopBtn" disabled>Stop</button>
+              </div>
+            </section>
+            <div id="datasetLoadInfo">Loaded 0 games • load time 0.0s</div>
+            <div id="openingInfo">Opening: --</div>
+            <h2>PGN Moves</h2>
+            <div id="pgnViewer"></div>
+          </section>
         </section>
       </section>
+
+      <section id="appPanelPlay" class="appTabPanel hidden">
+        <section class="playPanelCard">
+          <h2>Play vs Engine</h2>
+          <p id="playEngineStatus">Stockfish WASM: loading...</p>
+          <div class="playPanelControls">
+            <button id="playEngineTestBtn" type="button">Test Engine Move</button>
+          </div>
+        </section>
+      </section>
+
       <section class="hiddenDataControls" aria-hidden="true">
         <select id="gameSelect"></select>
         <span id="loadProgressText"></span>
