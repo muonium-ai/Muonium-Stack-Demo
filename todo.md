@@ -123,7 +123,7 @@ Exit criteria:
 - [x] T-000050: Trigger mechanism scenario module
 - [x] T-000051: Lever system module
 - [x] T-000052: Rolling objects module
-- [ ] T-000053: Puzzle mode with scoring
+- [x] T-000053: Puzzle mode with scoring
 - [ ] T-000054: Redis-like WASM metrics ingestion/aggregation layer
 - [ ] T-000055: HUD overlay for real-time operational stats
 - [ ] T-000056: Live graph panel from telemetry stream

@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 const FIXED_TIMESTEP_SECONDS = 1 / 60;
 const MAX_STEPS_PER_FRAME = 8;
 const TRIGGER_SEQUENCE_ORDER = ['ball', 'plank', 'domino', 'lever', 'gate'];
+const PUZZLE_TIME_LIMIT_SECONDS = 3;
 const DOMINO_SIZE = { hx: 0.04, hy: 0.25, hz: 0.12 };
 const BALL_RADIUS = 0.18;
 const ROLLING_RADIUS = 0.22;
@@ -121,6 +122,15 @@ export class PhysicsRuntime {
     this.ballMetrics = this.createEmptyBallMetrics();
     this.triggerMetrics = this.createEmptyTriggerMetrics();
 
+    this.puzzleConfig = {
+      dominoCount: 60,
+      dominoSpacing: 0.34,
+      ballMaterialPreset: 'wood',
+      maxBalls: 1,
+      timeLimitSeconds: PUZZLE_TIME_LIMIT_SECONDS,
+    };
+    this.puzzleMetrics = this.createEmptyPuzzleMetrics();
+
     this.triggerState = {
       sequenceRunning: false,
       leverActivated: false,
@@ -202,6 +212,11 @@ export class PhysicsRuntime {
     this.triggerMetrics = this.createEmptyTriggerMetrics();
     this.leverMetrics = this.createEmptyLeverMetrics();
     this.rollingMetrics = this.createEmptyRollingMetrics();
+    this.puzzleMetrics.active = false;
+    if (this.puzzleMetrics.status === 'running') {
+      this.puzzleMetrics.status = 'idle';
+      this.puzzleMetrics.failureReason = '';
+    }
     this.triggerState = {
       sequenceRunning: false,
       leverActivated: false,
@@ -626,6 +641,58 @@ export class PhysicsRuntime {
     return { ok: true };
   }
 
+  startPuzzleAttempt() {
+    if (!this.initialized || !this.world) {
+      return { ok: false, error: 'initialize Rapier first' };
+    }
+
+    this.resetWorld();
+    this.createDominoChain({
+      count: this.puzzleConfig.dominoCount,
+      spacing: this.puzzleConfig.dominoSpacing,
+      materialPreset: 'wood',
+    });
+    this.createFallingBalls({
+      count: this.puzzleConfig.maxBalls,
+      materialPreset: this.puzzleConfig.ballMaterialPreset,
+      gravityEnabled: true,
+      gravityStrength: 1,
+    });
+
+    const ball = this.ballBodies[0];
+    if (!ball) {
+      return { ok: false, error: 'failed to create puzzle ball' };
+    }
+
+    const launchX = this.dominoConfig.startX - 0.65;
+    const launchY = DOMINO_SIZE.hy + BALL_RADIUS + 0.02;
+    ball.setTranslation({ x: launchX, y: launchY, z: 0 }, true);
+    ball.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    ball.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    ball.applyImpulse({ x: 3.4, y: 0, z: 0 }, true);
+
+    this.puzzleMetrics.attempts += 1;
+    this.puzzleMetrics.active = true;
+    this.puzzleMetrics.status = 'running';
+    this.puzzleMetrics.failureReason = '';
+    this.puzzleMetrics.lastCompletionSeconds = 0;
+    this.puzzleMetrics.lastScore = 0;
+    this.puzzleMetrics.startTimeSeconds = this.stepCount * FIXED_TIMESTEP_SECONDS;
+
+    this.emitState();
+    return {
+      ok: true,
+      attempt: this.puzzleMetrics.attempts,
+      objective: `Topple ${this.puzzleConfig.dominoCount} dominoes in under ${this.puzzleConfig.timeLimitSeconds.toFixed(1)} seconds using one ball`,
+    };
+  }
+
+  resetPuzzleProgress() {
+    this.puzzleMetrics = this.createEmptyPuzzleMetrics();
+    this.emitState();
+    return { ok: true };
+  }
+
   resetTriggerMechanismPositions() {
     this.triggerState.leverActivated = false;
     this.triggerState.gateActivated = false;
@@ -826,6 +893,17 @@ export class PhysicsRuntime {
         velocityAvg: this.rollingMetrics.velocityAvg,
         energyLoss: this.rollingMetrics.energyLoss,
       },
+      puzzle: {
+        objective: `Topple all dominoes in under ${this.puzzleConfig.timeLimitSeconds.toFixed(1)}s using one ball`,
+        attempts: this.puzzleMetrics.attempts,
+        successes: this.puzzleMetrics.successes,
+        status: this.puzzleMetrics.status,
+        active: this.puzzleMetrics.active,
+        failureReason: this.puzzleMetrics.failureReason,
+        lastCompletionSeconds: this.puzzleMetrics.lastCompletionSeconds,
+        bestCompletionSeconds: this.puzzleMetrics.bestCompletionSeconds,
+        lastScore: this.puzzleMetrics.lastScore,
+      },
       domino: {
         count: this.dominoMetrics.count,
         spacing: this.dominoMetrics.spacing,
@@ -886,6 +964,7 @@ export class PhysicsRuntime {
       this.collectLeverMetrics();
       this.collectRollingMetrics();
       this.advanceTriggerMechanism();
+      this.evaluatePuzzleAttempt();
     }
     const stepEnd = performance.now();
 
@@ -1158,6 +1237,85 @@ export class PhysicsRuntime {
       spawnY: 0,
       spawnZ: 0,
     };
+  }
+
+  createEmptyPuzzleMetrics() {
+    return {
+      attempts: 0,
+      successes: 0,
+      status: 'idle',
+      active: false,
+      failureReason: '',
+      startTimeSeconds: 0,
+      lastCompletionSeconds: 0,
+      bestCompletionSeconds: 0,
+      lastScore: 0,
+    };
+  }
+
+  evaluatePuzzleAttempt() {
+    if (!this.puzzleMetrics.active) {
+      return;
+    }
+
+    const now = this.stepCount * FIXED_TIMESTEP_SECONDS;
+    const elapsed = Math.max(0, now - this.puzzleMetrics.startTimeSeconds);
+    const fallenCount = this.dominoMetrics.fallTimestampsSeconds.filter((value) => value !== null).length;
+    const requiredCount = this.dominoMetrics.count;
+    const allFallen = requiredCount > 0 && fallenCount >= requiredCount;
+    const singleBallRuleSatisfied = this.ballBodies.length === this.puzzleConfig.maxBalls;
+
+    if (allFallen) {
+      if (singleBallRuleSatisfied && elapsed <= this.puzzleConfig.timeLimitSeconds) {
+        this.finishPuzzleAttempt('success', elapsed, fallenCount, '');
+      } else {
+        const reason = !singleBallRuleSatisfied
+          ? 'more than one ball used'
+          : `completed in ${elapsed.toFixed(3)}s (limit ${this.puzzleConfig.timeLimitSeconds.toFixed(3)}s)`;
+        this.finishPuzzleAttempt('failure', elapsed, fallenCount, reason);
+      }
+      return;
+    }
+
+    if (elapsed > this.puzzleConfig.timeLimitSeconds) {
+      this.finishPuzzleAttempt(
+        'failure',
+        elapsed,
+        fallenCount,
+        `time limit exceeded (${elapsed.toFixed(3)}s > ${this.puzzleConfig.timeLimitSeconds.toFixed(3)}s)`
+      );
+    }
+  }
+
+  finishPuzzleAttempt(status, completionSeconds, fallenCount, failureReason) {
+    const success = status === 'success';
+    this.puzzleMetrics.active = false;
+    this.puzzleMetrics.status = status;
+    this.puzzleMetrics.failureReason = success ? '' : failureReason;
+    this.puzzleMetrics.lastCompletionSeconds = completionSeconds;
+    this.puzzleMetrics.lastScore = this.computePuzzleScore(completionSeconds, fallenCount, success);
+
+    if (success) {
+      this.puzzleMetrics.successes += 1;
+      if (this.puzzleMetrics.bestCompletionSeconds === 0 || completionSeconds < this.puzzleMetrics.bestCompletionSeconds) {
+        this.puzzleMetrics.bestCompletionSeconds = completionSeconds;
+      }
+    }
+
+    this.emitState();
+  }
+
+  computePuzzleScore(completionSeconds, fallenCount, success) {
+    const count = Math.max(1, this.dominoMetrics.count);
+    const coverage = Math.max(0, Math.min(1, fallenCount / count));
+    const timeFactor = Math.max(0, Math.min(1, 1 - completionSeconds / this.puzzleConfig.timeLimitSeconds));
+    const ballRuleFactor = this.ballBodies.length === this.puzzleConfig.maxBalls ? 1 : 0;
+
+    let score = coverage * 55 + timeFactor * 35 + ballRuleFactor * 10;
+    if (!success) {
+      score *= 0.75;
+    }
+    return Math.round(score * 10) / 10;
   }
 
   emitTiming(timing) {

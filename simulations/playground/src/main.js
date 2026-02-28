@@ -7,7 +7,7 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <section class="shell">
     <h1>Muonium Physics Playground</h1>
-    <p class="subtitle">T-000050 Trigger mechanism sequence</p>
+    <p class="subtitle">T-000053 Puzzle mode (single-ball domino challenge)</p>
 
     <section class="controls" aria-label="Physics controls">
       <button id="initBtn" type="button">Initialize Rapier</button>
@@ -103,6 +103,11 @@ app.innerHTML = `
       <button id="rollingApplyBtn" type="button" disabled>Apply Rolling Setup</button>
     </section>
 
+    <section class="controls puzzleControls" aria-label="Puzzle controls">
+      <button id="puzzleStartBtn" type="button" disabled>Start Puzzle Attempt</button>
+      <button id="puzzleResetBtn" type="button" disabled>Reset Puzzle Progress</button>
+    </section>
+
     <p id="runtimeStatus" class="status">Status: idle</p>
 
     <section class="viewportPanel" aria-label="Playground viewport">
@@ -172,6 +177,19 @@ app.innerHTML = `
         <div><dt>Energy loss</dt><dd id="rollingEnergyLossMetric">0.000</dd></div>
       </dl>
     </section>
+
+    <section class="telemetry" aria-label="Puzzle telemetry">
+      <h2>Puzzle metrics</h2>
+      <dl>
+        <div><dt>Objective</dt><dd id="puzzleObjectiveMetric">--</dd></div>
+        <div><dt>Attempts</dt><dd id="puzzleAttemptsMetric">0</dd></div>
+        <div><dt>Successes</dt><dd id="puzzleSuccessMetric">0</dd></div>
+        <div><dt>Status</dt><dd id="puzzleStatusMetric">idle</dd></div>
+        <div><dt>Completion time</dt><dd id="puzzleCompletionMetric">0.000 s</dd></div>
+        <div><dt>Best time</dt><dd id="puzzleBestMetric">--</dd></div>
+        <div><dt>Efficiency score</dt><dd id="puzzleScoreMetric">0.0</dd></div>
+      </dl>
+    </section>
   </section>
 `;
 
@@ -201,6 +219,8 @@ const rollingAngleInput = document.querySelector('#rollingAngleInput');
 const rollingFrictionInput = document.querySelector('#rollingFrictionInput');
 const rollingMassInput = document.querySelector('#rollingMassInput');
 const rollingApplyBtn = document.querySelector('#rollingApplyBtn');
+const puzzleStartBtn = document.querySelector('#puzzleStartBtn');
+const puzzleResetBtn = document.querySelector('#puzzleResetBtn');
 const runtimeStatus = document.querySelector('#runtimeStatus');
 
 const frameTime = document.querySelector('#frameTime');
@@ -231,6 +251,13 @@ const rollingDistanceMetric = document.querySelector('#rollingDistanceMetric');
 const rollingVelocityMetric = document.querySelector('#rollingVelocityMetric');
 const rollingFrictionMetric = document.querySelector('#rollingFrictionMetric');
 const rollingEnergyLossMetric = document.querySelector('#rollingEnergyLossMetric');
+const puzzleObjectiveMetric = document.querySelector('#puzzleObjectiveMetric');
+const puzzleAttemptsMetric = document.querySelector('#puzzleAttemptsMetric');
+const puzzleSuccessMetric = document.querySelector('#puzzleSuccessMetric');
+const puzzleStatusMetric = document.querySelector('#puzzleStatusMetric');
+const puzzleCompletionMetric = document.querySelector('#puzzleCompletionMetric');
+const puzzleBestMetric = document.querySelector('#puzzleBestMetric');
+const puzzleScoreMetric = document.querySelector('#puzzleScoreMetric');
 const viewport = document.querySelector('#viewport');
 
 renderer.init(viewport);
@@ -251,6 +278,8 @@ runtime.onState((snapshot) => {
   triggerRunBtn.disabled = !snapshot.initialized;
   leverApplyBtn.disabled = !snapshot.initialized;
   rollingApplyBtn.disabled = !snapshot.initialized;
+  puzzleStartBtn.disabled = !snapshot.initialized;
+  puzzleResetBtn.disabled = !snapshot.initialized;
 
   gravityEnabledToggle.checked = snapshot.ball.gravityEnabled;
   gravityStrengthInput.value = snapshot.ball.gravityStrength.toFixed(1);
@@ -298,6 +327,18 @@ runtime.onTiming((timing, snapshot) => {
   rollingVelocityMetric.textContent = snapshot.rolling.velocityAvg.toFixed(3);
   rollingFrictionMetric.textContent = snapshot.rolling.frictionCoeff.toFixed(3);
   rollingEnergyLossMetric.textContent = snapshot.rolling.energyLoss.toFixed(3);
+
+  puzzleObjectiveMetric.textContent = snapshot.puzzle.objective;
+  puzzleAttemptsMetric.textContent = String(snapshot.puzzle.attempts);
+  puzzleSuccessMetric.textContent = String(snapshot.puzzle.successes);
+  puzzleStatusMetric.textContent =
+    snapshot.puzzle.status === 'failure' && snapshot.puzzle.failureReason
+      ? `failure (${snapshot.puzzle.failureReason})`
+      : snapshot.puzzle.status;
+  puzzleCompletionMetric.textContent = `${snapshot.puzzle.lastCompletionSeconds.toFixed(3)} s`;
+  puzzleBestMetric.textContent =
+    snapshot.puzzle.bestCompletionSeconds > 0 ? `${snapshot.puzzle.bestCompletionSeconds.toFixed(3)} s` : '--';
+  puzzleScoreMetric.textContent = snapshot.puzzle.lastScore.toFixed(1);
 });
 
 initBtn.addEventListener('click', async () => {
@@ -442,6 +483,32 @@ rollingApplyBtn.addEventListener('click', async () => {
       2
     )}, mass ${result.config.mass.toFixed(1)})`
   );
+});
+
+puzzleStartBtn.addEventListener('click', async () => {
+  if (!runtime.getSnapshot().initialized) {
+    setStatus('initializing Rapier for puzzle mode...');
+    const initResult = await runtime.init();
+    if (!initResult.ok) {
+      setStatus(`init failed (${initResult.error})`, true);
+      return;
+    }
+  }
+
+  const result = runtime.startPuzzleAttempt();
+  if (!result.ok) {
+    setStatus(`puzzle start failed (${result.error})`, true);
+    return;
+  }
+
+  runtime.start();
+  renderer.start();
+  setStatus(`puzzle attempt ${result.attempt} started`);
+});
+
+puzzleResetBtn.addEventListener('click', () => {
+  runtime.resetPuzzleProgress();
+  setStatus('puzzle progress reset');
 });
 
 speedSelect.addEventListener('change', (event) => {
