@@ -116,7 +116,7 @@ Exit criteria:
 ## Ticket Map
 
 - [x] T-000045: Create isolated playground scaffold + separate HTML/build entrypoints (under `simulations/playground`)
-- [ ] T-000046: Implement Rapier WASM bootstrap and simulation loop
+- [x] T-000046: Implement Rapier WASM bootstrap and simulation loop
 - [ ] T-000047: Implement Three.js rendering bootstrap and lifecycle
 - [ ] T-000048: Domino chain simulation module
 - [ ] T-000049: Falling balls simulation module

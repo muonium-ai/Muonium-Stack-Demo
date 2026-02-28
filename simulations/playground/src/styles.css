@@ -25,16 +25,76 @@ h1 {
   font-size: 1.8rem;
 }
 
-p {
+.subtitle {
   margin: 0 0 16px;
   color: #aac0ef;
 }
 
-ul {
-  margin: 0;
-  padding-left: 20px;
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
-li {
-  margin: 6px 0;
+button,
+select {
+  background: #1a2a4a;
+  color: #e4edff;
+  border: 1px solid #395488;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #bed0f6;
+}
+
+.status {
+  margin: 0 0 14px;
+  color: #9fd4ff;
+}
+
+.status[data-state='error'] {
+  color: #ff9a9a;
+}
+
+.telemetry h2 {
+  font-size: 1rem;
+  margin: 0 0 10px;
+}
+
+.telemetry dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.telemetry div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  background: #14213b;
+  border: 1px solid #2a426f;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.telemetry dt {
+  color: #a9c0ea;
+}
+
+.telemetry dd {
+  margin: 0;
+  color: #edf4ff;
 }
