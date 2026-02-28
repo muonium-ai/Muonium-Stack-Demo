@@ -774,8 +774,8 @@ const runBasicShowcase = async () => {
       renderer.start();
 
       basicActivityBaseline = {
-        tick: latestMetricsPacket?.tick ?? 0,
-        totalOps: latestMetricsPacket?.opCounts?.total ?? 0,
+        tick: 0,
+        totalOps: 0,
       };
       basicChaosLastCollisionCount = Number(runtime.getSnapshot().domino.collisionEvents ?? 0);
       basicChaosIdleSinceMs = performance.now();
@@ -791,8 +791,8 @@ const runBasicShowcase = async () => {
         }
         const packet = latestMetricsPacket;
         const snapshot = runtime.getSnapshot();
-        const tickAdvanced = packet ? packet.tick > basicActivityBaseline.tick : false;
-        const opsAdvanced = packet ? packet.opCounts.total > basicActivityBaseline.totalOps : false;
+        const tickAdvanced = packet ? packet.tick > 0 : false;
+        const opsAdvanced = packet ? packet.opCounts.total > 0 : false;
         const movementDetected =
           snapshot.totalSteps > 10 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.01;
         if (!tickAdvanced || !opsAdvanced || !movementDetected) {
