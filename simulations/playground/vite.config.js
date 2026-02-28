@@ -26,5 +26,21 @@ export default defineConfig({
   build: {
     outDir: resolve(playgroundRoot, 'dist'),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return;
+          }
+          if (id.includes('/three/')) {
+            return 'vendor-three';
+          }
+          if (id.includes('/@dimforge/rapier3d-compat/')) {
+            return 'vendor-rapier';
+          }
+          return 'vendor-misc';
+        },
+      },
+    },
   },
 });
