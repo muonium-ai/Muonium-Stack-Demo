@@ -700,8 +700,11 @@ async function bootstrap() {
   const benchmarkOnlyControls = Array.from(document.querySelectorAll('.benchmarkOnlyControl'));
   const playBoard = document.querySelector('#playBoard');
   const playMoveInfo = document.querySelector('#playMoveInfo');
+  const playTurnNotice = document.querySelector('#playTurnNotice');
   const playWhiteName = document.querySelector('#playWhiteName');
   const playBlackName = document.querySelector('#playBlackName');
+  const playWhiteCaptures = document.querySelector('#playWhiteCaptures');
+  const playBlackCaptures = document.querySelector('#playBlackCaptures');
   const playPgnViewer = document.querySelector('#playPgnViewer');
   const playModeInfo = document.querySelector('#playModeInfo');
   const playEngineStatus = document.querySelector('#playEngineStatus');
@@ -945,6 +948,38 @@ async function bootstrap() {
       forceFull: playReplayIndex === 0,
       scrollActive: true,
     });
+
+    const counts = pieceCountsFromFen(replayFen);
+    if (playWhiteCaptures) {
+      const captured = capturesToUnicode(counts, CAPTURE_ORDER_WHITE);
+      playWhiteCaptures.textContent = captured || 'No captures yet';
+    }
+    if (playBlackCaptures) {
+      const captured = capturesToUnicode(counts, CAPTURE_ORDER_BLACK);
+      playBlackCaptures.textContent = captured || 'No captures yet';
+    }
+
+    if (playTurnNotice) {
+      const replayTurn = String(replayFen.split(' ')[1] ?? '').toLowerCase();
+      const latestTurn = playChess.turn();
+      const isLatestPosition = playReplayIndex === playReplayMoves.length;
+      const humanTurn = humanTurnColor();
+
+      if (!isLatestPosition) {
+        playTurnNotice.textContent = `Viewing history: move ${playReplayIndex}/${playReplayMoves.length}`;
+      } else if (playChess.isGameOver()) {
+        playTurnNotice.textContent = 'Game over';
+      } else if (playMode === 'human' && latestTurn === humanTurn) {
+        playTurnNotice.textContent = 'Your turn: make a move';
+      } else if (playMode === 'human' && latestTurn !== humanTurn) {
+        playTurnNotice.textContent = 'Engine turn';
+      } else if (replayTurn === 'w' || replayTurn === 'b') {
+        playTurnNotice.textContent = replayTurn === 'w' ? 'Turn: White' : 'Turn: Black';
+      } else {
+        playTurnNotice.textContent = 'Turn: --';
+      }
+    }
+
     if (playMoveInfo) {
       const label = playReplayIndex > 0 ? playReplayMoves[playReplayIndex - 1] ?? moveLabel : 'start';
       playMoveInfo.textContent = `Move ${playReplayIndex}/${playReplayMoves.length} • ${label}`;

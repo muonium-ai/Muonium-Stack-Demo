@@ -456,6 +456,13 @@ h1 {
   font-weight: 600;
 }
 
+#playTurnNotice {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--color-pgn-active);
+  font-weight: 700;
+}
+
 .playMovesTitle {
   margin: 0 0 8px;
   font-size: 15px;
