@@ -295,6 +295,40 @@ export class PlaygroundRenderer {
     this.updateCameraTransform();
   }
 
+  getCameraDebugState() {
+    if (!this.camera || !this.cameraTarget) {
+      return null;
+    }
+
+    return {
+      pan: {
+        x: Number(this.cameraTarget.x.toFixed(4)),
+        z: Number(this.cameraTarget.z.toFixed(4)),
+      },
+      zoom: {
+        distance: Number(this.cameraDistance.toFixed(4)),
+      },
+      tilt: {
+        radians: Number(this.cameraPitch.toFixed(6)),
+        degrees: Number((this.cameraPitch * (180 / Math.PI)).toFixed(3)),
+      },
+      yaw: {
+        radians: Number(this.cameraYaw.toFixed(6)),
+        degrees: Number((this.cameraYaw * (180 / Math.PI)).toFixed(3)),
+      },
+      target: {
+        x: Number(this.cameraTarget.x.toFixed(4)),
+        y: Number(this.cameraTarget.y.toFixed(4)),
+        z: Number(this.cameraTarget.z.toFixed(4)),
+      },
+      position: {
+        x: Number(this.camera.position.x.toFixed(4)),
+        y: Number(this.camera.position.y.toFixed(4)),
+        z: Number(this.camera.position.z.toFixed(4)),
+      },
+    };
+  }
+
   reset() {
     if (!this.fallingMesh) {
       return;

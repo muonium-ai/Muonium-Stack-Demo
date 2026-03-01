@@ -28,8 +28,7 @@ body {
 .shell[data-mode='basic'] h1,
 .shell[data-mode='basic'] .subtitle,
 .shell[data-mode='basic'] .modeTabs,
-.shell[data-mode='basic'] .status,
-.shell[data-mode='basic'] .hudOverlay {
+.shell[data-mode='basic'] .status {
   display: none;
 }
 
@@ -121,6 +120,26 @@ h1 {
 .shell[data-mode='basic'] .controls.basicOnly.basicCameraControls {
   justify-content: center;
   margin: 0 0 12px;
+}
+
+.shell[data-mode='basic'] .controls.basicOnly.basicCameraState {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.shell[data-mode='basic'] .basicCameraJson {
+  width: min(920px, 96vw);
+  max-height: 180px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #2a426f;
+  border-radius: 8px;
+  background: #14213b;
+  color: #d7e7ff;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .shell[data-mode='basic'] .basicCameraControls button {
@@ -305,6 +324,26 @@ label {
 
 .shell[data-mode='basic'] .viewport {
   height: 720px;
+}
+
+.shell[data-mode='basic'].isFullscreen {
+  width: 100vw;
+  max-width: none;
+  min-height: 100vh;
+  border-radius: 0;
+  padding: 12px;
+}
+
+.shell[data-mode='basic'].isFullscreen .viewport {
+  height: calc(100vh - 230px);
+}
+
+.shell[data-mode='basic'].isFullscreen .hudOverlay {
+  display: block;
+}
+
+.shell[data-mode='basic'].isFullscreen .basicRedisPanel {
+  display: none;
 }
 
 .hudOverlay {

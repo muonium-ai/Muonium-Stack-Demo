@@ -24,6 +24,7 @@ app.innerHTML = `
           <option value="chessboard" selected>Chessboard</option>
         </select>
       </label>
+      <button id="basicFullscreenBtn" type="button">Fullscreen</button>
       <button id="basicPauseBtn" type="button">Pause</button>
       <button id="basicResetBtn" type="button">Reset</button>
       <p class="basicIterationLabel">Iteration <span id="basicIterationValue">0</span></p>
@@ -39,6 +40,11 @@ app.innerHTML = `
       <button id="basicZoomInBtn" type="button">Zoom +</button>
       <button id="basicZoomOutBtn" type="button">Zoom -</button>
       <button id="basicCameraResetBtn" type="button">Reset View</button>
+    </section>
+
+    <section class="controls basicOnly basicCameraState" aria-label="Basic camera JSON state">
+      <button id="basicCopyCameraJsonBtn" type="button">Copy Camera JSON</button>
+      <pre id="basicCameraJson" class="basicCameraJson">{}</pre>
     </section>
 
     <section class="controls advancedOnly advancedNav" aria-label="Advanced navigation">
@@ -350,6 +356,7 @@ const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
 const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
 const basicGameModeSelect = document.querySelector('#basicGameModeSelect');
+const basicFullscreenBtn = document.querySelector('#basicFullscreenBtn');
 const basicPauseBtn = document.querySelector('#basicPauseBtn');
 const basicResetBtn = document.querySelector('#basicResetBtn');
 const basicIterationValue = document.querySelector('#basicIterationValue');
@@ -362,6 +369,8 @@ const basicTiltDownBtn = document.querySelector('#basicTiltDownBtn');
 const basicZoomInBtn = document.querySelector('#basicZoomInBtn');
 const basicZoomOutBtn = document.querySelector('#basicZoomOutBtn');
 const basicCameraResetBtn = document.querySelector('#basicCameraResetBtn');
+const basicCopyCameraJsonBtn = document.querySelector('#basicCopyCameraJsonBtn');
+const basicCameraJson = document.querySelector('#basicCameraJson');
 const basicRedisToggleBtn = document.querySelector('#basicRedisToggleBtn');
 const basicRedisBody = document.querySelector('#basicRedisBody');
 const basicRedisNarrative = document.querySelector('#basicRedisNarrative');
@@ -496,6 +505,8 @@ let basicChessRainActive = false;
 let basicChessRainTarget = 0;
 let basicChessRainDropped = 0;
 let basicAutoStartTriggered = false;
+let basicFullscreenActive = false;
+let basicRedisMinimizedBeforeFullscreen = false;
 let basicGameMode = 'chaos';
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
@@ -528,6 +539,28 @@ const setBasicGameMode = (nextMode, options = {}) => {
   }
   if (options.updateStatus !== false) {
     setStatus(`basic game mode set to ${basicModeLabel(normalized)}`);
+  }
+};
+
+const renderBasicCameraJson = () => {
+  const state = renderer.getCameraDebugState();
+  if (!state || !basicCameraJson) {
+    return;
+  }
+  basicCameraJson.textContent = JSON.stringify(state, null, 2);
+};
+
+const syncBasicFullscreenState = () => {
+  const fullscreenElement = document.fullscreenElement;
+  basicFullscreenActive = fullscreenElement === shell;
+  shell.classList.toggle('isFullscreen', basicFullscreenActive);
+  basicFullscreenBtn.textContent = basicFullscreenActive ? 'Exit Fullscreen' : 'Fullscreen';
+
+  if (basicFullscreenActive) {
+    basicRedisMinimizedBeforeFullscreen = basicRedisMinimized;
+    setBasicRedisMinimized(true);
+  } else {
+    setBasicRedisMinimized(basicRedisMinimizedBeforeFullscreen);
   }
 };
 
@@ -951,6 +984,7 @@ const runBasicShowcase = async () => {
 
 renderer.init(viewport);
 setBasicGameMode('chessboard', { updateStatus: false });
+renderBasicCameraJson();
 
 const setStatus = (message, isError = false) => {
   runtimeStatus.textContent = `Status: ${message}`;
@@ -1544,38 +1578,69 @@ basicResetBtn.addEventListener('click', async () => {
 
 basicPanLeftBtn.addEventListener('click', () => {
   renderer.panCamera(-0.45, 0);
+  renderBasicCameraJson();
 });
 
 basicPanRightBtn.addEventListener('click', () => {
   renderer.panCamera(0.45, 0);
+  renderBasicCameraJson();
 });
 
 basicPanForwardBtn.addEventListener('click', () => {
   renderer.panCamera(0, -0.45);
+  renderBasicCameraJson();
 });
 
 basicPanBackBtn.addEventListener('click', () => {
   renderer.panCamera(0, 0.45);
+  renderBasicCameraJson();
 });
 
 basicTiltUpBtn.addEventListener('click', () => {
   renderer.tiltCamera(0.1);
+  renderBasicCameraJson();
 });
 
 basicTiltDownBtn.addEventListener('click', () => {
   renderer.tiltCamera(-0.1);
+  renderBasicCameraJson();
 });
 
 basicZoomInBtn.addEventListener('click', () => {
   renderer.zoomCamera(-0.55);
+  renderBasicCameraJson();
 });
 
 basicZoomOutBtn.addEventListener('click', () => {
   renderer.zoomCamera(0.55);
+  renderBasicCameraJson();
 });
 
 basicCameraResetBtn.addEventListener('click', () => {
   renderer.resetCameraView();
+  renderBasicCameraJson();
+});
+
+basicCopyCameraJsonBtn.addEventListener('click', async () => {
+  const payload = basicCameraJson.textContent;
+  try {
+    await navigator.clipboard.writeText(payload);
+    setStatus('camera JSON copied');
+  } catch {
+    setStatus('failed to copy camera JSON', true);
+  }
+});
+
+basicFullscreenBtn.addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement === shell) {
+      await document.exitFullscreen();
+      return;
+    }
+    await shell.requestFullscreen();
+  } catch {
+    setStatus('fullscreen toggle failed', true);
+  }
 });
 
 replayConfigBtn.addEventListener('click', () => {
@@ -1675,6 +1740,11 @@ if (uiMode === 'basic' && !basicAutoStartTriggered) {
     });
   }, 120);
 }
+
+document.addEventListener('fullscreenchange', () => {
+  syncBasicFullscreenState();
+  renderBasicCameraJson();
+});
 
 window.addEventListener('beforeunload', () => {
   clearBasicShowcaseTimers();
