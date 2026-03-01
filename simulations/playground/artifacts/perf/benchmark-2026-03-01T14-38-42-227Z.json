@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-01T14:39:04.043Z",
+  "generatedAt": "2026-03-01T14:38:42.226Z",
   "targets": {
     "fpsMin": 60,
     "physicsStepTimeMaxMs": 1,
@@ -7,7 +7,7 @@
     "loadTimeMaxMs": 2000,
     "bundleSizeMaxBytes": 3145728
   },
-  "buildTimeMs": 1148.242667,
+  "buildTimeMs": 1421.4735420000002,
   "bundle": {
     "fileCount": 15,
     "totalBytes": 3692593,
@@ -18,15 +18,15 @@
   },
   "telemetry": {
     "sampledFrameCount": 1800,
-    "harnessProcessingFps": 497747.4164143608,
+    "harnessProcessingFps": 512991.0713904218,
     "telemetryFps": 60.79,
     "physicsStepTimeMs": 0.81
   },
   "metrics": {
     "iterationCount": 200000,
     "totalOps": 600000,
-    "elapsedSeconds": 0.37298424999999996,
-    "metricsOpsPerSec": 1608647.013915467
+    "elapsedSeconds": 0.393330209,
+    "metricsOpsPerSec": 1525435.8456865947
   },
   "validation": {
     "checks": {
@@ -37,9 +37,5 @@
       "bundleSize": false
     },
     "passed": false
-  },
-  "artifacts": {
-    "latestPath": "/Users/senthil/code/Muonium-Stack-Demo/simulations/playground/artifacts/perf/benchmark-latest.json",
-    "timestampedPath": "/Users/senthil/code/Muonium-Stack-Demo/simulations/playground/artifacts/perf/benchmark-2026-03-01T14-39-04-044Z.json"
   }
 }
