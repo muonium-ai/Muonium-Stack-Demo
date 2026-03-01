@@ -200,6 +200,7 @@ app.innerHTML = `
       <aside id="hudOverlay" class="hudOverlay" aria-label="HUD overlay">
         <h3>HUD</h3>
         <button id="basicSettingsToggleBtn" type="button" class="hudPieceToggle">Settings</button>
+        <button id="hudPauseBtn" type="button" class="hudPieceToggle">Pause</button>
         <dl>
           <div><dt>FPS</dt><dd id="hudFpsMetric" data-state="ok">0.00</dd></div>
           <div><dt>Physics step</dt><dd id="hudStepMetric" data-state="ok">0.0 μs</dd></div>
@@ -512,6 +513,7 @@ const hudFpsMetric = document.querySelector('#hudFpsMetric');
 const hudStepMetric = document.querySelector('#hudStepMetric');
 const hudCollisionsMetric = document.querySelector('#hudCollisionsMetric');
 const hudEnergyStateMetric = document.querySelector('#hudEnergyStateMetric');
+const hudPauseBtn = document.querySelector('#hudPauseBtn');
 const hudPieceSwipeBtn = document.querySelector('#hudPieceSwipeBtn');
 const hudPieceToggleBtn = document.querySelector('#hudPieceToggleBtn');
 const hudPieceBody = document.querySelector('#hudPieceBody');
@@ -1229,6 +1231,8 @@ runtime.onState((snapshot) => {
   tabAdvancedBtn.disabled = false;
   basicPauseBtn.disabled = !snapshot.initialized || replayModeActive;
   basicPauseBtn.textContent = snapshot.running ? 'Pause' : 'Resume';
+  hudPauseBtn.disabled = !snapshot.initialized || replayModeActive;
+  hudPauseBtn.textContent = snapshot.running ? 'Pause' : 'Resume';
   basicResetBtn.disabled = !snapshot.initialized || replayModeActive;
   initBtn.disabled = snapshot.initialized;
   startBtn.disabled = !snapshot.initialized || snapshot.running || replayModeActive;
@@ -1678,7 +1682,7 @@ basicGameModeSelect.addEventListener('change', (event) => {
   setBasicGameMode(event.target.value);
 });
 
-basicPauseBtn.addEventListener('click', () => {
+const toggleBasicPauseResume = () => {
   const snapshot = runtime.getSnapshot();
   if (!snapshot.initialized) {
     return;
@@ -1695,6 +1699,14 @@ basicPauseBtn.addEventListener('click', () => {
   runtime.start();
   renderer.start();
   setStatus('basic simulation resumed');
+};
+
+basicPauseBtn.addEventListener('click', () => {
+  toggleBasicPauseResume();
+});
+
+hudPauseBtn.addEventListener('click', () => {
+  toggleBasicPauseResume();
 });
 
 basicResetBtn.addEventListener('click', async () => {
