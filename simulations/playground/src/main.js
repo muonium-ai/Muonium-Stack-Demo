@@ -753,8 +753,8 @@ const runBasicShowcase = async () => {
       runtime.resetWorld();
       renderer.reset();
 
-      const dominoCount = isChessboardMode ? randomInt(12, 32) : randomInt(1, 50);
-      const ballCount = isChessboardMode ? randomInt(6, 24) : randomInt(1, 50);
+      const dominoCount = randomInt(1, 50);
+      const ballCount = randomInt(1, 50);
       const spacing = isChessboardMode
         ? Number((0.4 + Math.random() * 0.22).toFixed(2))
         : Number((0.22 + Math.random() * 0.38).toFixed(2));

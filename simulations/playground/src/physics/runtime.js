@@ -108,6 +108,7 @@ export class PhysicsRuntime {
     this.rollingMetrics = this.createEmptyRollingMetrics();
 
     this.dominoBodies = [];
+    this.dominoPieceVariants = [];
     this.dominoColliderHandles = new Set();
     this.dominoConfig = {
       count: 60,
@@ -118,6 +119,7 @@ export class PhysicsRuntime {
     this.dominoMetrics = this.createEmptyDominoMetrics();
 
     this.ballBodies = [];
+    this.ballPieceVariants = [];
     this.ballBodyByColliderHandle = new Map();
     this.ballConfig = {
       count: 4,
@@ -254,9 +256,11 @@ export class PhysicsRuntime {
     this.accumulatorSeconds = 0;
     this.stepCount = 0;
     this.dominoBodies = [];
+    this.dominoPieceVariants = [];
     this.dominoColliderHandles.clear();
     this.dominoMetrics = this.createEmptyDominoMetrics();
     this.ballBodies = [];
+    this.ballPieceVariants = [];
     this.ballBodyByColliderHandle.clear();
     this.ballMetrics = this.createEmptyBallMetrics();
     this.triggerMetrics = this.createEmptyTriggerMetrics();
@@ -542,6 +546,7 @@ export class PhysicsRuntime {
     this.dominoMetrics.fallTimestampsSeconds = new Array(count).fill(null);
     this.dominoMetrics.triggered = false;
     this.dominoMetrics.triggerTimeSeconds = 0;
+    this.dominoPieceVariants = this.createPieceVariants(count, 'domino');
 
     this.emitState();
     this.emitTiming({
@@ -648,7 +653,8 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const count = Math.max(1, Math.min(12, Math.round(Number(configInput.count ?? this.ballConfig.count))));
+    const maxCount = this.basicGameMode === 'chessboard' ? 50 : 12;
+    const count = Math.max(1, Math.min(maxCount, Math.round(Number(configInput.count ?? this.ballConfig.count))));
     const materialPreset =
       BALL_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.ballConfig.materialPreset;
     const gravityEnabled =
@@ -704,6 +710,7 @@ export class PhysicsRuntime {
     this.ballMetrics.materialPreset = materialPreset;
     this.ballMetrics.gravityEnabled = gravityEnabled;
     this.ballMetrics.gravityStrength = gravityStrength;
+    this.ballPieceVariants = this.createPieceVariants(count, 'ball');
 
     for (const body of this.ballBodies) {
       const t = body.translation();
@@ -1054,8 +1061,11 @@ export class PhysicsRuntime {
       },
       ballTransforms,
       ballMaterialPreset: this.ballMetrics.materialPreset,
+      ballPieceVariants: this.ballPieceVariants,
       dominoTransforms,
       dominoMaterialPreset: this.dominoMetrics.materialPreset,
+      dominoPieceVariants: this.dominoPieceVariants,
+      basicGameMode: this.basicGameMode,
       ball: {
         count: this.ballMetrics.count,
         materialPreset: this.ballMetrics.materialPreset,
@@ -1515,6 +1525,28 @@ export class PhysicsRuntime {
       bestCompletionSeconds: 0,
       lastScore: 0,
     };
+  }
+
+  createPieceVariants(count, kind) {
+    const safeCount = Math.max(0, Math.round(Number(count) || 0));
+    if (this.basicGameMode !== 'chessboard') {
+      return new Array(safeCount).fill(null);
+    }
+
+    const dominoKinds = ['rook', 'bishop', 'knight', 'queen', 'king', 'pawn'];
+    const ballKinds = ['pawn', 'pawn', 'knight', 'bishop', 'rook', 'queen'];
+    const pieceKinds = kind === 'domino' ? dominoKinds : ballKinds;
+    const variants = [];
+    const midpoint = Math.ceil(safeCount / 2);
+
+    for (let index = 0; index < safeCount; index += 1) {
+      variants.push({
+        color: index < midpoint ? 'white' : 'black',
+        kind: pieceKinds[index % pieceKinds.length],
+      });
+    }
+
+    return variants;
   }
 
   evaluatePuzzleAttempt() {

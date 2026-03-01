@@ -20,8 +20,10 @@ export class PlaygroundRenderer {
     this.gridHelper = null;
     this.fallingMesh = null;
     this.dominoGeometry = null;
+    this.chessDominoGeometry = null;
     this.dominoMeshes = [];
     this.ballGeometry = null;
+    this.chessBallGeometry = null;
     this.ballMeshes = [];
     this.plankMesh = null;
     this.leverMesh = null;
@@ -111,7 +113,9 @@ export class PlaygroundRenderer {
     this.scene.add(this.fallingMesh);
 
     this.dominoGeometry = new THREE.BoxGeometry(0.08, 0.5, 0.24);
+    this.chessDominoGeometry = new THREE.CylinderGeometry(0.09, 0.13, 0.48, 18);
     this.ballGeometry = new THREE.SphereGeometry(0.18, 18, 14);
+    this.chessBallGeometry = new THREE.CylinderGeometry(0.08, 0.18, 0.34, 16);
 
     const plankGeometry = new THREE.BoxGeometry(1.0, 0.16, 0.5);
     const plankMaterial = new THREE.MeshStandardMaterial({ color: 0x7f95bd });
@@ -261,8 +265,18 @@ export class PlaygroundRenderer {
     }
     this.fallingMesh.position.set(snapshot.cubeX, snapshot.cubeY, snapshot.cubeZ);
     this.fallingMesh.quaternion.set(snapshot.cubeQx, snapshot.cubeQy, snapshot.cubeQz, snapshot.cubeQw);
-    this.syncBallMeshes(snapshot.ballTransforms ?? [], snapshot.ballMaterialPreset ?? 'wood');
-    this.syncDominoMeshes(snapshot.dominoTransforms ?? [], snapshot.dominoMaterialPreset ?? 'wood');
+    this.syncBallMeshes(
+      snapshot.ballTransforms ?? [],
+      snapshot.ballMaterialPreset ?? 'wood',
+      snapshot.ballPieceVariants ?? [],
+      snapshot.basicGameMode ?? this.basicGameMode
+    );
+    this.syncDominoMeshes(
+      snapshot.dominoTransforms ?? [],
+      snapshot.dominoMaterialPreset ?? 'wood',
+      snapshot.dominoPieceVariants ?? [],
+      snapshot.basicGameMode ?? this.basicGameMode
+    );
     this.syncTriggerMechanism(snapshot.triggerMechanismTransforms);
     this.syncRollingMechanism(snapshot.rollingTransforms);
     this.processEffectTriggers(snapshot);
@@ -304,9 +318,13 @@ export class PlaygroundRenderer {
     this.dominoMeshes = [];
     this.ballMeshes = [];
     this.dominoGeometry?.dispose();
+    this.chessDominoGeometry?.dispose();
     this.ballGeometry?.dispose();
+    this.chessBallGeometry?.dispose();
     this.dominoGeometry = null;
+    this.chessDominoGeometry = null;
     this.ballGeometry = null;
+    this.chessBallGeometry = null;
     this.clearEffects();
     this.plankMesh = null;
     this.leverMesh = null;
@@ -393,7 +411,8 @@ export class PlaygroundRenderer {
     this.renderOnce();
   }
 
-  syncDominoMeshes(dominoTransforms, materialPreset) {
+  syncDominoMeshes(dominoTransforms, materialPreset, pieceVariants = [], gameMode = 'chaos') {
+    const isChessboardMode = gameMode === 'chessboard';
     while (this.dominoMeshes.length < dominoTransforms.length) {
       const material = new THREE.MeshStandardMaterial({ color: this.colorForMaterial(materialPreset) });
       const mesh = new THREE.Mesh(this.dominoGeometry, material);
@@ -410,13 +429,22 @@ export class PlaygroundRenderer {
     for (let index = 0; index < dominoTransforms.length; index += 1) {
       const transform = dominoTransforms[index];
       const mesh = this.dominoMeshes[index];
+      const variant = pieceVariants[index] ?? null;
+      const expectedGeometry = isChessboardMode ? this.chessDominoGeometry : this.dominoGeometry;
+      if (expectedGeometry && mesh.geometry !== expectedGeometry) {
+        mesh.geometry = expectedGeometry;
+      }
       mesh.position.set(transform.x, transform.y, transform.z);
       mesh.quaternion.set(transform.qx, transform.qy, transform.qz, transform.qw);
-      mesh.material.color.setHex(this.colorForMaterial(materialPreset));
+      mesh.material.color.setHex(
+        isChessboardMode ? this.colorForChessPieceVariant(variant) : this.colorForMaterial(materialPreset)
+      );
+      mesh.castShadow = isChessboardMode;
     }
   }
 
-  syncBallMeshes(ballTransforms, materialPreset) {
+  syncBallMeshes(ballTransforms, materialPreset, pieceVariants = [], gameMode = 'chaos') {
+    const isChessboardMode = gameMode === 'chessboard';
     while (this.ballMeshes.length < ballTransforms.length) {
       const material = new THREE.MeshStandardMaterial({ color: this.colorForBallMaterial(materialPreset) });
       const mesh = new THREE.Mesh(this.ballGeometry, material);
@@ -433,10 +461,25 @@ export class PlaygroundRenderer {
     for (let index = 0; index < ballTransforms.length; index += 1) {
       const transform = ballTransforms[index];
       const mesh = this.ballMeshes[index];
+      const variant = pieceVariants[index] ?? null;
+      const expectedGeometry = isChessboardMode ? this.chessBallGeometry : this.ballGeometry;
+      if (expectedGeometry && mesh.geometry !== expectedGeometry) {
+        mesh.geometry = expectedGeometry;
+      }
       mesh.position.set(transform.x, transform.y, transform.z);
       mesh.quaternion.set(transform.qx, transform.qy, transform.qz, transform.qw);
-      mesh.material.color.setHex(this.colorForBallMaterial(materialPreset));
+      mesh.material.color.setHex(
+        isChessboardMode ? this.colorForChessPieceVariant(variant) : this.colorForBallMaterial(materialPreset)
+      );
+      mesh.castShadow = isChessboardMode;
     }
+  }
+
+  colorForChessPieceVariant(variant) {
+    if (variant?.color === 'black') {
+      return 0x1d1d22;
+    }
+    return 0xe8e8ee;
   }
 
   colorForMaterial(materialPreset) {
