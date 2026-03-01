@@ -8,6 +8,9 @@ const PUZZLE_TIME_LIMIT_SECONDS = 3;
 const DOMINO_SIZE = { hx: 0.04, hy: 0.25, hz: 0.12 };
 const BALL_RADIUS = 0.18;
 const ROLLING_RADIUS = 0.22;
+const CHESSBOARD_SIZE = 8;
+const CHESSBOARD_CELL_SIZE = 0.84;
+const CHESSBOARD_SURFACE_Y = -0.09;
 const DOMINO_MATERIAL_PRESETS = {
   wood: {
     friction: 0.75,
@@ -66,6 +69,8 @@ export class PhysicsRuntime {
     this.world = null;
     this.eventQueue = null;
     this.groundBody = null;
+    this.chessboardFloorBody = null;
+    this.chessboardFloorCollider = null;
     this.triggerBallBody = null;
     this.triggerBallCollider = null;
     this.plankBody = null;
@@ -141,6 +146,7 @@ export class PhysicsRuntime {
 
     this.timingSubscribers = new Set();
     this.stateSubscribers = new Set();
+    this.basicGameMode = 'chaos';
     this.metricsStore = new TelemetryStore({
       aggregateIntervalMs: 100,
       timelineLimit: 512,
@@ -216,6 +222,8 @@ export class PhysicsRuntime {
     this.pause();
 
     this.groundBody = null;
+    this.chessboardFloorBody = null;
+    this.chessboardFloorCollider = null;
     this.triggerBallBody = null;
     this.triggerBallCollider = null;
     this.plankBody = null;
@@ -268,8 +276,23 @@ export class PhysicsRuntime {
 
     const groundBodyDesc = this.rapier.RigidBodyDesc.fixed().setTranslation(0, -0.6, 0);
     this.groundBody = this.world.createRigidBody(groundBodyDesc);
-    const groundColliderDesc = this.rapier.ColliderDesc.cuboid(5, 0.5, 5);
+    const floorSurfaceConfig = this.getFloorSurfaceConfig();
+    const groundColliderDesc = this.rapier.ColliderDesc.cuboid(5, 0.5, 5)
+      .setFriction(floorSurfaceConfig.groundFriction)
+      .setRestitution(floorSurfaceConfig.groundRestitution);
     this.world.createCollider(groundColliderDesc, this.groundBody);
+
+    if (floorSurfaceConfig.mode === 'chessboard') {
+      const boardHalfSpan = (floorSurfaceConfig.boardSize * floorSurfaceConfig.boardCellSize) / 2;
+      const boardHalfThickness = floorSurfaceConfig.boardThickness / 2;
+      const boardCenterY = floorSurfaceConfig.boardSurfaceY - boardHalfThickness;
+      const boardBodyDesc = this.rapier.RigidBodyDesc.fixed().setTranslation(0, boardCenterY, 0);
+      this.chessboardFloorBody = this.world.createRigidBody(boardBodyDesc);
+      const boardColliderDesc = this.rapier.ColliderDesc.cuboid(boardHalfSpan, boardHalfThickness, boardHalfSpan)
+        .setFriction(floorSurfaceConfig.boardFriction)
+        .setRestitution(floorSurfaceConfig.boardRestitution);
+      this.chessboardFloorCollider = this.world.createCollider(boardColliderDesc, this.chessboardFloorBody);
+    }
 
     const triggerBodyDesc = this.rapier.RigidBodyDesc.dynamic().setTranslation(this.dominoConfig.startX, 2.5, 0);
     this.triggerBallBody = this.world.createRigidBody(triggerBodyDesc);
@@ -427,6 +450,41 @@ export class PhysicsRuntime {
       timestamp: performance.now(),
     });
     this.emitState();
+  }
+
+  setBasicGameMode(mode = 'chaos') {
+    const normalizedMode = mode === 'chessboard' ? 'chessboard' : 'chaos';
+    this.basicGameMode = normalizedMode;
+    this.emitState();
+    return { ok: true, mode: this.basicGameMode };
+  }
+
+  getFloorSurfaceConfig() {
+    if (this.basicGameMode === 'chessboard') {
+      return {
+        mode: 'chessboard',
+        groundFriction: 0.9,
+        groundRestitution: 0.02,
+        boardSize: CHESSBOARD_SIZE,
+        boardCellSize: CHESSBOARD_CELL_SIZE,
+        boardSurfaceY: CHESSBOARD_SURFACE_Y,
+        boardThickness: 0.05,
+        boardFriction: 0.78,
+        boardRestitution: 0.05,
+      };
+    }
+
+    return {
+      mode: 'chaos',
+      groundFriction: 0.72,
+      groundRestitution: 0.03,
+      boardSize: CHESSBOARD_SIZE,
+      boardCellSize: CHESSBOARD_CELL_SIZE,
+      boardSurfaceY: CHESSBOARD_SURFACE_Y,
+      boardThickness: 0,
+      boardFriction: 0,
+      boardRestitution: 0,
+    };
   }
 
   createDominoChain(configInput = {}) {
@@ -1047,6 +1105,7 @@ export class PhysicsRuntime {
         count: this.replaySnapshots.length,
         latestIndex: Math.max(0, this.replaySnapshots.length - 1),
       },
+      floor: this.getFloorSurfaceConfig(),
       metricsPipeline: this.metricsStore.exportState(),
       domino: {
         count: this.dominoMetrics.count,

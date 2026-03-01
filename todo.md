@@ -155,6 +155,6 @@ Exit criteria:
 ## Chessboard Mode Wave
 
 - [x] T-000069: Add game mode selector for chessboard mode
-- [ ] T-000070: Implement black-white chessboard floor and physics surface
+- [x] T-000070: Implement black-white chessboard floor and physics surface
 - [ ] T-000071: Add black-white chess piece objects for simulation mode
 - [ ] T-000072: Chessboard mode polish, telemetry labels, and demo docs

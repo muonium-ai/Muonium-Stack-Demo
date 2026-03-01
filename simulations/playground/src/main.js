@@ -504,6 +504,7 @@ const setBasicGameMode = (nextMode, options = {}) => {
   if (basicGameModeSelect.value !== normalized) {
     basicGameModeSelect.value = normalized;
   }
+  runtime.setBasicGameMode(normalized);
   renderer.setBasicGameMode(normalized);
   if (options.updateStatus !== false) {
     setStatus(`basic game mode set to ${basicModeLabel(normalized)}`);

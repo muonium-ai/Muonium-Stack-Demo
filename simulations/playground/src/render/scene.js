@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 
+const CHESSBOARD_SIZE = 8;
+const CHESSBOARD_CELL_SIZE = 0.84;
+const CHESSBOARD_SURFACE_Y = -0.09;
+
 export class PlaygroundRenderer {
   constructor() {
     this.container = null;
@@ -86,16 +90,17 @@ export class PlaygroundRenderer {
     this.groundMesh.position.set(0, -0.6, 0);
     this.scene.add(this.groundMesh);
 
-    const chessboardTexture = this.createChessboardTexture(8, 56);
+    const chessboardTexture = this.createChessboardTexture(CHESSBOARD_SIZE, 56);
     const chessboardMaterial = new THREE.MeshStandardMaterial({
       map: chessboardTexture,
       color: 0xffffff,
       roughness: 0.8,
       metalness: 0.05,
     });
-    this.chessboardMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.72, 6.72), chessboardMaterial);
+    const chessboardSpan = CHESSBOARD_SIZE * CHESSBOARD_CELL_SIZE;
+    this.chessboardMesh = new THREE.Mesh(new THREE.PlaneGeometry(chessboardSpan, chessboardSpan), chessboardMaterial);
     this.chessboardMesh.rotation.x = -Math.PI / 2;
-    this.chessboardMesh.position.set(0, -0.095, 0);
+    this.chessboardMesh.position.set(0, CHESSBOARD_SURFACE_Y, 0);
     this.chessboardMesh.visible = false;
     this.scene.add(this.chessboardMesh);
 
