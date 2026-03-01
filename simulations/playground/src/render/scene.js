@@ -1,8 +1,18 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const CHESSBOARD_SIZE = 8;
 const CHESSBOARD_CELL_SIZE = 0.84;
 const CHESSBOARD_SURFACE_Y = -0.09;
+const CHESS_ASSET_BASE = '/data/chess/shaiksaahir';
+const CHESS_MODEL_URLS = {
+  pawn: `${CHESS_ASSET_BASE}/Pawn.glb`,
+  rook: `${CHESS_ASSET_BASE}/Rook.glb`,
+  knight: `${CHESS_ASSET_BASE}/Knight.glb`,
+  bishop: `${CHESS_ASSET_BASE}/Bishop.glb`,
+  queen: `${CHESS_ASSET_BASE}/Queen.glb`,
+  king: `${CHESS_ASSET_BASE}/King.glb`,
+};
 
 export class PlaygroundRenderer {
   constructor() {
@@ -51,6 +61,8 @@ export class PlaygroundRenderer {
       target: new THREE.Vector3(0, 0.6, 0),
     };
     this.basicGameMode = 'chaos';
+    this.chessPieceGeometries = new Map();
+    this.chessAssetsLoadState = 'idle';
   }
 
   init(container) {
@@ -168,6 +180,7 @@ export class PlaygroundRenderer {
     this.resizeObserver.observe(container);
     this.resize();
     this.setBasicGameMode(this.basicGameMode);
+    this.preloadChessPieceGeometries();
     this.renderOnce();
   }
 
@@ -321,6 +334,10 @@ export class PlaygroundRenderer {
     this.chessDominoGeometry?.dispose();
     this.ballGeometry?.dispose();
     this.chessBallGeometry?.dispose();
+    for (const geometry of this.chessPieceGeometries.values()) {
+      geometry?.dispose?.();
+    }
+    this.chessPieceGeometries.clear();
     this.dominoGeometry = null;
     this.chessDominoGeometry = null;
     this.ballGeometry = null;
@@ -430,10 +447,15 @@ export class PlaygroundRenderer {
       const transform = dominoTransforms[index];
       const mesh = this.dominoMeshes[index];
       const variant = pieceVariants[index] ?? null;
-      const expectedGeometry = isChessboardMode ? this.chessDominoGeometry : this.dominoGeometry;
+      const fallbackGeometry = this.chessDominoGeometry;
+      const expectedGeometry = isChessboardMode
+        ? this.geometryForChessVariant(variant, fallbackGeometry)
+        : this.dominoGeometry;
       if (expectedGeometry && mesh.geometry !== expectedGeometry) {
         mesh.geometry = expectedGeometry;
       }
+      const usingModelGeometry = isChessboardMode && expectedGeometry && expectedGeometry !== fallbackGeometry;
+      mesh.scale.setScalar(usingModelGeometry ? 0.48 : 1);
       mesh.position.set(transform.x, transform.y, transform.z);
       mesh.quaternion.set(transform.qx, transform.qy, transform.qz, transform.qw);
       mesh.material.color.setHex(
@@ -462,10 +484,15 @@ export class PlaygroundRenderer {
       const transform = ballTransforms[index];
       const mesh = this.ballMeshes[index];
       const variant = pieceVariants[index] ?? null;
-      const expectedGeometry = isChessboardMode ? this.chessBallGeometry : this.ballGeometry;
+      const fallbackGeometry = this.chessBallGeometry;
+      const expectedGeometry = isChessboardMode
+        ? this.geometryForChessVariant(variant, fallbackGeometry)
+        : this.ballGeometry;
       if (expectedGeometry && mesh.geometry !== expectedGeometry) {
         mesh.geometry = expectedGeometry;
       }
+      const usingModelGeometry = isChessboardMode && expectedGeometry && expectedGeometry !== fallbackGeometry;
+      mesh.scale.setScalar(usingModelGeometry ? 0.34 : 1);
       mesh.position.set(transform.x, transform.y, transform.z);
       mesh.quaternion.set(transform.qx, transform.qy, transform.qz, transform.qw);
       mesh.material.color.setHex(
@@ -480,6 +507,78 @@ export class PlaygroundRenderer {
       return 0x1d1d22;
     }
     return 0xe8e8ee;
+  }
+
+  geometryForChessVariant(variant, fallbackGeometry) {
+    const key = String(variant?.kind ?? '').toLowerCase();
+    const geometry = this.chessPieceGeometries.get(key);
+    return geometry ?? fallbackGeometry;
+  }
+
+  preloadChessPieceGeometries() {
+    if (this.chessAssetsLoadState === 'loading' || this.chessAssetsLoadState === 'ready') {
+      return;
+    }
+
+    this.chessAssetsLoadState = 'loading';
+    const loader = new GLTFLoader();
+    const jobs = Object.entries(CHESS_MODEL_URLS).map(([key, url]) =>
+      new Promise((resolve) => {
+        loader.load(
+          url,
+          (gltf) => {
+            const geometry = this.extractNormalizedGeometry(gltf.scene);
+            if (geometry) {
+              this.chessPieceGeometries.set(key, geometry);
+            }
+            resolve();
+          },
+          undefined,
+          () => resolve()
+        );
+      })
+    );
+
+    Promise.all(jobs)
+      .then(() => {
+        this.chessAssetsLoadState = 'ready';
+        this.renderOnce();
+      })
+      .catch(() => {
+        this.chessAssetsLoadState = 'error';
+      });
+  }
+
+  extractNormalizedGeometry(rootObject) {
+    let selected = null;
+    rootObject.traverse((node) => {
+      if (!selected && node.isMesh && node.geometry) {
+        selected = node.geometry.clone();
+      }
+    });
+
+    if (!selected) {
+      return null;
+    }
+
+    selected.computeBoundingBox();
+    const bounds = selected.boundingBox;
+    if (!bounds) {
+      return selected;
+    }
+
+    const center = new THREE.Vector3();
+    const size = new THREE.Vector3();
+    bounds.getCenter(center);
+    bounds.getSize(size);
+
+    const height = Math.max(size.y, 0.0001);
+    const normalizeScale = 1 / height;
+    selected.translate(-center.x, -center.y, -center.z);
+    selected.scale(normalizeScale, normalizeScale, normalizeScale);
+    selected.computeVertexNormals();
+    selected.computeBoundingBox();
+    return selected;
   }
 
   colorForMaterial(materialPreset) {
