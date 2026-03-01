@@ -1,0 +1,14 @@
+{
+  "sourceRepo": "https://github.com/shaiksaahir/threeJS-Chess-Application",
+  "sourceBranch": "main",
+  "license": "MIT",
+  "pieces": {
+    "pawn": "Pawn.glb",
+    "rook": "Rook.glb",
+    "knight": "Knight.glb",
+    "bishop": "Bishop.glb",
+    "queen": "Queen.glb",
+    "king": "King.glb",
+    "board": "ChessBase.glb"
+  }
+}
