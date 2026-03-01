@@ -56,10 +56,15 @@ export class PlaygroundRenderer {
     this.cameraYaw = 0;
     this.cameraPitch = 0;
     this.cameraDistance = 0;
-    this.defaultCameraPose = {
+    this.chaosCameraPose = {
       position: new THREE.Vector3(3.6, 3.0, 5.8),
       target: new THREE.Vector3(0, 0.6, 0),
     };
+    this.chessboardCameraPose = {
+      position: new THREE.Vector3(0, 18.5, 17.5),
+      target: new THREE.Vector3(0, 4.8, 0),
+    };
+    this.defaultCameraPose = this.chaosCameraPose;
     this.basicGameMode = 'chaos';
     this.chessPieceGeometries = new Map();
     this.chessAssetsLoadState = 'idle';
@@ -203,6 +208,9 @@ export class PlaygroundRenderer {
 
     const showLegacyMechanisms = nextMode !== 'chessboard';
     this.setLegacyMechanismVisibility(showLegacyMechanisms);
+
+    this.defaultCameraPose = nextMode === 'chessboard' ? this.chessboardCameraPose : this.chaosCameraPose;
+    this.resetCameraView();
 
     this.renderOnce();
   }

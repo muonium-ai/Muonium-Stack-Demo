@@ -20,8 +20,8 @@ app.innerHTML = `
       <label class="basicGameModeWrap">
         Game
         <select id="basicGameModeSelect" aria-label="Basic game mode">
-          <option value="chaos" selected>Chaos</option>
-          <option value="chessboard">Chessboard</option>
+          <option value="chaos">Chaos</option>
+          <option value="chessboard" selected>Chessboard</option>
         </select>
       </label>
       <button id="basicPauseBtn" type="button">Pause</button>
@@ -495,6 +495,7 @@ let basicChaosIterationStartedAtMs = 0;
 let basicChessRainActive = false;
 let basicChessRainTarget = 0;
 let basicChessRainDropped = 0;
+let basicAutoStartTriggered = false;
 let basicGameMode = 'chaos';
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
@@ -837,7 +838,7 @@ const runBasicShowcase = async () => {
 
       if (isChessboardMode) {
         basicChessRainActive = true;
-        basicChessRainTarget = randomInt(180, 320);
+        basicChessRainTarget = 100000;
         basicChessRainDropped = 0;
 
         const dropNextChessPiece = () => {
@@ -854,40 +855,47 @@ const runBasicShowcase = async () => {
           }
 
           const spawn = randomBoardSpawn();
-          const appendResult = runtime.appendFallingBall({
-            materialPreset: ['wood', 'metal', 'rubber'][randomInt(0, 2)],
-            x: Number(spawn.x.toFixed(3)),
-            y: Number((6.8 + Math.random() * 7.8).toFixed(3)),
-            z: Number(spawn.z.toFixed(3)),
-            vx: Number((Math.random() * 0.36 - 0.18).toFixed(3)),
-            vy: Number((Math.random() * 0.22 - 0.11).toFixed(3)),
-            vz: Number((Math.random() * 0.36 - 0.18).toFixed(3)),
-            ax: Number((Math.random() * 0.8 - 0.4).toFixed(3)),
-            ay: Number((Math.random() * 1.4 - 0.7).toFixed(3)),
-            az: Number((Math.random() * 0.8 - 0.4).toFixed(3)),
-          });
-          if (!appendResult.ok) {
-            debugStageFailure('chess_rain_append_failed', {
-              error: appendResult.error ?? 'unknown',
-              dropped: basicChessRainDropped,
-              target: basicChessRainTarget,
+          const secondBatchCount = randomInt(10, 20);
+          for (let index = 0; index < secondBatchCount; index += 1) {
+            if (!basicChaosModeActive || !basicChessRainActive || basicChessRainDropped >= basicChessRainTarget) {
+              break;
+            }
+            const appendResult = runtime.appendFallingBall({
+              materialPreset: ['wood', 'metal', 'rubber'][randomInt(0, 2)],
+              x: Number((spawn.x + (Math.random() * 0.32 - 0.16)).toFixed(3)),
+              y: Number((8.5 + Math.random() * 10.5).toFixed(3)),
+              z: Number((spawn.z + (Math.random() * 0.32 - 0.16)).toFixed(3)),
+              vx: Number((Math.random() * 0.36 - 0.18).toFixed(3)),
+              vy: Number((Math.random() * 0.22 - 0.11).toFixed(3)),
+              vz: Number((Math.random() * 0.36 - 0.18).toFixed(3)),
+              ax: Number((Math.random() * 0.8 - 0.4).toFixed(3)),
+              ay: Number((Math.random() * 1.4 - 0.7).toFixed(3)),
+              az: Number((Math.random() * 0.8 - 0.4).toFixed(3)),
             });
-            basicChessRainActive = false;
-            basicChaosModeActive = false;
-            return;
+            if (!appendResult.ok) {
+              debugStageFailure('chess_rain_append_failed', {
+                error: appendResult.error ?? 'unknown',
+                dropped: basicChessRainDropped,
+                target: basicChessRainTarget,
+              });
+              basicChessRainActive = false;
+              basicChaosModeActive = false;
+              return;
+            }
+
+            basicChessRainDropped += 1;
           }
 
-          basicChessRainDropped += 1;
-          if (basicChessRainDropped % 20 === 0 || basicChessRainDropped === 1) {
+          if (basicChessRainDropped % 100 === 0 || basicChessRainDropped <= 20) {
             setBasicNarrative(
               `Iteration ${basicChaosIteration}: dropping chess pieces ${basicChessRainDropped}/${basicChessRainTarget}.`
             );
           }
 
-          queueBasicShowcaseStep(randomInt(35, 85), dropNextChessPiece);
+          queueBasicShowcaseStep(1000, dropNextChessPiece);
         };
 
-        queueBasicShowcaseStep(60, dropNextChessPiece);
+        queueBasicShowcaseStep(120, dropNextChessPiece);
       }
 
       latestMetricsPacket = null;
@@ -942,7 +950,7 @@ const runBasicShowcase = async () => {
 };
 
 renderer.init(viewport);
-setBasicGameMode('chaos', { updateStatus: false });
+setBasicGameMode('chessboard', { updateStatus: false });
 
 const setStatus = (message, isError = false) => {
   runtimeStatus.textContent = `Status: ${message}`;
@@ -1475,7 +1483,7 @@ basicRedisToggleBtn.addEventListener('click', () => {
 
 tabBasicBtn.addEventListener('click', () => {
   applyUiMode('basic');
-  setStatus('basic mode active — click Run Showcase');
+  setStatus('basic mode active — chessboard simulation running by default');
 });
 
 tabAdvancedBtn.addEventListener('click', () => {
@@ -1655,7 +1663,18 @@ replayExitBtn.addEventListener('click', () => {
 applyUiMode(resolveInitialUiMode(), false);
 setBasicRedisMinimized(false);
 resetBasicRedisPanelData();
-setStatus('idle — choose Basic for one-click demo or Advanced for full controls');
+setStatus('idle — chessboard simulation bootstrapping');
+
+if (uiMode === 'basic' && !basicAutoStartTriggered) {
+  basicAutoStartTriggered = true;
+  setTimeout(() => {
+    runBasicShowcase().catch((error) => {
+      printBasicStageDebug('autostart_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, 120);
+}
 
 window.addEventListener('beforeunload', () => {
   clearBasicShowcaseTimers();

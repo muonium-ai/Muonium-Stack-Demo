@@ -653,7 +653,7 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const maxCount = this.basicGameMode === 'chessboard' ? 320 : 12;
+    const maxCount = this.basicGameMode === 'chessboard' ? 100000 : 12;
     const count = Math.max(0, Math.min(maxCount, Math.round(Number(configInput.count ?? this.ballConfig.count))));
     const materialPreset =
       BALL_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.ballConfig.materialPreset;
@@ -736,7 +736,7 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const maxCount = this.basicGameMode === 'chessboard' ? 320 : 12;
+    const maxCount = this.basicGameMode === 'chessboard' ? 100000 : 12;
     if (this.ballBodies.length >= maxCount) {
       return { ok: false, error: `ball cap reached (${maxCount})` };
     }
