@@ -40,6 +40,7 @@ export class PlaygroundRenderer {
     this.plankMesh = null;
     this.leverMesh = null;
     this.gateMesh = null;
+    this.wiperMesh = null;
     this.rampMesh = null;
     this.rollingMesh = null;
 
@@ -159,6 +160,14 @@ export class PlaygroundRenderer {
     this.gateMesh.position.set(5.9, 0.35, 0);
     this.scene.add(this.gateMesh);
 
+    const wiperSpan = CHESSBOARD_SIZE * CHESSBOARD_CELL_SIZE * 0.96;
+    const wiperGeometry = new THREE.BoxGeometry(0.28, 0.4, wiperSpan);
+    const wiperMaterial = new THREE.MeshStandardMaterial({ color: 0x5ec5ff, metalness: 0.15, roughness: 0.35 });
+    this.wiperMesh = new THREE.Mesh(wiperGeometry, wiperMaterial);
+    this.wiperMesh.position.set(-4.3, CHESSBOARD_SURFACE_Y + 0.26, 0);
+    this.wiperMesh.visible = false;
+    this.scene.add(this.wiperMesh);
+
     const rampGeometry = new THREE.BoxGeometry(2.4, 0.16, 1.1);
     const rampMaterial = new THREE.MeshStandardMaterial({ color: 0x607898 });
     this.rampMesh = new THREE.Mesh(rampGeometry, rampMaterial);
@@ -235,6 +244,9 @@ export class PlaygroundRenderer {
     }
     if (this.gateMesh) {
       this.gateMesh.visible = show;
+    }
+    if (this.wiperMesh) {
+      this.wiperMesh.visible = false;
     }
     if (this.rampMesh) {
       this.rampMesh.visible = show;
@@ -379,6 +391,7 @@ export class PlaygroundRenderer {
       snapshot.basicGameMode ?? this.basicGameMode
     );
     this.syncTriggerMechanism(snapshot.triggerMechanismTransforms);
+    this.syncWiperMechanism(snapshot.wiperTransforms);
     this.syncRollingMechanism(snapshot.rollingTransforms);
     this.processEffectTriggers(snapshot);
     if (!this.running) {
@@ -434,6 +447,7 @@ export class PlaygroundRenderer {
     this.plankMesh = null;
     this.leverMesh = null;
     this.gateMesh = null;
+    this.wiperMesh = null;
     this.rampMesh = null;
     this.rollingMesh = null;
   }
@@ -562,6 +576,7 @@ export class PlaygroundRenderer {
 
   syncBallMeshes(ballTransforms, materialPreset, pieceVariants = [], pieceIds = [], ratedPieces = new Map(), gameMode = 'chaos') {
     const isChessboardMode = gameMode === 'chessboard';
+    const labelStartIndex = Math.max(0, ballTransforms.length - MAX_VISIBLE_PIECE_LABELS);
     while (this.ballMeshes.length < ballTransforms.length) {
       const material = new THREE.MeshStandardMaterial({ color: this.colorForBallMaterial(materialPreset) });
       const mesh = new THREE.Mesh(this.ballGeometry, material);
@@ -598,7 +613,8 @@ export class PlaygroundRenderer {
 
       const pieceId = pieceIds[index] ?? null;
       const topRating = pieceId ? ratedPieces.get(pieceId) : null;
-      const pieceLabel = isChessboardMode && index < MAX_VISIBLE_PIECE_LABELS ? pieceId : null;
+      const keepLabel = isChessboardMode && pieceId && (index >= labelStartIndex || Number.isFinite(topRating));
+      const pieceLabel = keepLabel ? pieceId : null;
       this.syncPieceLabel(mesh, {
         text: pieceLabel,
         rating: Number.isFinite(topRating) ? topRating : null,
@@ -815,6 +831,19 @@ export class PlaygroundRenderer {
       this.gateMesh.position.set(transforms.gate.x, transforms.gate.y, transforms.gate.z);
       this.gateMesh.quaternion.set(transforms.gate.qx, transforms.gate.qy, transforms.gate.qz, transforms.gate.qw);
     }
+  }
+
+  syncWiperMechanism(transforms) {
+    if (!this.wiperMesh) {
+      return;
+    }
+    if (!transforms || !transforms.blade) {
+      this.wiperMesh.visible = false;
+      return;
+    }
+    this.wiperMesh.position.set(transforms.blade.x, transforms.blade.y, transforms.blade.z);
+    this.wiperMesh.quaternion.set(transforms.blade.qx, transforms.blade.qy, transforms.blade.qz, transforms.blade.qw);
+    this.wiperMesh.visible = Boolean(transforms.active);
   }
 
   syncRollingMechanism(transforms) {

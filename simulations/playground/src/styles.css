@@ -503,6 +503,10 @@ label {
   gap: 6px;
 }
 
+.hudPieceBody[hidden] {
+  display: none;
+}
+
 .hudPieceTotals {
   display: grid;
   gap: 4px;
@@ -529,7 +533,7 @@ label {
 .hudPieceLeaderboardList {
   margin: 0;
   padding: 0 0 0 18px;
-  max-height: 130px;
+  max-height: 180px;
   overflow: auto;
   font-size: 0.74rem;
   color: #ebf2ff;

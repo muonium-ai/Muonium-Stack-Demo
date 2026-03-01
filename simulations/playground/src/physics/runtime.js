@@ -12,6 +12,11 @@ const CHESSBOARD_SIZE = 8;
 const CHESSBOARD_CELL_SIZE = 0.84;
 const CHESSBOARD_SURFACE_Y = -0.09;
 const CHESS_LEADERBOARD_LIMIT = 25;
+const CHESS_WIPER_TRIGGER_SECONDS = 100;
+const CHESS_WIPER_HALF_SIZE = { x: 0.14, y: 0.2, z: (CHESSBOARD_SIZE * CHESSBOARD_CELL_SIZE) * 0.48 };
+const CHESS_WIPER_Y = CHESSBOARD_SURFACE_Y + 0.26;
+const CHESS_WIPER_MARGIN = 0.9;
+const CHESS_WIPER_DURATION_SECONDS = 1.8;
 const DOMINO_MATERIAL_PRESETS = {
   wood: {
     friction: 0.75,
@@ -72,6 +77,9 @@ export class PhysicsRuntime {
     this.groundBody = null;
     this.chessboardFloorBody = null;
     this.chessboardFloorCollider = null;
+    this.chessWiperBody = null;
+    this.chessWiperCollider = null;
+    this.chessWiperState = this.createEmptyChessWiperState();
     this.triggerBallBody = null;
     this.triggerBallCollider = null;
     this.plankBody = null;
@@ -229,6 +237,9 @@ export class PhysicsRuntime {
     this.groundBody = null;
     this.chessboardFloorBody = null;
     this.chessboardFloorCollider = null;
+    this.chessWiperBody = null;
+    this.chessWiperCollider = null;
+    this.chessWiperState = this.createEmptyChessWiperState();
     this.triggerBallBody = null;
     this.triggerBallCollider = null;
     this.plankBody = null;
@@ -301,6 +312,7 @@ export class PhysicsRuntime {
         .setFriction(floorSurfaceConfig.boardFriction)
         .setRestitution(floorSurfaceConfig.boardRestitution);
       this.chessboardFloorCollider = this.world.createCollider(boardColliderDesc, this.chessboardFloorBody);
+      this.createChessWiper();
     }
 
     const triggerBodyDesc = this.rapier.RigidBodyDesc.dynamic().setTranslation(this.dominoConfig.startX, 2.5, 0);
@@ -1067,6 +1079,8 @@ export class PhysicsRuntime {
     const rampRotation = this.rampBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
     const rollingTranslation = this.rollingBody?.translation() ?? { x: 0, y: 0, z: 0 };
     const rollingRotation = this.rollingBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
+    const wiperTranslation = this.chessWiperBody?.translation() ?? { x: this.getChessWiperStartX(), y: CHESS_WIPER_Y, z: 0 };
+    const wiperRotation = this.chessWiperBody?.rotation() ?? { x: 0, y: 0, z: 0, w: 1 };
 
     const triggerEventOrder = this.triggerMetrics.eventOrder.map((event) => event.name);
     const expectedPrefix = TRIGGER_SEQUENCE_ORDER.slice(0, triggerEventOrder.length);
@@ -1146,6 +1160,18 @@ export class PhysicsRuntime {
           qz: rollingRotation.z,
           qw: rollingRotation.w,
         },
+      },
+      wiperTransforms: {
+        blade: {
+          x: wiperTranslation.x,
+          y: wiperTranslation.y,
+          z: wiperTranslation.z,
+          qx: wiperRotation.x,
+          qy: wiperRotation.y,
+          qz: wiperRotation.z,
+          qw: wiperRotation.w,
+        },
+        active: this.chessWiperState.active,
       },
       ballTransforms,
       ballMaterialPreset: this.ballMetrics.materialPreset,
@@ -1312,6 +1338,7 @@ export class PhysicsRuntime {
     const stepStart = performance.now();
     let steppedFrames = 0;
     while (this.accumulatorSeconds >= FIXED_TIMESTEP_SECONDS && steppedFrames < MAX_STEPS_PER_FRAME) {
+      this.updateChessWiperSweep();
       this.world.timestep = FIXED_TIMESTEP_SECONDS;
       this.world.step(this.eventQueue);
       this.accumulatorSeconds -= FIXED_TIMESTEP_SECONDS;
@@ -1322,6 +1349,7 @@ export class PhysicsRuntime {
       this.collectRollingMetrics();
       this.advanceTriggerMechanism();
       this.evaluatePuzzleAttempt();
+      this.evaluateChessWiperTrigger();
       this.captureReplaySnapshot();
     }
     const stepEnd = performance.now();
@@ -1672,6 +1700,117 @@ export class PhysicsRuntime {
     const serialKey = Object.hasOwn(this.pieceSerialByKind, kind) ? kind : 'piece';
     this.pieceSerialByKind[serialKey] += 1;
     return `${serialKey}${this.pieceSerialByKind[serialKey]}`;
+  }
+
+  createEmptyChessWiperState() {
+    return {
+      active: false,
+      progressSeconds: 0,
+      lastObservedOnBoardMaxLifeSeconds: 0,
+    };
+  }
+
+  getChessWiperStartX() {
+    const halfSpan = (CHESSBOARD_SIZE * CHESSBOARD_CELL_SIZE) / 2;
+    return -(halfSpan + CHESS_WIPER_MARGIN);
+  }
+
+  getChessWiperEndX() {
+    const halfSpan = (CHESSBOARD_SIZE * CHESSBOARD_CELL_SIZE) / 2;
+    return halfSpan + CHESS_WIPER_MARGIN;
+  }
+
+  createChessWiper() {
+    if (!this.world || !this.rapier) {
+      return;
+    }
+    const startX = this.getChessWiperStartX();
+    const bodyDesc = this.rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(startX, CHESS_WIPER_Y, 0);
+    this.chessWiperBody = this.world.createRigidBody(bodyDesc);
+    const colliderDesc = this.rapier.ColliderDesc.cuboid(
+      CHESS_WIPER_HALF_SIZE.x,
+      CHESS_WIPER_HALF_SIZE.y,
+      CHESS_WIPER_HALF_SIZE.z
+    )
+      .setFriction(0.98)
+      .setRestitution(0)
+      .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
+    this.chessWiperCollider = this.world.createCollider(colliderDesc, this.chessWiperBody);
+    this.setChessWiperPose(startX);
+  }
+
+  setChessWiperPose(x) {
+    if (!this.chessWiperBody) {
+      return;
+    }
+    const translation = { x, y: CHESS_WIPER_Y, z: 0 };
+    const rotation = { x: 0, y: 0, z: 0, w: 1 };
+    if (typeof this.chessWiperBody.setNextKinematicTranslation === 'function') {
+      this.chessWiperBody.setNextKinematicTranslation(translation);
+      this.chessWiperBody.setNextKinematicRotation(rotation);
+    } else {
+      this.chessWiperBody.setTranslation(translation, true);
+      this.chessWiperBody.setRotation(rotation, true);
+    }
+  }
+
+  getOnBoardMaxPieceLifeSeconds(nowSeconds) {
+    let maxLifeSeconds = 0;
+    for (const body of this.ballBodies) {
+      const translation = body.translation();
+      if (!this.isOnChessboard(translation)) {
+        continue;
+      }
+      const state = this.ballMetrics.stateByBody.get(body);
+      const spawnTime = state?.spawnTimeSeconds ?? nowSeconds;
+      const lifeSeconds = Math.max(0, nowSeconds - spawnTime);
+      if (lifeSeconds > maxLifeSeconds) {
+        maxLifeSeconds = lifeSeconds;
+      }
+    }
+    return maxLifeSeconds;
+  }
+
+  evaluateChessWiperTrigger() {
+    if (!this.chessWiperBody || this.basicGameMode !== 'chessboard') {
+      this.chessWiperState.lastObservedOnBoardMaxLifeSeconds = 0;
+      return;
+    }
+
+    const nowSeconds = this.stepCount * FIXED_TIMESTEP_SECONDS;
+    const maxLifeSeconds = this.getOnBoardMaxPieceLifeSeconds(nowSeconds);
+    if (
+      !this.chessWiperState.active &&
+      maxLifeSeconds >= CHESS_WIPER_TRIGGER_SECONDS &&
+      this.chessWiperState.lastObservedOnBoardMaxLifeSeconds < CHESS_WIPER_TRIGGER_SECONDS
+    ) {
+      this.chessWiperState.active = true;
+      this.chessWiperState.progressSeconds = 0;
+    }
+    this.chessWiperState.lastObservedOnBoardMaxLifeSeconds = maxLifeSeconds;
+  }
+
+  updateChessWiperSweep() {
+    if (!this.chessWiperBody || this.basicGameMode !== 'chessboard') {
+      return;
+    }
+    const startX = this.getChessWiperStartX();
+    const endX = this.getChessWiperEndX();
+    if (!this.chessWiperState.active) {
+      this.setChessWiperPose(startX);
+      return;
+    }
+
+    this.chessWiperState.progressSeconds += FIXED_TIMESTEP_SECONDS;
+    const progress = Math.max(0, Math.min(1, this.chessWiperState.progressSeconds / CHESS_WIPER_DURATION_SECONDS));
+    const x = startX + (endX - startX) * progress;
+    this.setChessWiperPose(x);
+
+    if (progress >= 1) {
+      this.chessWiperState.active = false;
+      this.chessWiperState.progressSeconds = 0;
+      this.setChessWiperPose(startX);
+    }
   }
 
   isOnChessboard(position) {

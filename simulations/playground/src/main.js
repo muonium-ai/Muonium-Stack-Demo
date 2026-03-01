@@ -206,7 +206,7 @@ app.innerHTML = `
         <h3>HUD</h3>
         <dl>
           <div><dt>FPS</dt><dd id="hudFpsMetric" data-state="ok">0.00</dd></div>
-          <div><dt>Physics step</dt><dd id="hudStepMetric" data-state="ok">0.000 ms</dd></div>
+          <div><dt>Physics step</dt><dd id="hudStepMetric" data-state="ok">0.0 μs</dd></div>
           <div><dt>Collisions</dt><dd id="hudCollisionsMetric" data-state="ok">0</dd></div>
           <div><dt>Energy state</dt><dd id="hudEnergyStateMetric" data-state="ok">stable</dd></div>
         </dl>
@@ -626,8 +626,17 @@ const renderBasicPieceLeaderboard = (snapshot) => {
     })
     .join('');
 
+  const hudLeaderboardHtml = leaderboardRows
+    .slice(0, 10)
+    .map((entry) => {
+      const id = entry?.id ?? 'piece';
+      const lifeSeconds = Number(entry?.lifeSeconds ?? 0).toFixed(3);
+      return `<li>${id} · ${lifeSeconds}s</li>`;
+    })
+    .join('');
+
   basicPieceLeaderboardList.innerHTML = leaderboardHtml;
-  hudPieceLeaderboardList.innerHTML = leaderboardHtml;
+  hudPieceLeaderboardList.innerHTML = hudLeaderboardHtml;
 };
 
 const setHudPieceVisible = (visible) => {
@@ -1382,7 +1391,7 @@ runtime.onMetricsStream((packet) => {
   }
 
   hudFpsMetric.textContent = fps.toFixed(2);
-  hudStepMetric.textContent = `${stepMs.toFixed(3)} ms`;
+  hudStepMetric.textContent = `${(stepMs * 1000).toFixed(1)} μs`;
   hudCollisionsMetric.textContent = String(collisionCount);
 
   const fpsState = fps < 40 ? 'danger' : fps < 50 ? 'warn' : 'ok';
