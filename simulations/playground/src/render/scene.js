@@ -4,6 +4,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 const CHESSBOARD_SIZE = 8;
 const CHESSBOARD_CELL_SIZE = 0.84;
 const CHESSBOARD_SURFACE_Y = -0.09;
+const PIECE_LABEL_SPRITE_NAME = 'pieceLabel';
+const MAX_VISIBLE_PIECE_LABELS = 96;
 const CHESS_ASSET_BASE = '/data/chess/shaiksaahir';
 const CHESS_MODEL_URLS = {
   pawn: `${CHESS_ASSET_BASE}/Pawn.glb`,
@@ -354,6 +356,7 @@ export class PlaygroundRenderer {
       snapshot.ballTransforms ?? [],
       snapshot.ballMaterialPreset ?? 'wood',
       snapshot.ballPieceVariants ?? [],
+      snapshot.ballPieceIds ?? [],
       snapshot.basicGameMode ?? this.basicGameMode
     );
     this.syncDominoMeshes(
@@ -544,7 +547,7 @@ export class PlaygroundRenderer {
     }
   }
 
-  syncBallMeshes(ballTransforms, materialPreset, pieceVariants = [], gameMode = 'chaos') {
+  syncBallMeshes(ballTransforms, materialPreset, pieceVariants = [], pieceIds = [], gameMode = 'chaos') {
     const isChessboardMode = gameMode === 'chessboard';
     while (this.ballMeshes.length < ballTransforms.length) {
       const material = new THREE.MeshStandardMaterial({ color: this.colorForBallMaterial(materialPreset) });
@@ -555,6 +558,7 @@ export class PlaygroundRenderer {
 
     while (this.ballMeshes.length > ballTransforms.length) {
       const mesh = this.ballMeshes.pop();
+      this.removePieceLabel(mesh);
       this.scene.remove(mesh);
       mesh.material?.dispose?.();
     }
@@ -578,7 +582,92 @@ export class PlaygroundRenderer {
         isChessboardMode ? this.colorForChessPieceVariant(variant) : this.colorForBallMaterial(materialPreset)
       );
       mesh.castShadow = isChessboardMode;
+
+      const pieceLabel = isChessboardMode && index < MAX_VISIBLE_PIECE_LABELS ? pieceIds[index] ?? null : null;
+      this.syncPieceLabel(mesh, pieceLabel);
     }
+  }
+
+  syncPieceLabel(mesh, labelText) {
+    const text = labelText ? String(labelText) : '';
+    if (!text) {
+      this.removePieceLabel(mesh);
+      return;
+    }
+
+    const existing = mesh.getObjectByName(PIECE_LABEL_SPRITE_NAME);
+    if (existing && existing.userData.labelText === text) {
+      existing.visible = true;
+      return;
+    }
+
+    this.removePieceLabel(mesh);
+    const sprite = this.createPieceLabelSprite(text);
+    if (!sprite) {
+      return;
+    }
+    mesh.add(sprite);
+  }
+
+  removePieceLabel(mesh) {
+    const existing = mesh.getObjectByName(PIECE_LABEL_SPRITE_NAME);
+    if (!existing) {
+      return;
+    }
+    mesh.remove(existing);
+    if (existing.material?.map) {
+      existing.material.map.dispose?.();
+    }
+    existing.material?.dispose?.();
+  }
+
+  createPieceLabelSprite(text) {
+    const canvas = document.createElement('canvas');
+    const padding = 12;
+    const fontSize = 28;
+    const font = `${fontSize}px Inter, Arial, sans-serif`;
+    const measureCtx = canvas.getContext('2d');
+    if (!measureCtx) {
+      return null;
+    }
+    measureCtx.font = font;
+    const textWidth = Math.ceil(measureCtx.measureText(text).width);
+    const width = Math.max(128, textWidth + padding * 2);
+    const height = 56;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(8, 14, 24, 0.72)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#f2f7ff';
+    ctx.fillText(text, width / 2, height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.name = PIECE_LABEL_SPRITE_NAME;
+    sprite.userData.labelText = text;
+    const aspect = width / height;
+    sprite.scale.set(0.44 * aspect, 0.44, 1);
+    sprite.position.set(0, 0.56, 0);
+    return sprite;
   }
 
   colorForChessPieceVariant(variant) {

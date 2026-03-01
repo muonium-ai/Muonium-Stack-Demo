@@ -11,6 +11,7 @@ const ROLLING_RADIUS = 0.22;
 const CHESSBOARD_SIZE = 8;
 const CHESSBOARD_CELL_SIZE = 0.84;
 const CHESSBOARD_SURFACE_Y = -0.09;
+const CHESS_LEADERBOARD_LIMIT = 25;
 const DOMINO_MATERIAL_PRESETS = {
   wood: {
     friction: 0.75,
@@ -120,6 +121,8 @@ export class PhysicsRuntime {
 
     this.ballBodies = [];
     this.ballPieceVariants = [];
+    this.ballPieceIds = [];
+    this.pieceSerialByKind = this.createEmptyPieceSerialByKind();
     this.ballBodyByColliderHandle = new Map();
     this.ballConfig = {
       count: 4,
@@ -261,6 +264,8 @@ export class PhysicsRuntime {
     this.dominoMetrics = this.createEmptyDominoMetrics();
     this.ballBodies = [];
     this.ballPieceVariants = [];
+    this.ballPieceIds = [];
+    this.pieceSerialByKind = this.createEmptyPieceSerialByKind();
     this.ballBodyByColliderHandle.clear();
     this.ballMetrics = this.createEmptyBallMetrics();
     this.triggerMetrics = this.createEmptyTriggerMetrics();
@@ -677,6 +682,8 @@ export class PhysicsRuntime {
     }
     this.ballBodies = [];
     this.ballBodyByColliderHandle.clear();
+    this.ballPieceIds = [];
+    this.pieceSerialByKind = this.createEmptyPieceSerialByKind();
 
     const material = BALL_MATERIAL_PRESETS[materialPreset];
     const startX = -1.8;
@@ -711,6 +718,7 @@ export class PhysicsRuntime {
     this.ballMetrics.gravityEnabled = gravityEnabled;
     this.ballMetrics.gravityStrength = gravityStrength;
     this.ballPieceVariants = this.createPieceVariants(count, 'ball');
+    this.ballPieceIds = this.ballPieceVariants.map((variant, index) => this.createPieceIdForVariant(variant, index));
 
     for (const body of this.ballBodies) {
       const t = body.translation();
@@ -792,6 +800,9 @@ export class PhysicsRuntime {
 
     if (this.ballPieceVariants.length < this.ballBodies.length) {
       this.ballPieceVariants.push(this.createPieceVariantAtIndex(nextIndex, 'ball'));
+    }
+    if (this.ballPieceIds.length < this.ballBodies.length) {
+      this.ballPieceIds.push(this.createPieceIdForVariant(this.ballPieceVariants[nextIndex], nextIndex));
     }
     this.ballConfig.count = this.ballBodies.length;
 
@@ -1027,6 +1038,9 @@ export class PhysicsRuntime {
       };
     });
 
+    const nowSeconds = this.stepCount * FIXED_TIMESTEP_SECONDS;
+    const chessPieces = this.buildChessPieceLeaderboard(nowSeconds);
+
     const fallTimes = [];
     let bounceCount = 0;
     let maxImpactForce = 0;
@@ -1134,6 +1148,7 @@ export class PhysicsRuntime {
       ballTransforms,
       ballMaterialPreset: this.ballMetrics.materialPreset,
       ballPieceVariants: this.ballPieceVariants,
+      ballPieceIds: this.ballPieceIds,
       dominoTransforms,
       dominoMaterialPreset: this.dominoMetrics.materialPreset,
       dominoPieceVariants: this.dominoPieceVariants,
@@ -1148,6 +1163,7 @@ export class PhysicsRuntime {
         maxHeight,
         impactForceMax: maxImpactForce,
       },
+      chessPieces,
       trigger: {
         sequenceTimeSeconds,
         latencies,
@@ -1631,6 +1647,96 @@ export class PhysicsRuntime {
     return {
       color: index % 2 === 0 ? 'white' : 'black',
       kind: pieceKinds[index % pieceKinds.length],
+    };
+  }
+
+  createEmptyPieceSerialByKind() {
+    return {
+      pawn: 0,
+      rook: 0,
+      knight: 0,
+      bishop: 0,
+      queen: 0,
+      king: 0,
+      piece: 0,
+    };
+  }
+
+  createPieceIdForVariant(variant, index = 0) {
+    if (this.basicGameMode !== 'chessboard') {
+      return null;
+    }
+    const kind = String(variant?.kind ?? 'piece').toLowerCase();
+    const serialKey = Object.hasOwn(this.pieceSerialByKind, kind) ? kind : 'piece';
+    this.pieceSerialByKind[serialKey] += 1;
+    return `${serialKey}${this.pieceSerialByKind[serialKey]}`;
+  }
+
+  isOnChessboard(position) {
+    const halfSpan = (CHESSBOARD_SIZE * CHESSBOARD_CELL_SIZE) / 2;
+    const minBound = -halfSpan;
+    const maxBound = halfSpan;
+    return (
+      position.x >= minBound &&
+      position.x <= maxBound &&
+      position.z >= minBound &&
+      position.z <= maxBound &&
+      position.y >= CHESSBOARD_SURFACE_Y - 0.2
+    );
+  }
+
+  buildChessPieceLeaderboard(nowSeconds) {
+    if (this.basicGameMode !== 'chessboard') {
+      return {
+        totalPieces: 0,
+        onBoardPieces: 0,
+        topOnBoardByLife: [],
+      };
+    }
+
+    const topOnBoardByLife = [];
+    let onBoardPieces = 0;
+
+    for (let index = 0; index < this.ballBodies.length; index += 1) {
+      const body = this.ballBodies[index];
+      const translation = body.translation();
+      if (!this.isOnChessboard(translation)) {
+        continue;
+      }
+
+      onBoardPieces += 1;
+      const pieceState = this.ballMetrics.stateByBody.get(body);
+      const spawnTime = pieceState?.spawnTimeSeconds ?? nowSeconds;
+      const lifeSeconds = Math.max(0, nowSeconds - spawnTime);
+      const variant = this.ballPieceVariants[index] ?? null;
+      const entry = {
+        id: this.ballPieceIds[index] ?? `piece${index + 1}`,
+        kind: variant?.kind ?? 'piece',
+        color: variant?.color ?? 'unknown',
+        lifeSeconds: Number(lifeSeconds.toFixed(3)),
+      };
+
+      let inserted = false;
+      for (let position = 0; position < topOnBoardByLife.length; position += 1) {
+        if (entry.lifeSeconds > topOnBoardByLife[position].lifeSeconds) {
+          topOnBoardByLife.splice(position, 0, entry);
+          inserted = true;
+          break;
+        }
+      }
+
+      if (!inserted) {
+        topOnBoardByLife.push(entry);
+      }
+      if (topOnBoardByLife.length > CHESS_LEADERBOARD_LIMIT) {
+        topOnBoardByLife.length = CHESS_LEADERBOARD_LIMIT;
+      }
+    }
+
+    return {
+      totalPieces: this.ballBodies.length,
+      onBoardPieces,
+      topOnBoardByLife,
     };
   }
 

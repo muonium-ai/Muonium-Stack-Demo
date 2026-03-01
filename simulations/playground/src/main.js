@@ -210,6 +210,21 @@ app.innerHTML = `
           <div><dt>Collisions</dt><dd id="hudCollisionsMetric" data-state="ok">0</dd></div>
           <div><dt>Energy state</dt><dd id="hudEnergyStateMetric" data-state="ok">stable</dd></div>
         </dl>
+        <section class="hudPieceLeaderboard" aria-label="HUD chess leaderboard">
+          <header class="hudPieceHeader">
+            <h4>Chess Leaderboard</h4>
+            <button id="hudPieceToggleBtn" type="button" class="hudPieceToggle">Hide</button>
+          </header>
+          <div id="hudPieceBody" class="hudPieceBody">
+            <dl class="hudPieceTotals">
+              <div><dt>Total</dt><dd id="hudPieceTotalCount">0</dd></div>
+              <div><dt>On board</dt><dd id="hudPieceOnBoardCount">0</dd></div>
+            </dl>
+            <ol id="hudPieceLeaderboardList" class="hudPieceLeaderboardList">
+              <li>No pieces on board yet.</li>
+            </ol>
+          </div>
+        </section>
       </aside>
     </section>
 
@@ -235,6 +250,16 @@ app.innerHTML = `
           <div><dt>HSET metrics:lever.torque</dt><dd id="basicRedisLeverTorqueMap">0.000</dd></div>
           <div><dt>LPUSH timeline:frames</dt><dd id="basicRedisTimelineMap">idle</dd></div>
         </dl>
+        <section class="basicPieceLeaderboard" aria-label="Chess piece leaderboard">
+          <h3>Chess Piece Leaderboard</h3>
+          <dl class="basicPieceTotals">
+            <div><dt>Total pieces</dt><dd id="basicPieceTotalCount">0</dd></div>
+            <div><dt>On board</dt><dd id="basicPieceOnBoardCount">0</dd></div>
+          </dl>
+          <ol id="basicPieceLeaderboardList" class="basicPieceLeaderboardList">
+            <li>No pieces on board yet.</li>
+          </ol>
+        </section>
       </section>
     </section>
 
@@ -396,6 +421,9 @@ const basicRedisLpushOps = document.querySelector('#basicRedisLpushOps');
 const basicRedisHudFpsMap = document.querySelector('#basicRedisHudFpsMap');
 const basicRedisLeverTorqueMap = document.querySelector('#basicRedisLeverTorqueMap');
 const basicRedisTimelineMap = document.querySelector('#basicRedisTimelineMap');
+const basicPieceTotalCount = document.querySelector('#basicPieceTotalCount');
+const basicPieceOnBoardCount = document.querySelector('#basicPieceOnBoardCount');
+const basicPieceLeaderboardList = document.querySelector('#basicPieceLeaderboardList');
 const initBtn = document.querySelector('#initBtn');
 const startBtn = document.querySelector('#startBtn');
 const pauseBtn = document.querySelector('#pauseBtn');
@@ -486,10 +514,16 @@ const hudFpsMetric = document.querySelector('#hudFpsMetric');
 const hudStepMetric = document.querySelector('#hudStepMetric');
 const hudCollisionsMetric = document.querySelector('#hudCollisionsMetric');
 const hudEnergyStateMetric = document.querySelector('#hudEnergyStateMetric');
+const hudPieceToggleBtn = document.querySelector('#hudPieceToggleBtn');
+const hudPieceBody = document.querySelector('#hudPieceBody');
+const hudPieceTotalCount = document.querySelector('#hudPieceTotalCount');
+const hudPieceOnBoardCount = document.querySelector('#hudPieceOnBoardCount');
+const hudPieceLeaderboardList = document.querySelector('#hudPieceLeaderboardList');
 const graphCanvas = document.querySelector('#graphCanvas');
 const viewport = document.querySelector('#viewport');
 const graphPanel = new LiveGraphPanel(graphCanvas);
 let hudVisible = true;
+let hudPieceVisible = true;
 let effectsEnabled = true;
 let previousCollisionCount = 0;
 let replayModeActive = false;
@@ -554,6 +588,7 @@ const setBasicGameMode = (nextMode, options = {}) => {
   if (options.updateStatus !== false) {
     setStatus(`basic game mode set to ${basicModeLabel(normalized)}`);
   }
+  renderBasicPieceLeaderboard(runtime.getSnapshot());
 };
 
 const renderBasicCameraJson = () => {
@@ -562,6 +597,44 @@ const renderBasicCameraJson = () => {
     return;
   }
   basicCameraJson.textContent = JSON.stringify(state, null, 2);
+};
+
+const renderBasicPieceLeaderboard = (snapshot) => {
+  const boardData = snapshot?.chessPieces ?? {
+    totalPieces: 0,
+    onBoardPieces: 0,
+    topOnBoardByLife: [],
+  };
+
+  basicPieceTotalCount.textContent = String(boardData.totalPieces ?? 0);
+  basicPieceOnBoardCount.textContent = String(boardData.onBoardPieces ?? 0);
+  hudPieceTotalCount.textContent = String(boardData.totalPieces ?? 0);
+  hudPieceOnBoardCount.textContent = String(boardData.onBoardPieces ?? 0);
+
+  const leaderboardRows = Array.isArray(boardData.topOnBoardByLife) ? boardData.topOnBoardByLife : [];
+  if (!leaderboardRows.length) {
+    basicPieceLeaderboardList.innerHTML = '<li>No pieces on board yet.</li>';
+    hudPieceLeaderboardList.innerHTML = '<li>No pieces on board yet.</li>';
+    return;
+  }
+
+  const leaderboardHtml = leaderboardRows
+    .map((entry) => {
+      const id = entry?.id ?? 'piece';
+      const lifeSeconds = Number(entry?.lifeSeconds ?? 0).toFixed(3);
+      return `<li>${id} · ${lifeSeconds}s</li>`;
+    })
+    .join('');
+
+  basicPieceLeaderboardList.innerHTML = leaderboardHtml;
+  hudPieceLeaderboardList.innerHTML = leaderboardHtml;
+};
+
+const setHudPieceVisible = (visible) => {
+  hudPieceVisible = Boolean(visible);
+  hudPieceBody.hidden = !hudPieceVisible;
+  hudPieceToggleBtn.textContent = hudPieceVisible ? 'Hide' : 'Show';
+  hudPieceToggleBtn.setAttribute('aria-expanded', hudPieceVisible ? 'true' : 'false');
 };
 
 const setBasicSettingsVisible = (visible) => {
@@ -595,6 +668,12 @@ const resetBasicRedisPanelData = () => {
   basicRedisLeverTorqueMap.textContent = '0.000';
   basicRedisTimelineMap.textContent = 'idle';
   basicRedisNarrative.textContent = basicIdleNarrative();
+  basicPieceTotalCount.textContent = '0';
+  basicPieceOnBoardCount.textContent = '0';
+  basicPieceLeaderboardList.innerHTML = '<li>No pieces on board yet.</li>';
+  hudPieceTotalCount.textContent = '0';
+  hudPieceOnBoardCount.textContent = '0';
+  hudPieceLeaderboardList.innerHTML = '<li>No pieces on board yet.</li>';
 };
 
 const clearBasicShowcaseTimers = () => {
@@ -1218,6 +1297,7 @@ runtime.onTiming((timing, snapshot) => {
   puzzleBestMetric.textContent =
     snapshot.puzzle.bestCompletionSeconds > 0 ? `${snapshot.puzzle.bestCompletionSeconds.toFixed(3)} s` : '--';
   puzzleScoreMetric.textContent = snapshot.puzzle.lastScore.toFixed(1);
+  renderBasicPieceLeaderboard(snapshot);
 
   replayCountMetric.textContent = String(snapshot.replay.count);
   if (!replayModeActive) {
@@ -1256,11 +1336,13 @@ runtime.onMetricsStream((packet) => {
   basicRedisHudFpsMap.textContent = Number(packet.hashes.hud.fps ?? 0).toFixed(2);
   basicRedisLeverTorqueMap.textContent = Number(packet.hashes.lever.torque ?? 0).toFixed(3);
 
+  const dominoCollisionCount = Number(packet.hashes.domino.collision_events ?? 0);
+  const ballBounceCount = Number(packet.hashes.ball.bounce_count ?? 0);
+  const collisionCount = normalizeBasicGameMode(basicGameMode) === 'chessboard' ? ballBounceCount : dominoCollisionCount;
+
   const timelineFrame = packet.timelineHead;
   if (timelineFrame) {
-    basicRedisTimelineMap.textContent = `fps ${Number(timelineFrame.fps ?? 0).toFixed(2)} · collisions ${Number(
-      timelineFrame.dominoCollisionEvents ?? 0
-    )}`;
+    basicRedisTimelineMap.textContent = `fps ${Number(timelineFrame.fps ?? 0).toFixed(2)} · collisions ${collisionCount}`;
   } else {
     basicRedisTimelineMap.textContent = 'idle';
   }
@@ -1275,7 +1357,6 @@ runtime.onMetricsStream((packet) => {
 
   const fps = Number(packet.gauges.fps ?? 0);
   const stepMs = Number(packet.gauges.physicsStepTimeMs ?? 0);
-  const collisionCount = Number(packet.hashes.domino.collision_events ?? 0);
   const energyLoss = Number(packet.hashes.roll.energy_loss ?? 0);
   const collisionDelta = Math.max(0, collisionCount - previousCollisionCount);
   previousCollisionCount = collisionCount;
@@ -1524,6 +1605,11 @@ hudToggleBtn.addEventListener('click', () => {
   setStatus(hudVisible ? 'HUD shown' : 'HUD hidden');
 });
 
+hudPieceToggleBtn.addEventListener('click', () => {
+  setHudPieceVisible(!hudPieceVisible);
+  setStatus(hudPieceVisible ? 'HUD leaderboard shown' : 'HUD leaderboard hidden');
+});
+
 effectsToggleBtn.addEventListener('click', () => {
   effectsEnabled = !effectsEnabled;
   renderer.setEffectsEnabled(effectsEnabled);
@@ -1756,7 +1842,9 @@ replayExitBtn.addEventListener('click', () => {
 applyUiMode(resolveInitialUiMode(), false);
 setBasicSettingsVisible(false);
 setBasicRedisMinimized(false);
+setHudPieceVisible(true);
 resetBasicRedisPanelData();
+renderBasicPieceLeaderboard(runtime.getSnapshot());
 setStatus('idle — chessboard simulation bootstrapping');
 
 if (uiMode === 'basic' && !basicAutoStartTriggered) {
