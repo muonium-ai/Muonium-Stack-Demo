@@ -615,9 +615,11 @@ export class PlaygroundRenderer {
       mesh.castShadow = isChessboardMode;
 
       const pieceId = pieceIds[index] ?? null;
+      const pieceName = variant ? `${variant.color ?? 'unknown'} ${variant.kind ?? 'piece'}` : null;
       const topRating = pieceId ? ratedPieces.get(pieceId) : null;
-      const keepLabel = isChessboardMode && pieceId && (index >= labelStartIndex || Number.isFinite(topRating));
-      const pieceLabel = keepLabel ? pieceId : null;
+      const labelText = pieceId ?? pieceName;
+      const keepLabel = isChessboardMode && labelText && (index >= labelStartIndex || Number.isFinite(topRating));
+      const pieceLabel = keepLabel ? labelText : null;
       this.syncPieceLabel(mesh, {
         text: pieceLabel,
         rating: Number.isFinite(topRating) ? topRating : null,

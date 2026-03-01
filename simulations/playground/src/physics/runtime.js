@@ -15,6 +15,7 @@ const CHESS_LEADERBOARD_LIMIT = 25;
 const CHESS_WIPER_TRIGGER_SECONDS = 100;
 const CHESS_WIPER_HALF_SIZE = { x: 0.14, y: 0.2, z: (CHESSBOARD_SIZE * CHESSBOARD_CELL_SIZE) * 0.48 };
 const CHESS_WIPER_Y = CHESSBOARD_SURFACE_Y + 0.26;
+const CHESS_WIPER_PARK_Y = -3;
 const CHESS_WIPER_MARGIN = 0.9;
 const CHESS_WIPER_DURATION_SECONDS = 1.8;
 const DOMINO_MATERIAL_PRESETS = {
@@ -315,21 +316,25 @@ export class PhysicsRuntime {
       this.createChessWiper();
     }
 
-    const triggerBodyDesc = this.rapier.RigidBodyDesc.dynamic().setTranslation(this.dominoConfig.startX, 2.5, 0);
-    this.triggerBallBody = this.world.createRigidBody(triggerBodyDesc);
-    const triggerColliderDesc = this.rapier.ColliderDesc.cuboid(0.3, 0.3, 0.3)
-      .setRestitution(0.1)
-      .setFriction(0.7)
-      .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
-    this.triggerBallCollider = this.world.createCollider(triggerColliderDesc, this.triggerBallBody);
-    this.triggerHandles.triggerBall = this.triggerBallCollider.handle;
+    if (floorSurfaceConfig.mode !== 'chessboard') {
+      const triggerBodyDesc = this.rapier.RigidBodyDesc.dynamic().setTranslation(this.dominoConfig.startX, 2.5, 0);
+      this.triggerBallBody = this.world.createRigidBody(triggerBodyDesc);
+      const triggerColliderDesc = this.rapier.ColliderDesc.cuboid(0.3, 0.3, 0.3)
+        .setRestitution(0.1)
+        .setFriction(0.7)
+        .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
+      this.triggerBallCollider = this.world.createCollider(triggerColliderDesc, this.triggerBallBody);
+      this.triggerHandles.triggerBall = this.triggerBallCollider.handle;
 
-    this.createTriggerMechanismObjects();
+      this.createTriggerMechanismObjects();
+    }
 
     this.setGravity(this.ballConfig.gravityEnabled, this.ballConfig.gravityStrength);
     this.createDominoChain(this.dominoConfig);
     this.createFallingBalls(this.ballConfig);
-    this.configureRollingObject(this.rollingConfig);
+    if (floorSurfaceConfig.mode !== 'chessboard') {
+      this.configureRollingObject(this.rollingConfig);
+    }
 
     this.emitTiming({
       frameTimeMs: 0,
@@ -475,7 +480,15 @@ export class PhysicsRuntime {
 
   setBasicGameMode(mode = 'chaos') {
     const normalizedMode = mode === 'chessboard' ? 'chessboard' : 'chaos';
+    const modeChanged = this.basicGameMode !== normalizedMode;
     this.basicGameMode = normalizedMode;
+    if (modeChanged && this.initialized && this.rapier) {
+      const restartAfterReset = this.running;
+      this.resetWorld();
+      if (restartAfterReset) {
+        this.start();
+      }
+    }
     this.emitState();
     return { ok: true, mode: this.basicGameMode };
   }
@@ -1739,11 +1752,11 @@ export class PhysicsRuntime {
     this.setChessWiperPose(startX);
   }
 
-  setChessWiperPose(x) {
+  setChessWiperPose(x, y = CHESS_WIPER_Y) {
     if (!this.chessWiperBody) {
       return;
     }
-    const translation = { x, y: CHESS_WIPER_Y, z: 0 };
+    const translation = { x, y, z: 0 };
     const rotation = { x: 0, y: 0, z: 0, w: 1 };
     if (typeof this.chessWiperBody.setNextKinematicTranslation === 'function') {
       this.chessWiperBody.setNextKinematicTranslation(translation);
@@ -1810,7 +1823,7 @@ export class PhysicsRuntime {
     const startX = this.getChessWiperStartX();
     const endX = this.getChessWiperEndX();
     if (!this.chessWiperState.active) {
-      this.setChessWiperPose(startX);
+      this.setChessWiperPose(startX, CHESS_WIPER_PARK_Y);
       return;
     }
 
@@ -1863,11 +1876,20 @@ export class PhysicsRuntime {
       const spawnTime = pieceState?.spawnTimeSeconds ?? nowSeconds;
       const lifeSeconds = Math.max(0, nowSeconds - spawnTime);
       const variant = this.ballPieceVariants[index] ?? null;
+      const pieceKind = String(variant?.kind ?? 'piece');
+      const pieceColor = String(variant?.color ?? 'unknown');
+      const pieceName = `${pieceColor} ${pieceKind}`;
       const entry = {
         id: this.ballPieceIds[index] ?? `piece${index + 1}`,
-        kind: variant?.kind ?? 'piece',
-        color: variant?.color ?? 'unknown',
+        name: pieceName,
+        kind: pieceKind,
+        color: pieceColor,
         lifeSeconds: Number(lifeSeconds.toFixed(3)),
+        position: {
+          x: Number(translation.x.toFixed(3)),
+          y: Number(translation.y.toFixed(3)),
+          z: Number(translation.z.toFixed(3)),
+        },
       };
 
       let inserted = false;

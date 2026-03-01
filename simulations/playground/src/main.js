@@ -625,8 +625,12 @@ const renderBasicPieceLeaderboard = (snapshot) => {
   const leaderboardHtml = leaderboardRows
     .map((entry) => {
       const id = entry?.id ?? 'piece';
+      const name = entry?.name ?? `${entry?.color ?? 'unknown'} ${entry?.kind ?? 'piece'}`;
       const lifeSeconds = Number(entry?.lifeSeconds ?? 0).toFixed(3);
-      return `<li>${id} · ${lifeSeconds}s</li>`;
+      const x = Number(entry?.position?.x ?? 0).toFixed(2);
+      const y = Number(entry?.position?.y ?? 0).toFixed(2);
+      const z = Number(entry?.position?.z ?? 0).toFixed(2);
+      return `<li>${id} (${name}) · ${lifeSeconds}s · (${x}, ${y}, ${z})</li>`;
     })
     .join('');
 
@@ -634,8 +638,12 @@ const renderBasicPieceLeaderboard = (snapshot) => {
     .slice(0, 10)
     .map((entry) => {
       const id = entry?.id ?? 'piece';
+      const name = entry?.name ?? `${entry?.color ?? 'unknown'} ${entry?.kind ?? 'piece'}`;
       const lifeSeconds = Number(entry?.lifeSeconds ?? 0).toFixed(3);
-      return `<li>${id} · ${lifeSeconds}s</li>`;
+      const x = Number(entry?.position?.x ?? 0).toFixed(2);
+      const y = Number(entry?.position?.y ?? 0).toFixed(2);
+      const z = Number(entry?.position?.z ?? 0).toFixed(2);
+      return `<li>${id} (${name}) · ${lifeSeconds}s · (${x}, ${y}, ${z})</li>`;
     })
     .join('');
 
