@@ -560,6 +560,9 @@ let basicFullscreenActive = false;
 let basicRedisMinimizedBeforeFullscreen = false;
 let basicSettingsVisible = false;
 let basicGameMode = 'chaos';
+let lastBasicLeaderboardRenderMs = 0;
+
+const BASIC_LEADERBOARD_RENDER_INTERVAL_MS = 120;
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 const normalizeBasicGameMode = (value) => (value === 'chessboard' ? 'chessboard' : 'chaos');
@@ -592,7 +595,7 @@ const setBasicGameMode = (nextMode, options = {}) => {
   if (options.updateStatus !== false) {
     setStatus(`basic game mode set to ${basicModeLabel(normalized)}`);
   }
-  renderBasicPieceLeaderboard(runtime.getSnapshot());
+  renderBasicPieceLeaderboard(runtime.getSnapshot(), { force: true });
 };
 
 const renderBasicCameraJson = () => {
@@ -603,7 +606,13 @@ const renderBasicCameraJson = () => {
   basicCameraJson.textContent = JSON.stringify(state, null, 2);
 };
 
-const renderBasicPieceLeaderboard = (snapshot) => {
+const renderBasicPieceLeaderboard = (snapshot, options = {}) => {
+  const nowMs = performance.now();
+  if (!options.force && nowMs - lastBasicLeaderboardRenderMs < BASIC_LEADERBOARD_RENDER_INTERVAL_MS) {
+    return;
+  }
+  lastBasicLeaderboardRenderMs = nowMs;
+
   const boardData = snapshot?.chessPieces ?? {
     totalPieces: 0,
     onBoardPieces: 0,
@@ -1875,7 +1884,7 @@ setBasicSettingsVisible(false);
 setBasicRedisMinimized(false);
 setHudPieceVisible(true);
 resetBasicRedisPanelData();
-renderBasicPieceLeaderboard(runtime.getSnapshot());
+renderBasicPieceLeaderboard(runtime.getSnapshot(), { force: true });
 setStatus('idle — chessboard simulation bootstrapping');
 
 if (uiMode === 'basic' && !basicAutoStartTriggered) {

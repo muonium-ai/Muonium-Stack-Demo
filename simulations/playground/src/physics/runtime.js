@@ -18,6 +18,8 @@ const CHESS_WIPER_Y = CHESSBOARD_SURFACE_Y + 0.26;
 const CHESS_WIPER_PARK_Y = -3;
 const CHESS_WIPER_MARGIN = 0.9;
 const CHESS_WIPER_DURATION_SECONDS = 1.8;
+const MAX_CHESSBOARD_BALL_COUNT = 20000;
+const BALL_CCD_SPEED_THRESHOLD = 1.8;
 const DOMINO_MATERIAL_PRESETS = {
   wood: {
     friction: 0.75,
@@ -502,7 +504,7 @@ export class PhysicsRuntime {
         boardSize: CHESSBOARD_SIZE,
         boardCellSize: CHESSBOARD_CELL_SIZE,
         boardSurfaceY: CHESSBOARD_SURFACE_Y,
-        boardThickness: 0.05,
+        boardThickness: 0.1,
         boardFriction: 0.78,
         boardRestitution: 0.05,
       };
@@ -554,7 +556,7 @@ export class PhysicsRuntime {
         .setTranslation(startX + index * spacing, centerY, centerZ)
         .setLinearDamping(material.linearDamping)
         .setAngularDamping(material.angularDamping)
-        .setCanSleep(false);
+        .setCanSleep(true);
       const body = this.world.createRigidBody(bodyDesc);
       const colliderDesc = this.rapier.ColliderDesc.cuboid(DOMINO_SIZE.hx, DOMINO_SIZE.hy, DOMINO_SIZE.hz)
         .setRestitution(material.restitution)
@@ -683,7 +685,7 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const maxCount = this.basicGameMode === 'chessboard' ? 100000 : 12;
+    const maxCount = this.basicGameMode === 'chessboard' ? MAX_CHESSBOARD_BALL_COUNT : 12;
     const count = Math.max(0, Math.min(maxCount, Math.round(Number(configInput.count ?? this.ballConfig.count))));
     const materialPreset =
       BALL_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.ballConfig.materialPreset;
@@ -711,6 +713,7 @@ export class PhysicsRuntime {
     this.pieceSerialByKind = this.createEmptyPieceSerialByKind();
 
     const material = BALL_MATERIAL_PRESETS[materialPreset];
+    const isChessboardMode = this.basicGameMode === 'chessboard';
     const startX = -1.8;
     const spacing = 0.5;
     const startZ = -0.7;
@@ -724,8 +727,8 @@ export class PhysicsRuntime {
         .setTranslation(x, y, z)
         .setLinearDamping(material.linearDamping)
         .setAngularDamping(material.angularDamping)
-        .setCanSleep(false)
-        .setCcdEnabled(true);
+        .setCanSleep(!isChessboardMode)
+        .setCcdEnabled(isChessboardMode);
       const body = this.world.createRigidBody(bodyDesc);
       const colliderDesc = this.rapier.ColliderDesc.ball(BALL_RADIUS)
         .setDensity(material.density)
@@ -770,7 +773,7 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const maxCount = this.basicGameMode === 'chessboard' ? 100000 : 12;
+    const maxCount = this.basicGameMode === 'chessboard' ? MAX_CHESSBOARD_BALL_COUNT : 12;
     if (this.ballBodies.length >= maxCount) {
       return { ok: false, error: `ball cap reached (${maxCount})` };
     }
@@ -794,13 +797,16 @@ export class PhysicsRuntime {
       y: Number(configInput.ay ?? 0),
       z: Number(configInput.az ?? 0),
     };
+    const isChessboardMode = this.basicGameMode === 'chessboard';
+    const linearSpeed = Math.hypot(linearVelocity.x, linearVelocity.y, linearVelocity.z);
+    const requiresCcd = isChessboardMode || linearSpeed >= BALL_CCD_SPEED_THRESHOLD;
 
     const bodyDesc = this.rapier.RigidBodyDesc.dynamic()
       .setTranslation(translation.x, translation.y, translation.z)
       .setLinearDamping(material.linearDamping)
       .setAngularDamping(material.angularDamping)
-      .setCanSleep(false)
-      .setCcdEnabled(true);
+      .setCanSleep(!isChessboardMode)
+      .setCcdEnabled(requiresCcd);
     const body = this.world.createRigidBody(bodyDesc);
     const colliderDesc = this.rapier.ColliderDesc.ball(BALL_RADIUS)
       .setDensity(material.density)

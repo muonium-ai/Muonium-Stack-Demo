@@ -7,6 +7,7 @@ const CHESSBOARD_SURFACE_Y = -0.09;
 const CHESSBOARD_GROUND_SCALE = 0.74;
 const PIECE_LABEL_SPRITE_NAME = 'pieceLabel';
 const MAX_VISIBLE_PIECE_LABELS = 96;
+const MAX_RENDER_PIXEL_RATIO = 1.25;
 const CHESS_ASSET_BASE = '/data/chess/shaiksaahir';
 const CHESS_MODEL_URLS = {
   pawn: `${CHESS_ASSET_BASE}/Pawn.glb`,
@@ -70,7 +71,7 @@ export class PlaygroundRenderer {
       state: {
         yaw: 0,
         pitch: 0.700002,
-        distance: 3.7,
+        distance: 2.9,
       },
     };
     this.defaultCameraPose = this.chaosCameraPose;
@@ -93,13 +94,16 @@ export class PlaygroundRenderer {
     this.camera.lookAt(0, 0.6, 0);
     this.configureCameraStateFromPose();
 
+    this.lowPowerMode = (navigator.hardwareConcurrency || 4) <= 4;
+
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, this.lowPowerMode ? 1 : MAX_RENDER_PIXEL_RATIO)
+    );
     this.renderer.setSize(width, height, false);
     container.appendChild(this.renderer.domElement);
 
     this.clock = new THREE.Clock();
-    this.lowPowerMode = (navigator.hardwareConcurrency || 4) <= 4;
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
@@ -306,7 +310,7 @@ export class PlaygroundRenderer {
 
   zoomCamera(deltaDistance = 0) {
     const delta = Number(deltaDistance) || 0;
-    this.cameraDistance = Math.max(2.2, Math.min(18, this.cameraDistance + delta));
+    this.cameraDistance = Math.max(1.6, Math.min(18, this.cameraDistance + delta));
     this.updateCameraTransform();
   }
 
@@ -480,7 +484,9 @@ export class PlaygroundRenderer {
     const height = Math.max(this.container.clientHeight || 1, 1);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, this.lowPowerMode ? 1 : MAX_RENDER_PIXEL_RATIO)
+    );
     this.renderer.setSize(width, height, false);
     this.renderOnce();
   }
