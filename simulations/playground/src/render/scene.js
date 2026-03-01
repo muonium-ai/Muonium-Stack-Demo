@@ -352,11 +352,24 @@ export class PlaygroundRenderer {
     }
     this.fallingMesh.position.set(snapshot.cubeX, snapshot.cubeY, snapshot.cubeZ);
     this.fallingMesh.quaternion.set(snapshot.cubeQx, snapshot.cubeQy, snapshot.cubeQz, snapshot.cubeQw);
+    const ratedPieces = new Map();
+    const topRated = snapshot.chessPieces?.topOnBoardByLife;
+    if (Array.isArray(topRated)) {
+      for (const entry of topRated) {
+        const pieceId = String(entry?.id ?? '');
+        if (!pieceId) {
+          continue;
+        }
+        ratedPieces.set(pieceId, Number(entry?.lifeSeconds ?? 0));
+      }
+    }
+
     this.syncBallMeshes(
       snapshot.ballTransforms ?? [],
       snapshot.ballMaterialPreset ?? 'wood',
       snapshot.ballPieceVariants ?? [],
       snapshot.ballPieceIds ?? [],
+      ratedPieces,
       snapshot.basicGameMode ?? this.basicGameMode
     );
     this.syncDominoMeshes(
@@ -547,7 +560,7 @@ export class PlaygroundRenderer {
     }
   }
 
-  syncBallMeshes(ballTransforms, materialPreset, pieceVariants = [], pieceIds = [], gameMode = 'chaos') {
+  syncBallMeshes(ballTransforms, materialPreset, pieceVariants = [], pieceIds = [], ratedPieces = new Map(), gameMode = 'chaos') {
     const isChessboardMode = gameMode === 'chessboard';
     while (this.ballMeshes.length < ballTransforms.length) {
       const material = new THREE.MeshStandardMaterial({ color: this.colorForBallMaterial(materialPreset) });
@@ -583,26 +596,35 @@ export class PlaygroundRenderer {
       );
       mesh.castShadow = isChessboardMode;
 
-      const pieceLabel = isChessboardMode && index < MAX_VISIBLE_PIECE_LABELS ? pieceIds[index] ?? null : null;
-      this.syncPieceLabel(mesh, pieceLabel);
+      const pieceId = pieceIds[index] ?? null;
+      const topRating = pieceId ? ratedPieces.get(pieceId) : null;
+      const pieceLabel = isChessboardMode && index < MAX_VISIBLE_PIECE_LABELS ? pieceId : null;
+      this.syncPieceLabel(mesh, {
+        text: pieceLabel,
+        rating: Number.isFinite(topRating) ? topRating : null,
+      });
     }
   }
 
-  syncPieceLabel(mesh, labelText) {
-    const text = labelText ? String(labelText) : '';
+  syncPieceLabel(mesh, labelInfo) {
+    const text = labelInfo?.text ? String(labelInfo.text) : '';
     if (!text) {
       this.removePieceLabel(mesh);
       return;
     }
 
+    const hasRating = Number.isFinite(labelInfo?.rating);
+    const fullText = hasRating ? `${text} (${Number(labelInfo.rating).toFixed(3)})` : text;
+    const textColor = hasRating ? '#ffd86b' : '#f2f7ff';
+
     const existing = mesh.getObjectByName(PIECE_LABEL_SPRITE_NAME);
-    if (existing && existing.userData.labelText === text) {
+    if (existing && existing.userData.labelText === fullText && existing.userData.textColor === textColor) {
       existing.visible = true;
       return;
     }
 
     this.removePieceLabel(mesh);
-    const sprite = this.createPieceLabelSprite(text);
+    const sprite = this.createPieceLabelSprite(fullText, textColor);
     if (!sprite) {
       return;
     }
@@ -621,7 +643,7 @@ export class PlaygroundRenderer {
     existing.material?.dispose?.();
   }
 
-  createPieceLabelSprite(text) {
+  createPieceLabelSprite(text, textColor = '#f2f7ff') {
     const canvas = document.createElement('canvas');
     const padding = 12;
     const fontSize = 28;
@@ -647,7 +669,7 @@ export class PlaygroundRenderer {
     ctx.font = font;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#f2f7ff';
+    ctx.fillStyle = textColor;
     ctx.fillText(text, width / 2, height / 2);
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -664,6 +686,7 @@ export class PlaygroundRenderer {
     const sprite = new THREE.Sprite(material);
     sprite.name = PIECE_LABEL_SPRITE_NAME;
     sprite.userData.labelText = text;
+    sprite.userData.textColor = textColor;
     const aspect = width / height;
     sprite.scale.set(0.44 * aspect, 0.44, 1);
     sprite.position.set(0, 0.56, 0);
