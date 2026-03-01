@@ -103,8 +103,11 @@ Bundle budget policy:
 4. CI smoke checks pass (`make -C simulations/playground smoke`)
 5. Basic mode smoke check:
   - Select **Basic** tab
+  - Set **Game** to `Chessboard`
   - Click **Run Showcase**
-  - Confirm Redis Capability panel shows increasing stream tick/ops/timeline values
+  - Confirm black/white board surface and black/white piece proxies are visible
+  - Confirm Redis Capability panel shows increasing stream tick/ops/timeline values with mode-aware narrative
+  - Switch **Game** back to `Chaos` and confirm baseline scene visuals return
 6. Advanced mode smoke check:
   - Select **Advanced** tab
   - Verify replay controls work with capture enabled
@@ -114,6 +117,9 @@ Bundle budget policy:
 ## Mode entry points
 
 - **Basic mode**: one-click scripted showcase for non-technical demos (`Run Showcase`).
+- **Basic game variants**:
+  - `Chaos`: original random placement flow.
+  - `Chessboard`: board-relative placement + black/white piece proxies.
 - **Advanced mode**: full simulation control plane for deep technical review.
 - Active mode can be set by URL query parameter: `?mode=basic` or `?mode=advanced`.
 

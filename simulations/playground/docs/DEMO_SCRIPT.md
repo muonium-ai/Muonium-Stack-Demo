@@ -17,23 +17,37 @@ make -C simulations/playground dev
 ### 1) Basic mode one-click showcase (primary reviewer path)
 
 - Select **Basic** tab
-- Click **Run Showcase** once
-- Let the scripted sequence run through all stages (domino → trigger → rolling → puzzle finale)
+- Set **Game** to `Chessboard`
+- Click **Run Simulation** once
+- Let the random-iteration showcase run for at least 2-3 iterations
+- Observe chessboard behavior:
+	- black/white 8x8 board surface visible
+	- black/white piece proxy entities spawned each iteration
+	- board-relative placement patterns (not free-form chaos scatter)
 - Observe Redis Capability panel updates:
 	- stream tick/rate increase
-	- ops counters (`HSET`, `LPUSH`) change live
+	- ops counters (`HSET`, `HINCRBY`, `LPUSH`) change live
 	- timeline mapping line updates
+	- narrative line references active mode (`Chaos` vs `Chessboard`)
 
-Expected: one-click deterministic flow runs end-to-end without manual tuning.
+Expected: chessboard variant runs without errors and telemetry continues to stream.
 
-### 2) Optional Advanced deep dive (technical reviewers)
+### 2) Basic chaos regression check
+
+- Keep **Basic** tab active
+- Set **Game** back to `Chaos`
+- Click **Run Simulation**
+
+Expected: baseline chaos behavior remains available with the same Redis panel responsiveness.
+
+### 3) Optional Advanced deep dive (technical reviewers)
 
 - Select **Advanced** tab
 - Click **Initialize Rapier**
 
 Expected: full controls and telemetry panels are available.
 
-### 3) Advanced baseline runtime and telemetry
+### 4) Advanced baseline runtime and telemetry
 
 - Click **Start**
 - Verify timing telemetry updates
@@ -42,7 +56,7 @@ Expected: full controls and telemetry panels are available.
 
 Expected: no errors, stable updates in HUD and stream panel.
 
-### 4) Advanced module spot checks
+### 5) Advanced module spot checks
 
 - Click **Create Chain**, then **Trigger Chain**, then **Run Trigger Sequence**
 - Click **Spawn Balls**
@@ -51,14 +65,14 @@ Expected: no errors, stable updates in HUD and stream panel.
 
 Expected: module metrics and status fields update correctly.
 
-### 5) Advanced live graph panel
+### 6) Advanced live graph panel
 
 - Set **Graph window** to `short`, observe response
 - Set back to `medium`
 
 Expected: velocity/torque/impact lines continue updating without UI lag.
 
-### 6) Advanced effects verification
+### 7) Advanced effects verification
 
 - Ensure effects visible during active impacts/fast chains
 - Click **Disable Effects**, re-run trigger/ball actions
@@ -66,7 +80,7 @@ Expected: velocity/torque/impact lines continue updating without UI lag.
 
 Expected: simulation remains correct with effects on/off.
 
-### 7) Advanced replay verification
+### 8) Advanced replay verification
 
 - Enable **Capture replay**
 - Set interval to `6`, click **Apply Replay Config**

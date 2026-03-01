@@ -45,6 +45,16 @@ function runChecks() {
       },
     },
     {
+      id: 'basic-chessboard-selector',
+      description: 'Basic chessboard mode selector and wiring exist',
+      run: () => {
+        assertIncludes(mainJs, "id=\"basicGameModeSelect\"", 'basicGameModeSelect');
+        assertIncludes(mainJs, "<option value=\"chessboard\">Chessboard</option>", 'chessboard option');
+        assertIncludes(mainJs, 'runtime.setBasicGameMode(normalized);', 'runtime game mode sync');
+        assertIncludes(mainJs, "basicGameModeSelect.addEventListener('change'", 'game mode change listener');
+      },
+    },
+    {
       id: 'advanced-entry-tab',
       description: 'Advanced mode entry tab exists',
       run: () => assertIncludes(mainJs, "id=\"tabAdvancedBtn\"", 'tabAdvancedBtn'),

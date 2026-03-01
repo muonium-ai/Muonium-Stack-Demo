@@ -497,6 +497,8 @@ let basicGameMode = 'chaos';
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 const normalizeBasicGameMode = (value) => (value === 'chessboard' ? 'chessboard' : 'chaos');
 const basicModeLabel = (value) => (normalizeBasicGameMode(value) === 'chessboard' ? 'Chessboard' : 'Chaos');
+const basicIdleNarrative = (mode = basicGameMode) =>
+  `Run Simulation in ${basicModeLabel(mode)} mode to stream live metrics as Redis-like operations.`;
 
 const setBasicGameMode = (nextMode, options = {}) => {
   const normalized = normalizeBasicGameMode(nextMode);
@@ -506,6 +508,9 @@ const setBasicGameMode = (nextMode, options = {}) => {
   }
   runtime.setBasicGameMode(normalized);
   renderer.setBasicGameMode(normalized);
+  if (!basicNoActionDebugActive) {
+    basicRedisNarrative.textContent = basicIdleNarrative(normalized);
+  }
   if (options.updateStatus !== false) {
     setStatus(`basic game mode set to ${basicModeLabel(normalized)}`);
   }
@@ -521,7 +526,7 @@ const resetBasicRedisPanelData = () => {
   basicRedisHudFpsMap.textContent = '0.00';
   basicRedisLeverTorqueMap.textContent = '0.000';
   basicRedisTimelineMap.textContent = 'idle';
-  basicRedisNarrative.textContent = 'Run Simulation to stream live metrics as Redis-like operations.';
+  basicRedisNarrative.textContent = basicIdleNarrative();
 };
 
 const clearBasicShowcaseTimers = () => {
@@ -1122,7 +1127,7 @@ runtime.onMetricsStream((packet) => {
     basicRedisNarrative.textContent =
       packet.opCounts.total > 0
         ? `Tick ${packet.tick} (${modeLabel}): HSET updates gauges, LPUSH appends frame timeline, HINCRBY tracks counters.`
-        : 'Run Simulation to stream live metrics as Redis-like operations.';
+        : basicIdleNarrative();
   }
 
   const fps = Number(packet.gauges.fps ?? 0);

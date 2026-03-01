@@ -30,5 +30,6 @@ make -C simulations/playground smoke
 
 - Basic mode (one-click scripted showcase):
 	- `http://localhost:5174/?mode=basic`
+  - Use the **Game** selector to switch between `Chaos` and `Chessboard` showcase variants
 - Advanced mode (full controls and diagnostics):
 	- `http://localhost:5174/?mode=advanced`
