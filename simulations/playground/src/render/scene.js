@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 const CHESSBOARD_SIZE = 8;
 const CHESSBOARD_CELL_SIZE = 0.84;
 const CHESSBOARD_SURFACE_Y = -0.09;
+const CHESSBOARD_GROUND_SCALE = 0.74;
 const PIECE_LABEL_SPRITE_NAME = 'pieceLabel';
 const MAX_VISIBLE_PIECE_LABELS = 96;
 const CHESS_ASSET_BASE = '/data/chess/shaiksaahir';
@@ -82,7 +83,7 @@ export class PlaygroundRenderer {
     this.container = container;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0b1220);
+    this.scene.background = new THREE.Color(0x233e6f);
 
     const width = Math.max(container.clientWidth || 1, 1);
     const height = Math.max(container.clientHeight || 1, 1);
@@ -213,6 +214,8 @@ export class PlaygroundRenderer {
       return;
     }
 
+    const groundScale = nextMode === 'chessboard' ? CHESSBOARD_GROUND_SCALE : 1;
+    this.groundMesh.scale.set(groundScale, 1, groundScale);
     this.groundMesh.material.color.setHex(nextMode === 'chessboard' ? 0x101010 : 0x1a2a43);
 
     if (this.gridHelper) {
