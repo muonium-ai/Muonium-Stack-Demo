@@ -12,6 +12,8 @@ export class PlaygroundRenderer {
     this.running = false;
 
     this.groundMesh = null;
+    this.chessboardMesh = null;
+    this.gridHelper = null;
     this.fallingMesh = null;
     this.dominoGeometry = null;
     this.dominoMeshes = [];
@@ -42,6 +44,7 @@ export class PlaygroundRenderer {
       position: new THREE.Vector3(3.6, 3.0, 5.8),
       target: new THREE.Vector3(0, 0.6, 0),
     };
+    this.basicGameMode = 'chaos';
   }
 
   init(container) {
@@ -83,6 +86,19 @@ export class PlaygroundRenderer {
     this.groundMesh.position.set(0, -0.6, 0);
     this.scene.add(this.groundMesh);
 
+    const chessboardTexture = this.createChessboardTexture(8, 56);
+    const chessboardMaterial = new THREE.MeshStandardMaterial({
+      map: chessboardTexture,
+      color: 0xffffff,
+      roughness: 0.8,
+      metalness: 0.05,
+    });
+    this.chessboardMesh = new THREE.Mesh(new THREE.PlaneGeometry(6.72, 6.72), chessboardMaterial);
+    this.chessboardMesh.rotation.x = -Math.PI / 2;
+    this.chessboardMesh.position.set(0, -0.095, 0);
+    this.chessboardMesh.visible = false;
+    this.scene.add(this.chessboardMesh);
+
     const cubeGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
     const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x6fc7ff });
     this.fallingMesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
@@ -122,9 +138,9 @@ export class PlaygroundRenderer {
     this.rollingMesh.position.set(-0.6, 0.8, 2.0);
     this.scene.add(this.rollingMesh);
 
-    const grid = new THREE.GridHelper(8, 16, 0x3d5f92, 0x253b5c);
-    grid.position.y = -0.09;
-    this.scene.add(grid);
+    this.gridHelper = new THREE.GridHelper(8, 16, 0x3d5f92, 0x253b5c);
+    this.gridHelper.position.y = -0.09;
+    this.scene.add(this.gridHelper);
 
     const glowGeometry = new THREE.SphereGeometry(2.9, 24, 16);
     this.celebrationGlowMaterial = new THREE.MeshBasicMaterial({
@@ -142,6 +158,27 @@ export class PlaygroundRenderer {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(container);
     this.resize();
+    this.setBasicGameMode(this.basicGameMode);
+    this.renderOnce();
+  }
+
+  setBasicGameMode(mode = 'chaos') {
+    const nextMode = mode === 'chessboard' ? 'chessboard' : 'chaos';
+    this.basicGameMode = nextMode;
+
+    if (!this.groundMesh) {
+      return;
+    }
+
+    this.groundMesh.material.color.setHex(nextMode === 'chessboard' ? 0x101010 : 0x1a2a43);
+
+    if (this.gridHelper) {
+      this.gridHelper.visible = nextMode !== 'chessboard';
+    }
+    if (this.chessboardMesh) {
+      this.chessboardMesh.visible = nextMode === 'chessboard';
+    }
+
     this.renderOnce();
   }
 
@@ -310,6 +347,27 @@ export class PlaygroundRenderer {
     this.cameraDistance = distance;
     this.cameraYaw = Math.atan2(offset.x, offset.z);
     this.cameraPitch = Math.asin(offset.y / distance);
+  }
+
+  createChessboardTexture(size = 8, tilePixels = 56) {
+    const boardSize = Math.max(4, Math.min(16, Math.round(size)));
+    const tileSize = Math.max(16, Math.min(128, Math.round(tilePixels)));
+    const canvas = document.createElement('canvas');
+    const pixels = boardSize * tileSize;
+    canvas.width = pixels;
+    canvas.height = pixels;
+    const ctx = canvas.getContext('2d');
+    for (let row = 0; row < boardSize; row += 1) {
+      for (let col = 0; col < boardSize; col += 1) {
+        const darkSquare = (row + col) % 2 === 1;
+        ctx.fillStyle = darkSquare ? '#1f1f22' : '#d8d8dc';
+        ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    return texture;
   }
 
   updateCameraTransform() {

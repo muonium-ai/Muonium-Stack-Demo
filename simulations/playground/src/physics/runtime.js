@@ -505,13 +505,26 @@ export class PhysicsRuntime {
     const areaHalfWidth = Math.max(1.5, Math.min(6, Number(configInput.areaHalfWidth ?? 3.4)));
     const ballHeightMin = Math.max(0.8, Math.min(6, Number(configInput.ballHeightMin ?? 1.2)));
     const ballHeightMax = Math.max(ballHeightMin + 0.2, Math.min(8, Number(configInput.ballHeightMax ?? 4.4)));
+    const placementMode = configInput.placementMode === 'chessboard' ? 'chessboard' : 'chaos';
+    const boardSize = Math.max(4, Math.min(12, Math.round(Number(configInput.boardSize ?? 8))));
+    const boardCellSize = Math.max(0.4, Math.min(1.5, Number(configInput.boardCellSize ?? 0.84)));
+    const boardOriginX = Number(configInput.boardOriginX ?? 0);
+    const boardOriginZ = Number(configInput.boardOriginZ ?? 0);
 
     const randRange = (min, max) => min + Math.random() * (max - min);
+    const boardHalfSpan = ((boardSize - 1) * boardCellSize) / 2;
+    const randomBoardCoord = (origin) => {
+      const index = Math.floor(randRange(0, boardSize));
+      const jitter = randRange(-boardCellSize * 0.18, boardCellSize * 0.18);
+      return origin - boardHalfSpan + index * boardCellSize + jitter;
+    };
 
     for (const body of this.dominoBodies) {
-      const x = randRange(-areaHalfWidth, areaHalfWidth);
+      const x =
+        placementMode === 'chessboard' ? randomBoardCoord(boardOriginX) : randRange(-areaHalfWidth, areaHalfWidth);
       const y = DOMINO_SIZE.hy + randRange(0.0, 0.35);
-      const z = randRange(-areaHalfWidth, areaHalfWidth);
+      const z =
+        placementMode === 'chessboard' ? randomBoardCoord(boardOriginZ) : randRange(-areaHalfWidth, areaHalfWidth);
       const yaw = randRange(-Math.PI, Math.PI);
       const half = yaw / 2;
 
@@ -522,9 +535,11 @@ export class PhysicsRuntime {
     }
 
     for (const body of this.ballBodies) {
-      const x = randRange(-areaHalfWidth, areaHalfWidth);
+      const x =
+        placementMode === 'chessboard' ? randomBoardCoord(boardOriginX) : randRange(-areaHalfWidth, areaHalfWidth);
       const y = randRange(ballHeightMin, ballHeightMax);
-      const z = randRange(-areaHalfWidth, areaHalfWidth);
+      const z =
+        placementMode === 'chessboard' ? randomBoardCoord(boardOriginZ) : randRange(-areaHalfWidth, areaHalfWidth);
       body.setTranslation({ x, y, z }, true);
       body.setLinvel({ x: randRange(-1.1, 1.1), y: randRange(-0.4, 0.4), z: randRange(-1.1, 1.1) }, true);
       body.setAngvel({ x: randRange(-1.8, 1.8), y: randRange(-1.8, 1.8), z: randRange(-1.8, 1.8) }, true);
@@ -533,9 +548,15 @@ export class PhysicsRuntime {
     if (this.triggerBallBody) {
       this.triggerBallBody.setTranslation(
         {
-          x: randRange(-areaHalfWidth, areaHalfWidth),
+          x:
+            placementMode === 'chessboard'
+              ? randomBoardCoord(boardOriginX)
+              : randRange(-areaHalfWidth, areaHalfWidth),
           y: randRange(ballHeightMin + 0.3, ballHeightMax + 0.8),
-          z: randRange(-areaHalfWidth, areaHalfWidth),
+          z:
+            placementMode === 'chessboard'
+              ? randomBoardCoord(boardOriginZ)
+              : randRange(-areaHalfWidth, areaHalfWidth),
         },
         true
       );
@@ -554,9 +575,12 @@ export class PhysicsRuntime {
     return {
       ok: true,
       config: {
+        placementMode,
         areaHalfWidth,
         ballHeightMin,
         ballHeightMax,
+        boardSize,
+        boardCellSize,
       },
     };
   }

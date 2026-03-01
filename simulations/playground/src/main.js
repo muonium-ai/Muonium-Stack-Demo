@@ -17,6 +17,13 @@ app.innerHTML = `
 
     <section class="controls basicOnly" aria-label="Basic mode controls">
       <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Simulation</button>
+      <label class="basicGameModeWrap">
+        Game
+        <select id="basicGameModeSelect" aria-label="Basic game mode">
+          <option value="chaos" selected>Chaos</option>
+          <option value="chessboard">Chessboard</option>
+        </select>
+      </label>
       <button id="basicPauseBtn" type="button">Pause</button>
       <button id="basicResetBtn" type="button">Reset</button>
       <p class="basicIterationLabel">Iteration <span id="basicIterationValue">0</span></p>
@@ -342,6 +349,7 @@ const shell = document.querySelector('.shell');
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
 const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
+const basicGameModeSelect = document.querySelector('#basicGameModeSelect');
 const basicPauseBtn = document.querySelector('#basicPauseBtn');
 const basicResetBtn = document.querySelector('#basicResetBtn');
 const basicIterationValue = document.querySelector('#basicIterationValue');
@@ -484,8 +492,23 @@ let basicChaosAdvancing = false;
 let basicChaosRunIteration = null;
 let basicChaosMetricsUpdated = false;
 let basicChaosIterationStartedAtMs = 0;
+let basicGameMode = 'chaos';
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
+const normalizeBasicGameMode = (value) => (value === 'chessboard' ? 'chessboard' : 'chaos');
+const basicModeLabel = (value) => (normalizeBasicGameMode(value) === 'chessboard' ? 'Chessboard' : 'Chaos');
+
+const setBasicGameMode = (nextMode, options = {}) => {
+  const normalized = normalizeBasicGameMode(nextMode);
+  basicGameMode = normalized;
+  if (basicGameModeSelect.value !== normalized) {
+    basicGameModeSelect.value = normalized;
+  }
+  renderer.setBasicGameMode(normalized);
+  if (options.updateStatus !== false) {
+    setStatus(`basic game mode set to ${basicModeLabel(normalized)}`);
+  }
+};
 
 const resetBasicRedisPanelData = () => {
   basicRedisTick.textContent = '0';
@@ -718,6 +741,8 @@ const runBasicShowcase = async () => {
 
     const runRandomIteration = () => {
       currentStage = 'random_iteration';
+      const activeGameMode = normalizeBasicGameMode(basicGameMode);
+      const isChessboardMode = activeGameMode === 'chessboard';
       basicChaosIteration += 1;
       basicIterationValue.textContent = String(basicChaosIteration);
       basicChaosAdvancing = false;
@@ -727,9 +752,11 @@ const runBasicShowcase = async () => {
       runtime.resetWorld();
       renderer.reset();
 
-      const dominoCount = randomInt(1, 50);
-      const ballCount = randomInt(1, 50);
-      const spacing = Number((0.22 + Math.random() * 0.38).toFixed(2));
+      const dominoCount = isChessboardMode ? randomInt(12, 32) : randomInt(1, 50);
+      const ballCount = isChessboardMode ? randomInt(6, 24) : randomInt(1, 50);
+      const spacing = isChessboardMode
+        ? Number((0.4 + Math.random() * 0.22).toFixed(2))
+        : Number((0.22 + Math.random() * 0.38).toFixed(2));
       const dominoMaterial = ['wood', 'rubber', 'metal'][randomInt(0, 2)];
       const ballMaterial = ['wood', 'rubber', 'metal'][randomInt(0, 2)];
 
@@ -767,6 +794,9 @@ const runBasicShowcase = async () => {
         areaHalfWidth: Number((2.4 + Math.random() * 2.2).toFixed(2)),
         ballHeightMin: Number((1 + Math.random() * 1.2).toFixed(2)),
         ballHeightMax: Number((3.5 + Math.random() * 2.4).toFixed(2)),
+        placementMode: activeGameMode,
+        boardSize: 8,
+        boardCellSize: 0.84,
       });
       if (!randomizeResult.ok) {
         debugStageFailure('randomize_scene_failed', { error: randomizeResult.error ?? 'unknown' });
@@ -788,9 +818,11 @@ const runBasicShowcase = async () => {
       basicChaosLastCollisionCount = Number(runtime.getSnapshot().domino.collisionEvents ?? 0);
       basicChaosIdleSinceMs = performance.now();
 
-      setStatus(`basic random iteration ${basicChaosIteration} running`);
+      setStatus(`${basicModeLabel(activeGameMode)} mode iteration ${basicChaosIteration} running`);
       setBasicNarrative(
-        `Iteration ${basicChaosIteration}: dominoes ${dominoCount}, balls ${ballCount}, random 3D placement active.`
+        isChessboardMode
+          ? `Iteration ${basicChaosIteration}: chessboard spawn with ${dominoCount} dominoes and ${ballCount} balls.`
+          : `Iteration ${basicChaosIteration}: dominoes ${dominoCount}, balls ${ballCount}, random 3D placement active.`
       );
 
       queueBasicShowcaseStep(1800, () => {
@@ -823,6 +855,7 @@ const runBasicShowcase = async () => {
 };
 
 renderer.init(viewport);
+setBasicGameMode('chaos', { updateStatus: false });
 
 const setStatus = (message, isError = false) => {
   runtimeStatus.textContent = `Status: ${message}`;
@@ -1084,9 +1117,10 @@ runtime.onMetricsStream((packet) => {
   }
 
   if (!basicNoActionDebugActive) {
+    const modeLabel = basicModeLabel(basicGameMode);
     basicRedisNarrative.textContent =
       packet.opCounts.total > 0
-        ? `Tick ${packet.tick}: HSET updates gauges, LPUSH appends frame timeline, HINCRBY remains available for counters.`
+        ? `Tick ${packet.tick} (${modeLabel}): HSET updates gauges, LPUSH appends frame timeline, HINCRBY tracks counters.`
         : 'Run Simulation to stream live metrics as Redis-like operations.';
   }
 
@@ -1365,6 +1399,10 @@ tabAdvancedBtn.addEventListener('click', () => {
 
 basicRunShowcaseBtn.addEventListener('click', async () => {
   await runBasicShowcase();
+});
+
+basicGameModeSelect.addEventListener('change', (event) => {
+  setBasicGameMode(event.target.value);
 });
 
 basicPauseBtn.addEventListener('click', () => {
