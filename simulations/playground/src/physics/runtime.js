@@ -1790,6 +1790,19 @@ export class PhysicsRuntime {
     this.chessWiperState.lastObservedOnBoardMaxLifeSeconds = maxLifeSeconds;
   }
 
+  triggerChessWiperSweep() {
+    if (!this.world || !this.chessWiperBody) {
+      return { ok: false, error: 'wiper unavailable' };
+    }
+    if (this.basicGameMode !== 'chessboard') {
+      return { ok: false, error: 'chessboard mode required' };
+    }
+    this.chessWiperState.active = true;
+    this.chessWiperState.progressSeconds = 0;
+    this.emitState();
+    return { ok: true, active: true };
+  }
+
   updateChessWiperSweep() {
     if (!this.chessWiperBody || this.basicGameMode !== 'chessboard') {
       return;

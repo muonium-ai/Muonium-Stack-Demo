@@ -213,7 +213,10 @@ app.innerHTML = `
         <section class="hudPieceLeaderboard" aria-label="HUD chess leaderboard">
           <header class="hudPieceHeader">
             <h4>Chess Leaderboard</h4>
-            <button id="hudPieceToggleBtn" type="button" class="hudPieceToggle">Hide</button>
+            <div class="hudPieceActions">
+              <button id="hudPieceSwipeBtn" type="button" class="hudPieceToggle">Swipe</button>
+              <button id="hudPieceToggleBtn" type="button" class="hudPieceToggle">Hide</button>
+            </div>
           </header>
           <div id="hudPieceBody" class="hudPieceBody">
             <dl class="hudPieceTotals">
@@ -514,6 +517,7 @@ const hudFpsMetric = document.querySelector('#hudFpsMetric');
 const hudStepMetric = document.querySelector('#hudStepMetric');
 const hudCollisionsMetric = document.querySelector('#hudCollisionsMetric');
 const hudEnergyStateMetric = document.querySelector('#hudEnergyStateMetric');
+const hudPieceSwipeBtn = document.querySelector('#hudPieceSwipeBtn');
 const hudPieceToggleBtn = document.querySelector('#hudPieceToggleBtn');
 const hudPieceBody = document.querySelector('#hudPieceBody');
 const hudPieceTotalCount = document.querySelector('#hudPieceTotalCount');
@@ -1230,6 +1234,7 @@ runtime.onState((snapshot) => {
   rollingApplyBtn.disabled = !snapshot.initialized || replayModeActive;
   puzzleStartBtn.disabled = !snapshot.initialized || replayModeActive;
   puzzleResetBtn.disabled = !snapshot.initialized || replayModeActive;
+  hudPieceSwipeBtn.disabled = !snapshot.initialized || snapshot.basicGameMode !== 'chessboard';
   replayConfigBtn.disabled = !snapshot.initialized || replayModeActive;
   replayClearBtn.disabled = !snapshot.initialized || replayModeActive;
   replayOpenBtn.disabled = !snapshot.initialized || replayModeActive || snapshot.replay.count === 0;
@@ -1617,6 +1622,15 @@ hudToggleBtn.addEventListener('click', () => {
 hudPieceToggleBtn.addEventListener('click', () => {
   setHudPieceVisible(!hudPieceVisible);
   setStatus(hudPieceVisible ? 'HUD leaderboard shown' : 'HUD leaderboard hidden');
+});
+
+hudPieceSwipeBtn.addEventListener('click', () => {
+  const result = runtime.triggerChessWiperSweep();
+  if (!result.ok) {
+    setStatus(`wiper swipe failed (${result.error})`, true);
+    return;
+  }
+  setStatus('wiper swipe started');
 });
 
 effectsToggleBtn.addEventListener('click', () => {

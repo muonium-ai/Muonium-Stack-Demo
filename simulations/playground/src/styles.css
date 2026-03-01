@@ -487,6 +487,12 @@ label {
   margin-bottom: 6px;
 }
 
+.hudPieceActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .hudPieceHeader h4 {
   margin: 0;
   font-size: 0.78rem;
