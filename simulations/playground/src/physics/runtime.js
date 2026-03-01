@@ -699,7 +699,8 @@ export class PhysicsRuntime {
         .setTranslation(x, y, z)
         .setLinearDamping(material.linearDamping)
         .setAngularDamping(material.angularDamping)
-        .setCanSleep(false);
+        .setCanSleep(false)
+        .setCcdEnabled(true);
       const body = this.world.createRigidBody(bodyDesc);
       const colliderDesc = this.rapier.ColliderDesc.ball(BALL_RADIUS)
         .setDensity(material.density)
@@ -773,7 +774,8 @@ export class PhysicsRuntime {
       .setTranslation(translation.x, translation.y, translation.z)
       .setLinearDamping(material.linearDamping)
       .setAngularDamping(material.angularDamping)
-      .setCanSleep(false);
+      .setCanSleep(false)
+      .setCcdEnabled(true);
     const body = this.world.createRigidBody(bodyDesc);
     const colliderDesc = this.rapier.ColliderDesc.ball(BALL_RADIUS)
       .setDensity(material.density)
@@ -1681,7 +1683,7 @@ export class PhysicsRuntime {
       position.x <= maxBound &&
       position.z >= minBound &&
       position.z <= maxBound &&
-      position.y >= CHESSBOARD_SURFACE_Y - 0.2
+      position.y >= CHESSBOARD_SURFACE_Y + BALL_RADIUS * 0.5
     );
   }
 
