@@ -36,12 +36,12 @@ function runChecks() {
       run: () => assertIncludes(mainJs, "id=\"tabBasicBtn\"", 'tabBasicBtn'),
     },
     {
-      id: 'basic-showcase-hook',
-      description: 'Basic one-click showcase hook exists',
+      id: 'basic-settings-hook',
+      description: 'Basic settings toggle is available from HUD',
       run: () => {
-        assertIncludes(mainJs, "id=\"basicRunShowcaseBtn\"", 'basicRunShowcaseBtn');
+        assertIncludes(mainJs, "id=\"basicSettingsToggleBtn\"", 'basicSettingsToggleBtn');
         assertIncludes(mainJs, 'const runBasicShowcase = async () => {', 'runBasicShowcase function');
-        assertIncludes(mainJs, "basicRunShowcaseBtn.addEventListener('click'", 'basic showcase click listener');
+        assertIncludes(mainJs, "basicSettingsToggleBtn.addEventListener('click'", 'basic settings click listener');
       },
     },
     {

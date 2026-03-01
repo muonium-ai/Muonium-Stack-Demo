@@ -15,11 +15,6 @@ app.innerHTML = `
       <button id="tabAdvancedBtn" type="button" class="modeTab">Advanced</button>
     </section>
 
-    <section class="controls basicOnly basicTopControls" aria-label="Basic top controls">
-      <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Simulation</button>
-      <button id="basicSettingsToggleBtn" type="button">Settings</button>
-    </section>
-
     <section id="basicSettingsWindow" class="basicOnly basicSettingsWindow" aria-label="Basic settings" hidden>
       <header class="basicSettingsHeader">
         <h2>Settings</h2>
@@ -204,6 +199,7 @@ app.innerHTML = `
       <div id="viewport" class="viewport"></div>
       <aside id="hudOverlay" class="hudOverlay" aria-label="HUD overlay">
         <h3>HUD</h3>
+        <button id="basicSettingsToggleBtn" type="button" class="hudPieceToggle">Settings</button>
         <dl>
           <div><dt>FPS</dt><dd id="hudFpsMetric" data-state="ok">0.00</dd></div>
           <div><dt>Physics step</dt><dd id="hudStepMetric" data-state="ok">0.0 μs</dd></div>
@@ -238,7 +234,7 @@ app.innerHTML = `
       </header>
       <section id="basicRedisBody" class="basicRedisBody">
         <p id="basicRedisNarrative" class="basicRedisNarrative" aria-live="polite">
-          Run Simulation to stream live metrics as Redis-like operations.
+          Simulation runs automatically and streams live metrics as Redis-like operations.
         </p>
         <dl class="basicRedisGrid">
           <div><dt>Stream tick</dt><dd id="basicRedisTick">0</dd></div>
@@ -392,7 +388,6 @@ const shell = document.querySelector('.shell');
 
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
-const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
 const basicSettingsToggleBtn = document.querySelector('#basicSettingsToggleBtn');
 const basicSettingsWindow = document.querySelector('#basicSettingsWindow');
 const basicSettingsHideBtn = document.querySelector('#basicSettingsHideBtn');
@@ -1232,7 +1227,6 @@ const replayTick = (timestampMs) => {
 runtime.onState((snapshot) => {
   tabBasicBtn.disabled = false;
   tabAdvancedBtn.disabled = false;
-  basicRunShowcaseBtn.disabled = replayModeActive;
   basicPauseBtn.disabled = !snapshot.initialized || replayModeActive;
   basicPauseBtn.textContent = snapshot.running ? 'Pause' : 'Resume';
   basicResetBtn.disabled = !snapshot.initialized || replayModeActive;
@@ -1670,10 +1664,6 @@ tabAdvancedBtn.addEventListener('click', () => {
   clearBasicShowcaseTimers();
   applyUiMode('advanced');
   setStatus('advanced mode active — full controls enabled');
-});
-
-basicRunShowcaseBtn.addEventListener('click', async () => {
-  await runBasicShowcase();
 });
 
 basicSettingsToggleBtn.addEventListener('click', () => {
