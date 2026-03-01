@@ -15,8 +15,17 @@ app.innerHTML = `
       <button id="tabAdvancedBtn" type="button" class="modeTab">Advanced</button>
     </section>
 
-    <section class="controls basicOnly" aria-label="Basic mode controls">
+    <section class="controls basicOnly basicTopControls" aria-label="Basic top controls">
       <button id="basicRunShowcaseBtn" type="button" class="basicPrimary">Run Simulation</button>
+      <button id="basicSettingsToggleBtn" type="button">Settings</button>
+    </section>
+
+    <section id="basicSettingsWindow" class="basicOnly basicSettingsWindow" aria-label="Basic settings" hidden>
+      <header class="basicSettingsHeader">
+        <h2>Settings</h2>
+        <button id="basicSettingsHideBtn" type="button">Hide</button>
+      </header>
+      <section class="controls basicOnly" aria-label="Basic mode controls">
       <label class="basicGameModeWrap">
         Game
         <select id="basicGameModeSelect" aria-label="Basic game mode">
@@ -28,23 +37,24 @@ app.innerHTML = `
       <button id="basicPauseBtn" type="button">Pause</button>
       <button id="basicResetBtn" type="button">Reset</button>
       <p class="basicIterationLabel">Iteration <span id="basicIterationValue">0</span></p>
-    </section>
+      </section>
 
-    <section class="controls basicOnly basicCameraControls" aria-label="Basic camera controls">
-      <button id="basicPanLeftBtn" type="button">Pan ←</button>
-      <button id="basicPanRightBtn" type="button">Pan →</button>
-      <button id="basicPanForwardBtn" type="button">Pan ↑</button>
-      <button id="basicPanBackBtn" type="button">Pan ↓</button>
-      <button id="basicTiltUpBtn" type="button">Tilt +</button>
-      <button id="basicTiltDownBtn" type="button">Tilt -</button>
-      <button id="basicZoomInBtn" type="button">Zoom +</button>
-      <button id="basicZoomOutBtn" type="button">Zoom -</button>
-      <button id="basicCameraResetBtn" type="button">Reset View</button>
-    </section>
+      <section class="controls basicOnly basicCameraControls" aria-label="Basic camera controls">
+        <button id="basicPanLeftBtn" type="button">Pan ←</button>
+        <button id="basicPanRightBtn" type="button">Pan →</button>
+        <button id="basicPanForwardBtn" type="button">Pan ↑</button>
+        <button id="basicPanBackBtn" type="button">Pan ↓</button>
+        <button id="basicTiltUpBtn" type="button">Tilt +</button>
+        <button id="basicTiltDownBtn" type="button">Tilt -</button>
+        <button id="basicZoomInBtn" type="button">Zoom +</button>
+        <button id="basicZoomOutBtn" type="button">Zoom -</button>
+        <button id="basicCameraResetBtn" type="button">Reset View</button>
+      </section>
 
-    <section class="controls basicOnly basicCameraState" aria-label="Basic camera JSON state">
-      <button id="basicCopyCameraJsonBtn" type="button">Copy Camera JSON</button>
-      <pre id="basicCameraJson" class="basicCameraJson">{}</pre>
+      <section class="controls basicOnly basicCameraState" aria-label="Basic camera JSON state">
+        <button id="basicCopyCameraJsonBtn" type="button">Copy Camera JSON</button>
+        <pre id="basicCameraJson" class="basicCameraJson">{}</pre>
+      </section>
     </section>
 
     <section class="controls advancedOnly advancedNav" aria-label="Advanced navigation">
@@ -355,6 +365,9 @@ const shell = document.querySelector('.shell');
 const tabBasicBtn = document.querySelector('#tabBasicBtn');
 const tabAdvancedBtn = document.querySelector('#tabAdvancedBtn');
 const basicRunShowcaseBtn = document.querySelector('#basicRunShowcaseBtn');
+const basicSettingsToggleBtn = document.querySelector('#basicSettingsToggleBtn');
+const basicSettingsWindow = document.querySelector('#basicSettingsWindow');
+const basicSettingsHideBtn = document.querySelector('#basicSettingsHideBtn');
 const basicGameModeSelect = document.querySelector('#basicGameModeSelect');
 const basicFullscreenBtn = document.querySelector('#basicFullscreenBtn');
 const basicPauseBtn = document.querySelector('#basicPauseBtn');
@@ -507,6 +520,7 @@ let basicChessRainDropped = 0;
 let basicAutoStartTriggered = false;
 let basicFullscreenActive = false;
 let basicRedisMinimizedBeforeFullscreen = false;
+let basicSettingsVisible = false;
 let basicGameMode = 'chaos';
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
@@ -548,6 +562,12 @@ const renderBasicCameraJson = () => {
     return;
   }
   basicCameraJson.textContent = JSON.stringify(state, null, 2);
+};
+
+const setBasicSettingsVisible = (visible) => {
+  basicSettingsVisible = Boolean(visible);
+  basicSettingsWindow.hidden = !basicSettingsVisible;
+  basicSettingsToggleBtn.setAttribute('aria-expanded', basicSettingsVisible ? 'true' : 'false');
 };
 
 const syncBasicFullscreenState = () => {
@@ -1530,6 +1550,14 @@ basicRunShowcaseBtn.addEventListener('click', async () => {
   await runBasicShowcase();
 });
 
+basicSettingsToggleBtn.addEventListener('click', () => {
+  setBasicSettingsVisible(!basicSettingsVisible);
+});
+
+basicSettingsHideBtn.addEventListener('click', () => {
+  setBasicSettingsVisible(false);
+});
+
 basicGameModeSelect.addEventListener('change', (event) => {
   setBasicGameMode(event.target.value);
 });
@@ -1726,6 +1754,7 @@ replayExitBtn.addEventListener('click', () => {
 });
 
 applyUiMode(resolveInitialUiMode(), false);
+setBasicSettingsVisible(false);
 setBasicRedisMinimized(false);
 resetBasicRedisPanelData();
 setStatus('idle — chessboard simulation bootstrapping');

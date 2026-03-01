@@ -91,6 +91,31 @@ h1 {
   margin: 0 0 14px;
 }
 
+.shell[data-mode='basic'] .controls.basicOnly.basicTopControls {
+  margin: 0 0 10px;
+}
+
+.shell[data-mode='basic'] .basicSettingsWindow {
+  border: 1px solid #2f4675;
+  border-radius: 10px;
+  background: #12203a;
+  padding: 10px;
+  margin: 0 0 12px;
+}
+
+.shell[data-mode='basic'] .basicSettingsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.shell[data-mode='basic'] .basicSettingsHeader h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
 .shell[data-mode='basic'] .basicGameModeWrap {
   display: inline-flex;
   align-items: center;

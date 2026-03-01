@@ -61,8 +61,13 @@ export class PlaygroundRenderer {
       target: new THREE.Vector3(0, 0.6, 0),
     };
     this.chessboardCameraPose = {
-      position: new THREE.Vector3(0, 18.5, 17.5),
-      target: new THREE.Vector3(0, 4.8, 0),
+      position: new THREE.Vector3(6.75, 7.1836, 12.7299),
+      target: new THREE.Vector3(6.75, 4.8, 9.9),
+      state: {
+        yaw: 0,
+        pitch: 0.700002,
+        distance: 3.7,
+      },
     };
     this.defaultCameraPose = this.chaosCameraPose;
     this.basicGameMode = 'chaos';
@@ -449,6 +454,13 @@ export class PlaygroundRenderer {
 
   configureCameraStateFromPose() {
     this.cameraTarget = this.defaultCameraPose.target.clone();
+    const cameraState = this.defaultCameraPose.state;
+    if (cameraState) {
+      this.cameraDistance = Math.max(Number(cameraState.distance) || 0, 0.0001);
+      this.cameraYaw = Number(cameraState.yaw) || 0;
+      this.cameraPitch = Number(cameraState.pitch) || 0;
+      return;
+    }
     const offset = new THREE.Vector3().subVectors(this.camera.position, this.cameraTarget);
     const distance = Math.max(offset.length(), 0.0001);
     this.cameraDistance = distance;
