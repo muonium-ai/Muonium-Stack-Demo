@@ -151,3 +151,10 @@ Exit criteria:
 - [x] T-000066: Bundle splitting strategy for playground app
 - [x] T-000067: Reduce chunk-size warning and formalize bundle budget
 - [x] T-000068: Add scripted CI smoke checks for dual-mode playground
+
+## Chessboard Mode Wave
+
+- [ ] T-000069: Add game mode selector for chessboard mode
+- [ ] T-000070: Implement black-white chessboard floor and physics surface
+- [ ] T-000071: Add black-white chess piece objects for simulation mode
+- [ ] T-000072: Chessboard mode polish, telemetry labels, and demo docs
