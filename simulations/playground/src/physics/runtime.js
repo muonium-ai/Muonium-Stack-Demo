@@ -496,7 +496,7 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const count = Math.max(1, Math.min(200, Math.round(Number(configInput.count ?? this.dominoConfig.count))));
+    const count = Math.max(0, Math.min(200, Math.round(Number(configInput.count ?? this.dominoConfig.count))));
     const spacing = Math.max(0.22, Math.min(0.8, Number(configInput.spacing ?? this.dominoConfig.spacing)));
     const materialPreset =
       DOMINO_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.dominoConfig.materialPreset;
@@ -653,8 +653,8 @@ export class PhysicsRuntime {
       return { ok: false, error: 'initialize Rapier first' };
     }
 
-    const maxCount = this.basicGameMode === 'chessboard' ? 50 : 12;
-    const count = Math.max(1, Math.min(maxCount, Math.round(Number(configInput.count ?? this.ballConfig.count))));
+    const maxCount = this.basicGameMode === 'chessboard' ? 320 : 12;
+    const count = Math.max(0, Math.min(maxCount, Math.round(Number(configInput.count ?? this.ballConfig.count))));
     const materialPreset =
       BALL_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.ballConfig.materialPreset;
     const gravityEnabled =
@@ -728,6 +728,78 @@ export class PhysicsRuntime {
     return {
       ok: true,
       config: { ...this.ballConfig },
+    };
+  }
+
+  appendFallingBall(configInput = {}) {
+    if (!this.world || !this.rapier) {
+      return { ok: false, error: 'initialize Rapier first' };
+    }
+
+    const maxCount = this.basicGameMode === 'chessboard' ? 320 : 12;
+    if (this.ballBodies.length >= maxCount) {
+      return { ok: false, error: `ball cap reached (${maxCount})` };
+    }
+
+    const materialPreset =
+      BALL_MATERIAL_PRESETS[configInput.materialPreset] ? configInput.materialPreset : this.ballConfig.materialPreset;
+    const material = BALL_MATERIAL_PRESETS[materialPreset];
+    const nextIndex = this.ballBodies.length;
+    const translation = {
+      x: Number(configInput.x ?? -1.8 + nextIndex * 0.12),
+      y: Number(configInput.y ?? 1.2 + nextIndex * 0.08),
+      z: Number(configInput.z ?? -0.7 + ((nextIndex % 2) * 0.7)),
+    };
+    const linearVelocity = {
+      x: Number(configInput.vx ?? 0),
+      y: Number(configInput.vy ?? 0),
+      z: Number(configInput.vz ?? 0),
+    };
+    const angularVelocity = {
+      x: Number(configInput.ax ?? 0),
+      y: Number(configInput.ay ?? 0),
+      z: Number(configInput.az ?? 0),
+    };
+
+    const bodyDesc = this.rapier.RigidBodyDesc.dynamic()
+      .setTranslation(translation.x, translation.y, translation.z)
+      .setLinearDamping(material.linearDamping)
+      .setAngularDamping(material.angularDamping)
+      .setCanSleep(false);
+    const body = this.world.createRigidBody(bodyDesc);
+    const colliderDesc = this.rapier.ColliderDesc.ball(BALL_RADIUS)
+      .setDensity(material.density)
+      .setRestitution(material.restitution)
+      .setFriction(material.friction)
+      .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS);
+    const collider = this.world.createCollider(colliderDesc, body);
+
+    body.setLinvel(linearVelocity, true);
+    body.setAngvel(angularVelocity, true);
+
+    this.ballBodies.push(body);
+    this.ballBodyByColliderHandle.set(collider.handle, body);
+    this.ballMetrics.count = this.ballBodies.length;
+    this.ballMetrics.materialPreset = materialPreset;
+    this.ballMetrics.maxHeight = Math.max(this.ballMetrics.maxHeight, translation.y);
+    this.ballMetrics.stateByBody.set(body, {
+      spawnTimeSeconds: this.stepCount * FIXED_TIMESTEP_SECONDS,
+      firstImpactTimeSeconds: null,
+      bounceCount: 0,
+      maxHeight: translation.y,
+      maxImpactForce: 0,
+    });
+
+    if (this.ballPieceVariants.length < this.ballBodies.length) {
+      this.ballPieceVariants.push(this.createPieceVariantAtIndex(nextIndex, 'ball'));
+    }
+    this.ballConfig.count = this.ballBodies.length;
+
+    this.emitState();
+    return {
+      ok: true,
+      count: this.ballBodies.length,
+      cap: maxCount,
     };
   }
 
@@ -1547,6 +1619,19 @@ export class PhysicsRuntime {
     }
 
     return variants;
+  }
+
+  createPieceVariantAtIndex(index, kind) {
+    if (this.basicGameMode !== 'chessboard') {
+      return null;
+    }
+    const dominoKinds = ['rook', 'bishop', 'knight', 'queen', 'king', 'pawn'];
+    const ballKinds = ['pawn', 'pawn', 'knight', 'bishop', 'rook', 'queen'];
+    const pieceKinds = kind === 'domino' ? dominoKinds : ballKinds;
+    return {
+      color: index % 2 === 0 ? 'white' : 'black',
+      kind: pieceKinds[index % pieceKinds.length],
+    };
   }
 
   evaluatePuzzleAttempt() {

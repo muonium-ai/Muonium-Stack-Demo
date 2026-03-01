@@ -492,6 +492,9 @@ let basicChaosAdvancing = false;
 let basicChaosRunIteration = null;
 let basicChaosMetricsUpdated = false;
 let basicChaosIterationStartedAtMs = 0;
+let basicChessRainActive = false;
+let basicChessRainTarget = 0;
+let basicChessRainDropped = 0;
 let basicGameMode = 'chaos';
 
 const randomInt = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
@@ -499,6 +502,17 @@ const normalizeBasicGameMode = (value) => (value === 'chessboard' ? 'chessboard'
 const basicModeLabel = (value) => (normalizeBasicGameMode(value) === 'chessboard' ? 'Chessboard' : 'Chaos');
 const basicIdleNarrative = (mode = basicGameMode) =>
   `Run Simulation in ${basicModeLabel(mode)} mode to stream live metrics as Redis-like operations.`;
+const randomBoardSpawn = () => {
+  const boardSize = 8;
+  const cell = 0.84;
+  const halfSpan = ((boardSize - 1) * cell) / 2;
+  const ix = randomInt(0, boardSize - 1);
+  const iz = randomInt(0, boardSize - 1);
+  return {
+    x: -halfSpan + ix * cell + (Math.random() - 0.5) * cell * 0.18,
+    z: -halfSpan + iz * cell + (Math.random() - 0.5) * cell * 0.18,
+  };
+};
 
 const setBasicGameMode = (nextMode, options = {}) => {
   const normalized = normalizeBasicGameMode(nextMode);
@@ -539,6 +553,9 @@ const clearBasicShowcaseTimers = () => {
   basicChaosRunIteration = null;
   basicChaosMetricsUpdated = false;
   basicChaosIterationStartedAtMs = 0;
+  basicChessRainActive = false;
+  basicChessRainTarget = 0;
+  basicChessRainDropped = 0;
 };
 
 const queueBasicShowcaseStep = (delayMs, handler) => {
@@ -758,8 +775,8 @@ const runBasicShowcase = async () => {
       runtime.resetWorld();
       renderer.reset();
 
-      const dominoCount = randomInt(1, 50);
-      const ballCount = randomInt(1, 50);
+      const dominoCount = isChessboardMode ? 0 : randomInt(1, 50);
+      const ballCount = isChessboardMode ? 0 : randomInt(1, 50);
       const spacing = isChessboardMode
         ? Number((0.4 + Math.random() * 0.22).toFixed(2))
         : Number((0.22 + Math.random() * 0.38).toFixed(2));
@@ -789,12 +806,17 @@ const runBasicShowcase = async () => {
         return;
       }
 
-      runtime.setLeverWeights(Number((0.6 + Math.random() * 3.2).toFixed(1)), Number((0.6 + Math.random() * 3.2).toFixed(1)));
-      runtime.configureRollingObject({
-        rampAngleDeg: randomInt(8, 34),
-        frictionCoeff: Number((0.1 + Math.random() * 0.9).toFixed(2)),
-        mass: Number((0.4 + Math.random() * 3.2).toFixed(1)),
-      });
+      if (!isChessboardMode) {
+        runtime.setLeverWeights(
+          Number((0.6 + Math.random() * 3.2).toFixed(1)),
+          Number((0.6 + Math.random() * 3.2).toFixed(1))
+        );
+        runtime.configureRollingObject({
+          rampAngleDeg: randomInt(8, 34),
+          frictionCoeff: Number((0.1 + Math.random() * 0.9).toFixed(2)),
+          mass: Number((0.4 + Math.random() * 3.2).toFixed(1)),
+        });
+      }
 
       const randomizeResult = runtime.randomizeSceneObjects({
         areaHalfWidth: Number((2.4 + Math.random() * 2.2).toFixed(2)),
@@ -813,6 +835,61 @@ const runBasicShowcase = async () => {
       runtime.start();
       renderer.start();
 
+      if (isChessboardMode) {
+        basicChessRainActive = true;
+        basicChessRainTarget = randomInt(180, 320);
+        basicChessRainDropped = 0;
+
+        const dropNextChessPiece = () => {
+          if (!basicChaosModeActive || !basicChessRainActive) {
+            return;
+          }
+          if (basicChessRainDropped >= basicChessRainTarget) {
+            basicChessRainActive = false;
+            setStatus(`chess rain completed: ${basicChessRainDropped} pieces dropped`);
+            setBasicNarrative(
+              `Iteration ${basicChaosIteration}: dropped ${basicChessRainDropped} chess pieces onto the board.`
+            );
+            return;
+          }
+
+          const spawn = randomBoardSpawn();
+          const appendResult = runtime.appendFallingBall({
+            materialPreset: ['wood', 'metal', 'rubber'][randomInt(0, 2)],
+            x: Number(spawn.x.toFixed(3)),
+            y: Number((6.8 + Math.random() * 7.8).toFixed(3)),
+            z: Number(spawn.z.toFixed(3)),
+            vx: Number((Math.random() * 0.36 - 0.18).toFixed(3)),
+            vy: Number((Math.random() * 0.22 - 0.11).toFixed(3)),
+            vz: Number((Math.random() * 0.36 - 0.18).toFixed(3)),
+            ax: Number((Math.random() * 0.8 - 0.4).toFixed(3)),
+            ay: Number((Math.random() * 1.4 - 0.7).toFixed(3)),
+            az: Number((Math.random() * 0.8 - 0.4).toFixed(3)),
+          });
+          if (!appendResult.ok) {
+            debugStageFailure('chess_rain_append_failed', {
+              error: appendResult.error ?? 'unknown',
+              dropped: basicChessRainDropped,
+              target: basicChessRainTarget,
+            });
+            basicChessRainActive = false;
+            basicChaosModeActive = false;
+            return;
+          }
+
+          basicChessRainDropped += 1;
+          if (basicChessRainDropped % 20 === 0 || basicChessRainDropped === 1) {
+            setBasicNarrative(
+              `Iteration ${basicChaosIteration}: dropping chess pieces ${basicChessRainDropped}/${basicChessRainTarget}.`
+            );
+          }
+
+          queueBasicShowcaseStep(randomInt(35, 85), dropNextChessPiece);
+        };
+
+        queueBasicShowcaseStep(60, dropNextChessPiece);
+      }
+
       latestMetricsPacket = null;
       basicChaosMetricsUpdated = false;
       basicChaosIterationStartedAtMs = performance.now();
@@ -827,7 +904,7 @@ const runBasicShowcase = async () => {
       setStatus(`${basicModeLabel(activeGameMode)} mode iteration ${basicChaosIteration} running`);
       setBasicNarrative(
         isChessboardMode
-          ? `Iteration ${basicChaosIteration}: chessboard spawn with ${dominoCount} dominoes and ${ballCount} balls.`
+          ? `Iteration ${basicChaosIteration}: chessboard rain started, dropping ${basicChessRainTarget} pieces one by one.`
           : `Iteration ${basicChaosIteration}: dominoes ${dominoCount}, balls ${ballCount}, random 3D placement active.`
       );
 
@@ -840,7 +917,11 @@ const runBasicShowcase = async () => {
         const metricsUpdated = basicChaosMetricsUpdated;
         const opsAdvanced = packet ? packet.opCounts.total > 0 : false;
         const movementDetected =
-          snapshot.totalSteps > 0 || snapshot.domino.collisionEvents > 0 || snapshot.rolling.distance > 0.005;
+          snapshot.totalSteps > 0 ||
+          snapshot.domino.collisionEvents > 0 ||
+          snapshot.rolling.distance > 0.005 ||
+          snapshot.ball.bounceCount > 0 ||
+          (isChessboardMode && basicChessRainDropped > 0);
         if (!metricsUpdated || !opsAdvanced || !movementDetected) {
           printBasicNoActionDebug('missing expected Redis activity or scene movement in random iteration');
           basicChaosModeActive = false;
@@ -1137,7 +1218,7 @@ runtime.onMetricsStream((packet) => {
   const collisionDelta = Math.max(0, collisionCount - previousCollisionCount);
   previousCollisionCount = collisionCount;
 
-  if (basicChaosModeActive) {
+  if (basicChaosModeActive && normalizeBasicGameMode(basicGameMode) !== 'chessboard') {
     const nowMs = performance.now();
     if (collisionCount !== basicChaosLastCollisionCount) {
       basicChaosLastCollisionCount = collisionCount;

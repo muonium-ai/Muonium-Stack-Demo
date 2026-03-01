@@ -201,7 +201,32 @@ export class PlaygroundRenderer {
       this.chessboardMesh.visible = nextMode === 'chessboard';
     }
 
+    const showLegacyMechanisms = nextMode !== 'chessboard';
+    this.setLegacyMechanismVisibility(showLegacyMechanisms);
+
     this.renderOnce();
+  }
+
+  setLegacyMechanismVisibility(visible) {
+    const show = Boolean(visible);
+    if (this.fallingMesh) {
+      this.fallingMesh.visible = show;
+    }
+    if (this.plankMesh) {
+      this.plankMesh.visible = show;
+    }
+    if (this.leverMesh) {
+      this.leverMesh.visible = show;
+    }
+    if (this.gateMesh) {
+      this.gateMesh.visible = show;
+    }
+    if (this.rampMesh) {
+      this.rampMesh.visible = show;
+    }
+    if (this.rollingMesh) {
+      this.rollingMesh.visible = show;
+    }
   }
 
   start() {
