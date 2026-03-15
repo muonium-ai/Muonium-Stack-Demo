@@ -2,12 +2,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const SRC = path.join(ROOT, 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm');
-const DEST = path.join(ROOT, 'public', 'sql-wasm.wasm');
+const SRC_DIR = path.join(ROOT, 'node_modules', 'sql.js', 'dist');
+const DEST_DIR = path.join(ROOT, 'public');
+const FILES = ['sql-wasm.wasm', 'sql-wasm-browser.wasm'];
 
 async function main() {
-  await fs.copyFile(SRC, DEST);
-  console.log(`sql:sync -> copied sql-wasm.wasm to public/`);
+  for (const file of FILES) {
+    await fs.copyFile(path.join(SRC_DIR, file), path.join(DEST_DIR, file));
+  }
+  console.log(`sql:sync -> copied ${FILES.join(', ')} to public/`);
 }
 
 main().catch((error) => {
