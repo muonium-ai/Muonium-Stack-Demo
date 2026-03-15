@@ -180,6 +180,13 @@
                   <button id="playNavNext" title="Next">⏩</button>
                   <button id="playNavEnd" title="End">⏭</button>
                 </div>
+                <div class="playPanelControls">
+                  <button id="playAutoplayStartBtn" type="button">Start Autoplay</button>
+                  <button id="playDemoModeBtn" type="button">Start Demo Mode</button>
+                  <button id="playAutoplayStopBtn" type="button" disabled>Stop</button>
+                  <button id="playResetBtn" type="button">Reset</button>
+                  <button id="playSaveHumanPgnBtn" type="button">Save Human PGN</button>
+                </div>
               </section>
               <div class="playerRow playerBlack">
                 <div class="playerName" id="playBlackName">Black: Stockfish</div>
@@ -193,13 +200,6 @@
               <p id="playMoveInfo">Move 0 • start</p>
               <p id="playTurnNotice">Turn: --</p>
               <p id="playResultNotice" data-result="ongoing">Result: In progress</p>
-              <div class="playPanelControls">
-                <button id="playAutoplayStartBtn" type="button">Start Autoplay</button>
-                <button id="playDemoModeBtn" type="button">Start Demo Mode</button>
-                <button id="playAutoplayStopBtn" type="button" disabled>Stop</button>
-                <button id="playResetBtn" type="button">Reset</button>
-                <button id="playSaveHumanPgnBtn" type="button">Save Human PGN</button>
-              </div>
             </section>
             <section class="playMovesPane">
               <h3 class="playMovesTitle">Play Moves</h3>
