@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  base: '/Muonium-Stack-Demo/',
   server: {
     port: 5173,
     headers: {
