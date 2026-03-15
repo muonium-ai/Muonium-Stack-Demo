@@ -1,4 +1,4 @@
-export function createStockfishService({ scriptUrl = '/stockfish/stockfish.js' } = {}) {
+export function createStockfishService({ scriptUrl = `${import.meta.env.BASE_URL}stockfish/stockfish.js` } = {}) {
   let engine = null;
   let isReady = false;
   let scriptLoadPromise = null;
@@ -9,7 +9,7 @@ export function createStockfishService({ scriptUrl = '/stockfish/stockfish.js' }
     const withoutQuery = String(scriptUrl || '').split('?')[0];
     const lastSlashIndex = withoutQuery.lastIndexOf('/');
     if (lastSlashIndex <= 0) {
-      return '/stockfish';
+      return `${import.meta.env.BASE_URL}stockfish`;
     }
     return withoutQuery.slice(0, lastSlashIndex);
   })();

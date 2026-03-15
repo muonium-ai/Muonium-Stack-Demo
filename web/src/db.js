@@ -355,9 +355,9 @@ function createGameDbAdapter(db, cacheNamespace, totalGames) {
   };
 }
 
-export async function createGameDb({ dbUrl = '/data/anand.sqlite', onProgress }) {
+export async function createGameDb({ dbUrl = `${import.meta.env.BASE_URL}data/anand.sqlite`, onProgress }) {
   const SQL = await initSqlJs({
-    locateFile: (file) => `/node_modules/sql.js/dist/${file}`,
+    locateFile: (file) => `${import.meta.env.BASE_URL}${file}`,
   });
 
   let db = await openDbFromUrl(SQL, dbUrl, onProgress);
@@ -392,7 +392,7 @@ export async function createGameDbFromPgn({ pgnText, cacheKey = 'uploaded', onPr
   }
 
   const SQL = await initSqlJs({
-    locateFile: (file) => `/node_modules/sql.js/dist/${file}`,
+    locateFile: (file) => `${import.meta.env.BASE_URL}${file}`,
   });
 
   const parsedGames = await splitGamesAsync(normalizedText);

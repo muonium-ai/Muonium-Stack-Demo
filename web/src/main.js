@@ -194,12 +194,12 @@ const PLAYER_DATASETS = [
   {
     id: 'carlsen',
     label: 'Magnus Carlsen',
-    dbUrl: '/data/carlsen.sqlite',
+    dbUrl: `${import.meta.env.BASE_URL}data/carlsen.sqlite`,
   },
   {
     id: 'anand',
     label: 'Viswanathan Anand',
-    dbUrl: '/data/anand.sqlite',
+    dbUrl: `${import.meta.env.BASE_URL}data/anand.sqlite`,
   },
 ];
 

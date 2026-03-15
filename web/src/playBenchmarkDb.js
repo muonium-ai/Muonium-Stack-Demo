@@ -41,7 +41,7 @@ function toIsoNow() {
 
 export async function createPlayBenchmarkDb() {
   const SQL = await initSqlJs({
-    locateFile: (file) => `/node_modules/sql.js/dist/${file}`,
+    locateFile: (file) => `${import.meta.env.BASE_URL}${file}`,
   });
 
   const db = new SQL.Database();
