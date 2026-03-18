@@ -2,6 +2,8 @@
 
 Rust + WASM chess replay demo using Muonium stack concepts.
 
+**[Live Demo](https://muonium-ai.github.io/Muonium-Stack-Demo/)**
+
 ## What is implemented
 
 - Browser-based chess replay UI with transport controls (start/prev/play/next/end), random autoplay, and PGN move viewer sync
